@@ -1,3 +1,4 @@
+import { bindingSchema, bindProject } from './projects.js';
 import { installAgentRoutes } from './agent-api.js';
 import { timingSafeEqual } from 'node:crypto';
 import { Hono } from 'hono';
@@ -12,19 +13,21 @@ function matchesToken(actual: string, expected: string) {
     b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
 }
-export function createApp(store: Store, queue: Queue) {
+export function createApp(store: Store, queue: Queue, port = 4318) {
   const app = new Hono();
   app.use(
     '*',
     bodyLimit({ maxSize: 256 * 1024, onError: (c) => c.json({ error: '请求过大' }, 413) }),
   );
   app.use('*', async (c, next) => {
-    if (c.req.header('host') !== '127.0.0.1:4318') return c.json({ error: 'Host 不允许' }, 403);
-    if (c.req.path.startsWith('/api/mcp/')) {
+    if (c.req.header('host') !== `127.0.0.1:${port}`) return c.json({ error: 'Host 不允许' }, 403);
+    if (c.req.path.startsWith('/api/mcp/') || c.req.path.startsWith('/api/local/')) {
       if (
         c.req.header('origin') ||
         c.req.header('x-pagepatch-client') ||
-        c.req.header('x-pagepatch-mcp') !== '1' ||
+        c.req.header(
+          c.req.path.startsWith('/api/local/') ? 'x-pagepatch-local' : 'x-pagepatch-mcp',
+        ) !== '1' ||
         !matchesToken(c.req.header('authorization') ?? '', `Bearer ${store.config.token}`)
       )
         return c.json({ error: '仅允许已授权本地 MCP 连接' }, 403);
@@ -48,6 +51,20 @@ export function createApp(store: Store, queue: Queue) {
     await next();
   });
   installAgentRoutes(app, store, () => queue.wake());
+  // Local CLI only: extension/web requests cannot provide filesystem directories.
+  app.post('/api/local/projects', async (c) => {
+    const input = bindingSchema.parse(await c.req.json());
+    return c.json({ project: bindProject(store, input) });
+  });
+  app.post('/api/local/defaults', (c) => {
+    store.config.defaultExecutor = 'opencode';
+    store.saveConfig();
+    return c.json({ ok: true });
+  });
+  app.get('/api/local/status', (c) =>
+    c.json({ connected: true, defaultExecutor: store.config.defaultExecutor }),
+  );
+
   app.post('/api/pair', (c) => {
     const origin =
       c.req.header('origin') || `chrome-extension://${c.req.header('x-pagepatch-client') || ''}`;
@@ -55,7 +72,11 @@ export function createApp(store: Store, queue: Queue) {
       store.config.clients.push(origin);
       store.saveConfig();
     }
-    return c.json({ connected: true, version: '0.1.0' });
+    return c.json({
+      connected: true,
+      version: '0.1.0',
+      defaultExecutor: store.config.defaultExecutor,
+    });
   });
   app.get('/api/projects', (c) => c.json({ projects: store.config.projects }));
   app.get('/api/jobs', (c) => c.json({ jobs: [...store.jobs].reverse().slice(0, 100) }));

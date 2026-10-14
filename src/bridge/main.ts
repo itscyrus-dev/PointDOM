@@ -2,25 +2,28 @@ import { serve } from '@hono/node-server';
 import {
   existsSync,
   realpathSync,
-  statSync,
+  mkdirSync,
   writeFileSync,
   unlinkSync,
   readFileSync,
 } from 'node:fs';
-import { resolve, parse } from 'node:path';
+import { resolve, basename } from 'node:path';
 import { homedir } from 'node:os';
-import { randomUUID } from 'node:crypto';
 import { Store } from './store.js';
 import { Queue } from './queue.js';
 import { createApp } from './server.js';
+import { bindingSchema, bindProject } from './projects.js';
+import { installService, uninstallService } from './service.js';
 const directory = resolve(process.env.PAGEPATCH_HOME || `${homedir()}/.pagepatch`);
-const store = new Store(directory);
 const args = process.argv.slice(2);
 function option(name: string) {
   const index = args.indexOf(name);
-  return index < 0 ? undefined : args[index + 1];
+  if (index < 0) return undefined;
+  const value = args[index + 1];
+  if (!value || value.startsWith('--')) throw new Error(`${name} 缺少参数`);
+  return value;
 }
-const lock = store.path('bridge.pid');
+const lock = resolve(directory, 'bridge.pid');
 function locked() {
   if (!existsSync(lock)) return false;
   try {
@@ -31,65 +34,117 @@ function locked() {
     return false;
   }
 }
-if (args[0] === 'project' && args[1] === 'add') {
-  if (locked()) throw new Error('请先停止本地服务，再注册项目，随后重新启动');
-  const rawPath = option('--path'),
-    name = option('--name'),
-    rawOrigin = option('--origin');
-  if (!rawPath || !name || !rawOrigin)
-    throw new Error(
-      '用法：project add --name 项目名 --path 绝对目录 --origin http://127.0.0.1:5173',
-    );
-  if (!name.trim() || name.length > 80) throw new Error('项目名称应为 1–80 个字符');
-  const cwd = realpathSync(resolve(rawPath));
-  if (!statSync(cwd).isDirectory() || cwd === parse(cwd).root || cwd === homedir())
-    throw new Error('请选择具体代码项目，不能绑定根目录或用户目录');
-  const url = new URL(rawOrigin);
-  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('仅支持 http/https 网页');
-  const existing = store.config.projects.find((p) => p.cwd === cwd);
-  if (existing) {
-    existing.name = name;
-    if (!existing.origins.includes(url.origin)) existing.origins.push(url.origin);
-  } else store.config.projects.push({ id: randomUUID(), name, cwd, origins: [url.origin] });
-  store.saveConfig();
-  console.log(`已绑定 ${name}：${url.origin} → ${cwd}`);
-} else if (args[0] === 'project' && args[1] === 'list') {
-  console.log(JSON.stringify(store.config.projects, null, 2));
+function config() {
+  if (!existsSync(resolve(directory, 'config.json'))) throw new Error('请先安装 PointDOM 后台服务');
+  return JSON.parse(readFileSync(resolve(directory, 'config.json'), 'utf8')) as Store['config'];
+}
+async function local(path: string, body?: unknown) {
+  const response = await fetch(`http://127.0.0.1:4318/api/local${path}`, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: {
+      Authorization: `Bearer ${config().token}`,
+      'X-PagePatch-Local': '1',
+      'Content-Type': 'application/json',
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    signal: AbortSignal.timeout(5000),
+  });
+  const result = (await response.json()) as { error?: string; project?: { name: string } };
+  if (!response.ok) throw new Error(result.error || '本地服务请求失败');
+  return result;
+}
+if (args[0] === 'install') {
+  if (locked()) throw new Error('请先停止现有服务，再安装后台启动；这会停止正在执行的任务');
+  const launcher = installService(directory);
+  let ready = false;
+  for (let attempt = 0; attempt < 40; attempt++) {
+    try {
+      await local('/defaults', {});
+      ready = true;
+      break;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  if (!ready)
+    throw new Error('已注册后台启动，但服务未就绪；请检查 pdo status，确认端口 4318 未被占用');
+  console.log(`已安装登录后台启动。CLI：${launcher}`);
+  console.log(`在项目目录执行：${launcher} link --origin http://localhost:5173`);
+} else if (args[0] === 'uninstall') {
+  uninstallService();
+  console.log('已移除后台启动，项目绑定、配对与修改记录已保留');
+} else if (args[0] === 'link' || (args[0] === 'project' && args[1] === 'add')) {
+  const cwd = realpathSync(resolve(option('--path') || process.cwd()));
+  const input = bindingSchema.parse({
+    path: cwd,
+    name: option('--name') || basename(cwd),
+    origin: option('--origin'),
+    ...(option('--model') ? { model: option('--model') } : {}),
+  });
+  if (args[0] === 'link' || locked()) {
+    try {
+      await local('/projects', input);
+    } catch (error) {
+      throw new Error(
+        `绑定失败：${error instanceof Error ? error.message : '后台服务不可用'}。请检查 pdo status`,
+      );
+    }
+  } else bindProject(new Store(directory), input);
+  console.log(`已绑定 ${input.name}：${new URL(input.origin).origin} → ${cwd}`);
+} else if (args[0] === 'projects' || (args[0] === 'project' && args[1] === 'list')) {
+  console.log(JSON.stringify(config().projects, null, 2));
 } else if (args[0] === 'pair') {
-  console.log(store.config.token);
+  console.log(config().token);
+} else if (args[0] === 'status') {
+  try {
+    await local('/status');
+    console.log('PointDOM 后台服务已就绪');
+  } catch {
+    console.log('PointDOM 后台服务未连接，请检查安装状态');
+    process.exitCode = 1;
+  }
 } else if (args[0] === 'serve') {
   if (locked()) throw new Error('PagePatch 已在运行');
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
   writeFileSync(lock, String(process.pid), { flag: 'wx', mode: 0o600 });
+  const cleanup = () => {
+    if (existsSync(lock)) unlinkSync(lock);
+  };
+  process.on('exit', cleanup);
+  const store = new Store(directory);
   store.recover();
   const queue = new Queue(store);
   const server = serve(
     { fetch: createApp(store, queue).fetch, hostname: '127.0.0.1', port: 4318 },
     () => {
-      console.log('PagePatch 已启动：http://127.0.0.1:4318（仅接受已配对扩展）');
-      console.log('在另一个终端执行 pnpm cli pair 查看配对码。扩展目录：dist/extension');
+      console.log('PointDOM 已启动：http://127.0.0.1:4318');
     },
   );
   let shuttingDown = false;
-  const cleanup = () => {
-    if (existsSync(lock)) unlinkSync(lock);
-  };
   const stop = () => {
     if (shuttingDown) return;
     shuttingDown = true;
     queue.stop();
     server.close();
-    cleanup();
-    setTimeout(() => process.exit(0), 500).unref();
+    setTimeout(() => process.exit(0), 2500).unref();
   };
   server.on('error', (error) => {
-    cleanup();
     console.error(error.message);
-    process.exitCode = 1;
+    process.exit(1);
   });
   process.on('SIGINT', stop);
   process.on('SIGTERM', stop);
-  process.on('exit', cleanup);
-} else
+} else if (['version', '--version', '-v'].includes(args[0] || '')) {
+  const pkg = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as {
+    version: string;
+  };
+  console.log(`pdo ${pkg.version}`);
+} else {
+  if (args.length && !['help', '--help', '-h'].includes(args[0]!)) {
+    console.error('未知命令，请运行 pdo help');
+    process.exitCode = 1;
+  }
   console.log(
-    'PagePatch\n  pnpm cli project add --name NAME --path PATH --origin URL\n  pnpm cli project list\n  pnpm cli pair\n  pnpm start',
+    'PointDOM CLI (pdo)\n  pdo install                          安装 macOS 后台启动\n  pdo link --origin URL [--model provider/model]  绑定当前项目\n  pdo projects                         列出已绑定项目\n  pdo status                           检查后台服务\n  pdo pair                             显示本机配对码\n  pdo uninstall                        移除后台启动，保留本机状态\n  pdo serve                            前台启动服务\n  pdo help (-h, --help)                 查看帮助\n  pdo version (-v, --version)           查看版本',
   );
+}

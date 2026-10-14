@@ -3,10 +3,19 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { test, expect, chromium } from '@playwright/test';
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
-import { mkdtempSync, realpathSync, cpSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import {
+  mkdtempSync,
+  realpathSync,
+  cpSync,
+  readFileSync,
+  writeFileSync,
+  rmSync,
+  symlinkSync,
+} from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+import { createServer } from 'node:net';
 import { randomUUID } from 'node:crypto';
 import { Store } from '../../src/bridge/store.js';
 import { Queue } from '../../src/bridge/queue.js';
@@ -32,6 +41,7 @@ test('packaged extension selects a real DOM element, submits to bridge and displ
   git('add', '.');
   git('commit', '-m', 'initial');
   const store = new Store(join(directory, 'state'));
+  store.config.defaultExecutor = 'codex';
   store.config.projects.push({
     id: randomUUID(),
     name: '测试项目',
@@ -50,6 +60,22 @@ test('packaged extension selects a real DOM element, submits to bridge and displ
     cancel() {},
     reply() {},
   }));
+  const reservation = createServer();
+  await new Promise<void>((resolve) => reservation.listen(0, '127.0.0.1', resolve));
+  const address = reservation.address();
+  if (!address || typeof address === 'string') throw new Error('fixture port unavailable');
+  const bridgePort = address.port;
+  await new Promise<void>((resolve) => reservation.close(() => resolve()));
+  const fixtureAddress = `127.0.0.1:${bridgePort}`;
+  const rewritePort = (text: string) => text.replaceAll('127.0.0.1:4318', fixtureAddress);
+  writeFileSync(join(extension, 'manifest.json'), rewritePort(JSON.stringify(manifest)));
+  writeFileSync(
+    join(extension, 'panel.js'),
+    rewritePort(readFileSync(join(extension, 'panel.js'), 'utf8')),
+  );
+  const mcpEntry = join(directory, 'mcp.mjs');
+  writeFileSync(mcpEntry, rewritePort(readFileSync(resolve('dist/bridge/mcp.js'), 'utf8')));
+  symlinkSync(resolve('node_modules'), join(directory, 'node_modules'));
   const app = new Hono();
   // Avoid consuming real model usage during automated UI tests.
   app.get('/api/models', (c) =>
@@ -67,8 +93,8 @@ test('packaged extension selects a real DOM element, submits to bridge and displ
     }),
   );
   app.get('/api/status', (c) => c.json({ codex: true, authenticated: true }));
-  app.route('/', createApp(store, queue));
-  const bridge = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: 4318 });
+  app.route('/', createApp(store, queue, bridgePort));
+  const bridge = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: bridgePort });
   const site = serve({
     hostname: '127.0.0.1',
     port: 5175,
@@ -133,7 +159,7 @@ test('packaged extension selects a real DOM element, submits to bridge and displ
       );
     }
     await panel.setViewportSize({ width: 390, height: 850 });
-    await panel.screenshot({ path: resolve('docs/extension-shortcuts-test.png') });
+    await panel.screenshot({ path: test.info().outputPath('extension-shortcuts-test.png') });
     const shortcutsTabPromise = context.waitForEvent('page');
     await panel.locator('#edit-shortcuts').evaluate((button: HTMLButtonElement) => button.click());
     const shortcutsTab = await shortcutsTabPromise;
@@ -226,7 +252,7 @@ test('packaged extension selects a real DOM element, submits to bridge and displ
     }
     await expect(panel.getByLabel('发送的修改描述')).toHaveValue('发送按钮高度改为40px');
     await expect(panel.getByLabel('取消的修改描述')).toHaveValue('取消按钮圆角改为12px');
-    await panel.screenshot({ path: resolve('docs/element-descriptions-test.png') });
+    await panel.screenshot({ path: test.info().outputPath('element-descriptions-test.png') });
     await panel.locator('#instruction').evaluate((input: HTMLTextAreaElement) => {
       input.value = '';
       input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -341,10 +367,10 @@ test('packaged extension selects a real DOM element, submits to bridge and displ
     await panel.locator('#tab-all').click();
     await expect(panel.locator('#jobs')).toContainText('已完成');
     await panel.setViewportSize({ width: 390, height: 850 });
-    await panel.screenshot({ path: resolve('docs/extension-test.png') });
+    await panel.screenshot({ path: test.info().outputPath('extension-test.png') });
     await panel.locator('#execution-settings summary').click();
     await expect(panel.locator('#model')).toBeVisible();
-    await panel.screenshot({ path: resolve('docs/extension-settings-test.png') });
+    await panel.screenshot({ path: test.info().outputPath('extension-settings-test.png') });
     await panel.locator('#execution-settings').evaluate((details: HTMLDetailsElement) => {
       details.open = false;
     });
@@ -379,7 +405,7 @@ test('packaged extension selects a real DOM element, submits to bridge and displ
       );
       expect(overflow).toBe(false);
     }
-    await panel.screenshot({ path: resolve('docs/extension-wrap-test.png') });
+    await panel.screenshot({ path: test.info().outputPath('extension-wrap-test.png') });
     const animation = await panel
       .locator('#tab-active')
       .evaluate((e) => getComputedStyle(e, '::before').animationName);
@@ -393,6 +419,42 @@ test('packaged extension selects a real DOM element, submits to bridge and displ
     store.jobs[0]!.status = 'completed';
     await panel.locator('#refresh').evaluate((button: HTMLButtonElement) => button.click());
     await expect(panel.locator('#tab-active')).not.toHaveClass(/has-active-jobs/);
+    // Direct OpenCode dispatch: no MCP claim or open TUI required.
+    await panel.locator('#execution-settings').evaluate((e: HTMLDetailsElement) => {
+      e.open = true;
+    });
+    await panel.locator('#executor').selectOption('opencode');
+    await expect(panel.locator('#model')).toBeHidden();
+    await expect(panel.locator('#execution-help')).toContainText('发送后直接执行');
+    await panel.locator('#execution-settings').evaluate((e: HTMLDetailsElement) => {
+      e.open = false;
+    });
+    await panel.locator('#instruction').fill('直接通过 OpenCode CLI 修改高度');
+    await panel.locator('#submit').click();
+    await expect
+      .poll(() => store.jobs.find((job) => job.executor === 'opencode')?.status)
+      .toBe('completed');
+    const direct = store.jobs.find((job) => job.executor === 'opencode')!;
+    expect(direct.projectId).toBe(store.config.projects[0]!.id);
+    expect(direct.execution).toBeUndefined();
+    await panel.reload();
+    await expect(panel.locator('#connection')).toHaveText('已连接');
+    await expect(panel.locator('#executor')).toHaveValue('opencode');
+    // New registrations appear without re-pairing or restarting the panel/service.
+    store.config.projects.push({
+      id: randomUUID(),
+      name: '同地址另一个项目',
+      cwd: directory,
+      origins: ['http://127.0.0.1:5175'],
+    });
+    await panel.locator('#refresh').click();
+    await expect(panel.locator('#project option')).toHaveCount(3);
+    expect(await panel.locator('#project').inputValue()).toBe('');
+    await expect(panel.locator('#submit')).toBeDisabled();
+    await panel.locator('#project').selectOption(direct.projectId);
+    await panel.locator('#close-connection').click();
+    store.config.projects.pop();
+    await panel.locator('#refresh').click();
     // Real stdio MCP client -> authenticated bridge -> extension task lifecycle.
     await panel.locator('#execution-settings').evaluate((e: HTMLDetailsElement) => {
       e.open = true;
@@ -414,7 +476,7 @@ test('packaged extension selects a real DOM element, submits to bridge and displ
       await client.connect(
         new StdioClientTransport({
           command: process.execPath,
-          args: [resolve('dist/bridge/mcp.js'), '--project', projectDirectory],
+          args: [mcpEntry, '--project', projectDirectory],
           env: {
             ...Object.fromEntries(
               Object.entries(process.env).filter(
@@ -452,7 +514,7 @@ test('packaged extension selects a real DOM element, submits to bridge and displ
       expect(result.isError).not.toBe(true);
       await panel.locator('#refresh').click();
       await expect(panel.locator('#jobs')).toContainText('Agent 已回报');
-      await panel.screenshot({ path: resolve('docs/mcp-agent-test.png') });
+      await panel.screenshot({ path: test.info().outputPath('mcp-agent-test.png') });
     } finally {
       await client.close();
     }

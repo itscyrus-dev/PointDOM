@@ -1,0 +1,11 @@
+name: Feature request
+description: Describe a workflow that PointDOM could improve
+title: '[Feature]: '
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and desired behavior
+      description: Explain the concrete user workflow and what would improve it.
+    validations:
+      required: true

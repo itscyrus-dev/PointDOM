@@ -52,7 +52,7 @@ export type ModelChoice = {
 };
 export const submissionSchema = z
   .object({
-    executor: z.enum(['codex', 'mcp']).optional(),
+    executor: z.enum(['codex', 'opencode', 'mcp']).optional(),
     id: z.string().uuid(),
     projectId: z.string().uuid(),
     instruction: z.string().trim().min(1).max(8000),
@@ -67,6 +67,11 @@ export const projectSchema = z.object({
   name: z.string().min(1).max(80),
   cwd: z.string().min(1),
   origins: z.array(z.string().url()).min(1),
+  openCodeModel: z
+    .string()
+    .max(200)
+    .regex(/^[^/\s]+\/.+$/)
+    .optional(),
 });
 export type Project = z.infer<typeof projectSchema>;
 export type Approval = {

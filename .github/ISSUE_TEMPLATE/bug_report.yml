@@ -1,0 +1,32 @@
+name: Bug report
+description: Report a reproducible PointDOM problem
+title: '[Bug]: '
+body:
+  - type: markdown
+    attributes:
+      value: Do not include pairing codes, API keys, private source code or real task content. Report vulnerabilities using SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: PointDOM version
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, architecture, Chrome version, Node version and OpenCode CLI version.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Use a disposable project. Include expected and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Remove secrets and private paths/content before sharing.

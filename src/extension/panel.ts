@@ -29,13 +29,23 @@ let token = '',
   tabId: number | undefined,
   connected = false,
   submitting = false;
-let executor: 'codex' | 'mcp' = 'codex';
+let executor: 'codex' | 'opencode' | 'mcp' = 'opencode';
+let hasSavedExecutor = false;
+let explicitProjectOrigin = '',
+  explicitProjectId = '';
 const executorSelect = element<HTMLSelectElement>('executor');
 executorSelect.addEventListener('change', () => {
-  executor = executorSelect.value === 'mcp' ? 'mcp' : 'codex';
+  executor =
+    executorSelect.value === 'mcp'
+      ? 'mcp'
+      : executorSelect.value === 'opencode'
+        ? 'opencode'
+        : 'codex';
+  hasSavedExecutor = true;
   retrySubmission = null;
   renderExecution();
   void chrome.storage.local.set({ executor });
+  if (connected) void connect();
 });
 let models: ModelChoice[] = [];
 let execution: Execution = { approvalPolicy: 'on-request' };
@@ -102,8 +112,14 @@ function renderExecution() {
     approvalSelect,
     element<HTMLInputElement>('auto-commit'),
   ]) {
-    control.disabled = executor === 'mcp';
-    control.closest('label')!.hidden = executor === 'mcp';
+    control.disabled = executor !== 'codex';
+    control.closest('label')!.hidden = executor !== 'codex';
+  }
+  if (executor === 'opencode') {
+    element('execution-summary').textContent = 'OpenCode CLI';
+    element('execution-help').textContent =
+      '使用本机 OpenCode 的模型配置，发送后直接执行。需要权限时在此确认。';
+    return;
   }
   if (executor === 'mcp') {
     element('execution-summary').textContent = '其他 Agent';
@@ -312,7 +328,6 @@ function renderSelection() {
   updateSubmit();
 }
 function renderProjects() {
-  const old = projectSelect.value;
   const origin = selected ? new URL(selected.url).origin : currentOrigin;
   const matches = origin ? projects.filter((p) => p.origins.includes(origin)) : projects;
   projectSelect.replaceChildren(
@@ -328,8 +343,14 @@ function renderProjects() {
     projectSelect.append(o);
   }
   projectSelect.value =
-    matches.find((p) => p.id === old)?.id || (matches.length === 1 ? matches[0]!.id : '');
+    matches.length === 1
+      ? matches[0]!.id
+      : explicitProjectOrigin === origin && matches.some((p) => p.id === explicitProjectId)
+        ? explicitProjectId
+        : '';
   element('project-field').hidden = matches.length === 1;
+  if (connected && matches.length > 1 && !projectSelect.value)
+    element('connection-view').hidden = false;
   element('project-path').textContent =
     matches.length === 1 ? `修改项目：${matches[0]!.name}` : '项目决定修改哪个本地代码目录';
 }
@@ -341,7 +362,11 @@ async function connect() {
   }
   element('connection').textContent = '连接中';
   try {
-    await api('/api/pair', {});
+    const paired = await api<{ defaultExecutor?: 'codex' | 'opencode' }>('/api/pair', {});
+    if (!hasSavedExecutor && paired.defaultExecutor) {
+      executor = paired.defaultExecutor;
+      renderExecution();
+    }
     await chrome.storage.local.set({ bridgeToken: token });
     projects = (await api<{ projects: Project[] }>('/api/projects')).projects;
     connected = true;
@@ -351,7 +376,11 @@ async function connect() {
     renderProjects();
     updateSubmit();
     await refresh();
-    if (executor === 'mcp') return;
+    if (executor !== 'codex') {
+      element('account').textContent =
+        executor === 'opencode' ? 'OpenCode CLI 直接执行' : '由其他 Agent 领取';
+      return;
+    }
     try {
       models = (await api<{ models: ModelChoice[] }>('/api/models')).models;
       renderExecution();
@@ -483,6 +512,8 @@ chrome.tabs.onActivated.addListener(() => {
   void syncTab();
 });
 projectSelect.addEventListener('change', () => {
+  explicitProjectOrigin = selected ? new URL(selected.url).origin : currentOrigin;
+  explicitProjectId = projectSelect.value;
   retrySubmission = null;
   element('project-path').textContent =
     projects.find((p) => p.id === projectSelect.value)?.cwd || '';
@@ -703,7 +734,9 @@ function renderJob(job: Job) {
   if (terminal(job.status))
     card.append(
       action('继续修改', async () => {
-        executor = job.executor === 'mcp' ? 'mcp' : 'codex';
+        executor =
+          job.executor === 'mcp' ? 'mcp' : job.executor === 'opencode' ? 'opencode' : 'codex';
+        hasSavedExecutor = true;
         renderExecution();
         void chrome.storage.local.set({ executor });
         setSelections(job.selections || [job.selection]);
@@ -747,8 +780,17 @@ function renderJob(job: Job) {
   return card;
 }
 async function refresh() {
-  if (!connected) return;
+  if (!connected) {
+    if (tokenInput.value.trim()) await connect();
+    return;
+  }
   try {
+    const registered = (await api<{ projects: Project[] }>('/api/projects')).projects;
+    if (JSON.stringify(registered) !== JSON.stringify(projects)) {
+      projects = registered;
+      renderProjects();
+      updateSubmit();
+    }
     const data = await api<{ jobs: Job[] }>('/api/jobs');
     const fingerprint = JSON.stringify(data.jobs);
     if (fingerprint !== lastJobs) {
@@ -758,6 +800,8 @@ async function refresh() {
     }
     element('connection').textContent = '已连接';
   } catch (e) {
+    connected = false;
+    updateSubmit();
     element('connection').textContent = '服务离线';
     notice(e instanceof Error ? e.message : '本地服务连接中断', true);
   }
@@ -774,7 +818,9 @@ async function poll() {
 void (async () => {
   await syncTab();
   const data = await chrome.storage.local.get(['bridgeToken', 'executionSettings', 'executor']);
-  executor = data.executor === 'mcp' ? 'mcp' : 'codex';
+  hasSavedExecutor =
+    typeof data.executor === 'string' && ['codex', 'opencode', 'mcp'].includes(data.executor);
+  executor = data.executor === 'mcp' ? 'mcp' : data.executor === 'codex' ? 'codex' : 'opencode';
   const saved = executionSchema.safeParse(data.executionSettings);
   if (saved.success) execution = saved.data;
   renderExecution();

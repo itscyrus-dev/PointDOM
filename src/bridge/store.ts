@@ -9,6 +9,7 @@ const configSchema = z.object({
   clients: z.array(z.string()),
   projects: z.array(projectSchema),
   threads: z.record(z.string(), z.string()),
+  defaultExecutor: z.enum(['codex', 'opencode']).default('codex'),
 });
 export class Store {
   config: z.infer<typeof configSchema>;
@@ -24,6 +25,7 @@ export class Store {
           clients: [],
           projects: [],
           threads: {},
+          defaultExecutor: 'opencode',
         };
     this.jobs = existsSync(this.path('jobs.json'))
       ? z.array(jobSchema).parse(JSON.parse(readFileSync(this.path('jobs.json'), 'utf8')))

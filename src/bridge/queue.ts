@@ -1,4 +1,5 @@
 import { snapshot, prepareCommit, commitJob, type GitSnapshot } from './commit.js';
+import { runOpenCode } from './opencode.js';
 import { realpathSync } from 'node:fs';
 import type { Job, Reply, Submission } from '../shared/contracts.js';
 import { terminal } from '../shared/contracts.js';
@@ -8,9 +9,12 @@ export class Queue {
   private running?: { id: string; handle: Running };
   constructor(
     readonly store: Store,
-    readonly runner: Runner = runCodex,
+    readonly runner: Runner = (project, job, thread, hooks) =>
+      (job.executor === 'opencode' ? runOpenCode : runCodex)(project, job, thread, hooks),
   ) {}
   submit(input: Submission): Job {
+    if (input.executor === 'opencode' && input.execution)
+      throw new Error('OpenCode 的模型由本机配置管理，请勿提交 Codex 执行设置');
     const existing = this.store.jobs.find((j) => j.id === input.id);
     if (existing) {
       if (
@@ -107,7 +111,7 @@ export class Queue {
         },
         thread: (id) => {
           job.threadId = id;
-          this.store.config.threads[project.id] = id;
+          if (job.executor !== 'opencode') this.store.config.threads[project.id] = id;
           this.store.saveConfig();
           this.update(job);
         },

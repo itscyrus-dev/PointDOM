@@ -37,6 +37,7 @@
               <div class="settings-grid">
                 <label class="agent-destination"
                   >执行方式<select id="executor">
+                    <option value="opencode">OpenCode CLI</option>
                     <option value="codex">Codex</option>
                     <option value="mcp">其他 Agent（MCP）</option>
                   </select></label
@@ -111,7 +112,8 @@
           <summary>连接 PagePatch</summary>
           <div class="stack">
             <p class="muted">
-              先启动本地服务，运行 <code>pnpm cli pair</code> 获取配对码。凭据仅保存在扩展中。
+              首次运行
+              <code>pointdom pair</code> 获取配对码，连接后自动保存。已安装的后台服务会随登录启动。
             </p>
             <label for="token">配对码</label
             ><input
