@@ -18,6 +18,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -35,6 +36,12 @@ jobs:
       - run: pnpm test:e2e
       - run: pnpm release:pack
       - run: pnpm release:verify
+      - name: Generate release notes with contributor details
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: pnpm exec tsx scripts/release-notes.ts "$RELEASE_TAG" "$RUNNER_TEMP/release-notes.md"
       - name: Publish release assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -44,7 +51,7 @@ jobs:
         run: |
           flags=()
           if [[ "$RELEASE_TAG" == *-* ]]; then flags+=(--prerelease); fi
-          gh release create "$RELEASE_TAG" --verify-tag --generate-notes "${flags[@]}" \
+          gh release create "$RELEASE_TAG" --verify-tag --notes-file "$RUNNER_TEMP/release-notes.md" "${flags[@]}" \
             dist/release/pointdom.tar.gz \
             dist/release/pointdom-extension.zip \
             dist/release/SHA256SUMS \

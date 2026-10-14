@@ -1,63 +1,66 @@
-# PagePatch 设计规范
+# PointDOM Design Guidelines
 
-## 目标
+## Goal
 
-用户在网页侧边栏完成点选、描述、提交、查看结果。侧边栏使用紧凑操作界面，不设计营销首页或大型卡片。业务网站不需要改变现有设计系统。
+Users select elements, describe changes, submit tasks and inspect results in a compact browser side panel. Do not turn the panel into a marketing page or a collection of large cards. Business websites keep their own design systems.
 
-## 视觉
+## Visuals
 
-借鉴 Oii 紧凑深色工具界面的层次和圆角，不使用其品牌、图标或素材。底色 #101112，卡片 #191b1e，输入 #1d1f22，主文字 #f1f2f3，次文字 #9ca2aa。主操作色 #a8ff00，搭配深色文字保证对比；失败使用浅红，等待确认使用柔和黄。
+Use the hierarchy and rounded shapes of a compact dark interface without copying Oii branding, icons or assets. Colors: background `#101112`, cards `#191b1e`, inputs `#1d1f22`, primary text `#f1f2f3`, secondary text `#9ca2aa`, primary action `#a8ff00` with dark text, pale red for failures and soft yellow for confirmation states.
 
-- 面板最小宽度 280px，常用 360–420px。外边距 16px，组内间隔 8–10px，组间 20px。
-- 基础文字 13px，标签和任务正文 12px，辅助文字 11px；不堆叠冗长说明。
-- 按钮高度至少 34px、圆角 10px；卡片圆角 12px。正文行高 1.6–1.7。
-- 输入无高亮白边；键盘 focus-visible 保留绿色可见焦点。不可提交时按钮禁用，不误导为可执行。
-- 明确区分已选择元素、用户指令、任务执行状态。选择器与样式折叠展示，默认强调操作。
-- 过渡约 150ms，遵守 prefers-reduced-motion。不要为等待伪造进度百分比。
+- Minimum panel width: 280px; typical width: 360–420px. Outer spacing: 16px; within groups: 8–10px; between groups: 20px.
+- Base text: 13px; labels and task text: 12px; supporting text: 11px. Avoid excessive explanatory copy.
+- Buttons are at least 34px high with 10px corners; cards have 12px corners. Body line height is 1.6–1.7.
+- Inputs have no bright white border. Keep a green keyboard `focus-visible` indicator. Disable unavailable actions instead of implying they can run.
+- Distinguish selected elements, user instructions and task status. Collapse selectors and styles; prioritize the requested change.
+- Transitions are about 150ms and respect `prefers-reduced-motion`. Never invent progress percentages while waiting.
 
-## 行为
+## Interaction
 
-- 选取模式用绿色外轮廓；点击选择必须拦截网站原本点击，Esc 退出。
-- 选取和草稿按标签页保存。网页匹配不到注册项目时禁止提交并给出绑定提示。
-- 提交必须是明确点击；选中页面本身不会触发代码修改。
-- 已提交、排队、执行、确认、完成、失败、中断必须真实反映服务状态。不要把服务离线描述为模型仍在执行。
-- 结果保留，关闭面板后可再查看。任务停止不承诺回滚。
-- 权限请求在同一侧边栏显示具体原因和命令，允许与拒绝同级可达，不自动接受。
+Selection mode uses a green outline and intercepts the website's original click behavior. Esc exits. Selection and drafts are stored per tab. Disable submission when the page has no registered project and explain how to link it.
 
-## 网页入口
+Only an explicit submission starts a task. Selecting an element must not trigger code edits. Queued, running, waiting, completed, failed, cancelled and interrupted states must reflect the actual service state. An offline service must not appear to be an active model run.
 
-配对后由用户主动启用当前站点。网页不显示悬浮按钮。通过选取快捷键或侧栏「选取」进入选取，之后在 Chrome 原生右侧栏描述、提交、确认与查看结果。入口仅注入用户授权站点，扩展凭据仍留在扩展上下文。网页不注入编辑面板。
+Preserve results when the panel closes. Stopping a task does not promise rollback. Permission requests show their reason and command in the same panel, with equally accessible accept/decline actions and no automatic acceptance.
 
-## 原生侧栏（取代网页内面板）
+## Entry Point and Native Side Panel
 
-只使用 Chrome 原生右侧栏承载修改与任务 UI，禁止注入编辑 iframe 或第二个浮动面板。顶部固定输入区，选中元素以紧凑卡片嵌在输入框内，底栏提供选取、模型设置和发送。下方「修改记录 / 进行中」切换记录范围，仅记录区独立滚动，不能带动输入框或整页。连接和项目配置使用单独设置视图。执行设置从输入框底栏弹出，采用两列紧凑控件，选项来自模型目录，选择持久化并随任务保存。设置区点击外部或 Esc 收起；原生侧栏通过 Chrome 关闭按钮关闭。
+After pairing, the user explicitly authorizes the current site. Do not show a floating page button or inject an editing panel, iframe or second overlay. Keep credentials in the extension context and inject only on authorized sites.
 
-## 快捷键
+Use Chrome's native side panel. Its fixed composer contains compact selected-element cards, description inputs, selection controls, execution settings and send. Below it, History / Active tabs filter records; only the records area scrolls. Connection and project configuration use a separate settings view.
 
-设置页显示 Chrome 当前实际注册的快捷键，未分配或冲突时显示「未设置」。通过「修改快捷键」进入浏览器原生快捷键管理，返回后刷新显示。默认 Alt+Shift+A 选取元素、Alt+Shift+P 切换原生侧栏；macOS 的 Alt 对应 Option。侧栏切换复用浏览器原生 action，不维护易失步的显示状态，不拦截网页输入事件。
+Execution settings open from the composer footer, use two compact columns, persist choices and snapshot them into each task. Model options come from the executor's catalog. Clicking outside or pressing Esc closes settings. Chrome's own close button closes the panel.
 
-选取快捷键为开关：首次启用，再次按下退出；Esc 同样退出；点击元素后保持选取，可继续点选。退出时移除高亮及事件拦截，再次进入时清除旧高亮。
+## Shortcuts and Submission
 
-## 本地 Commit
+Display shortcuts actually registered by Chrome; show Not set for unavailable or conflicting shortcuts. Open Chrome's native shortcut manager from settings and refresh values on return. Defaults: Alt+Shift+A for element selection and Alt+Shift+P for the side panel; Alt is Option on macOS. Reuse Chrome's native action for panel visibility instead of maintaining a fragile visibility flag or intercepting page typing.
 
-已完成任务提供手动 Commit，执行设置提供「修改完成后自动 Commit」，默认关闭，选择自动保存且随任务固化。提交说明取本次修改要求，采用 fix: 前缀并附任务 ID。完成后展示提交短哈希。只提交任务开始时干净、本次发生变化且完成后未被再次修改的文件；保留无关暂存内容。混入已有改动、HEAD 改变、无改动、非 Git 仓库或旧任务无范围记录时显示原因，不自动提交。失败允许重试，不推送远端。
+The selection shortcut toggles selection mode. Esc also exits. Clicking an element keeps selection active so users can select more. Remove outlines and intercepted events on exit; clear stale outlines on re-entry.
 
-输入非空文本时发送按钮使用主题色，空白或提交中禁用。Enter 发送、Shift+Enter 换行；输入法组词、按键长按不发送。已绑定网页可仅用文字提交，选取元素为可选定位信息；连接或项目缺失时明确提示。
+Use the primary send color for nonempty text. Disable send for empty input or while submitting. Enter sends, Shift+Enter inserts a newline; input-method composition and held keys must not send. A linked page may submit text without selected elements. Explain missing connections or projects.
 
-选取支持同页最多 10 个元素，按选择器去重。侧栏逐项展示并提供移除按钮；选取过程中不抢走网页焦点。提交携带全部元素的位置与样式，继续修改恢复该任务的多选信息。
+Allow up to 10 elements on one page, deduplicated by selector. Each item has an independent description and removal action. Do not steal page focus while selecting. Submit every element's styles and position; Continue editing restores the selections and descriptions. Overall instructions are optional when at least one element has a description. Reselecting an element preserves its description. Keep user descriptions separate from untrusted page context and matched to the appropriate selector.
 
-Esc 在网页和侧栏均可退出选取，保留待提交元素；提交成功后退出网页选取并清空该标签页的已选元素与草稿。提交失败保留意见和已选元素，以便重试。
+Esc exits selection from both page and side panel while preserving the draft. Successful submission exits selection and clears that tab's selections/draft; a failure preserves them for retry.
 
-长元素名称、选择器、URL 和修改内容均可在侧栏内换行，grid/flex 子项设 min-width: 0，禁止长文本撑宽侧栏。「进行中」存在非终态任务时使用 1px 主题绿色环绕流光边框，2.4 秒一圈，无任务时移除；减少动态效果偏好下显示静态边框。
+Long names, selectors, URLs and instructions wrap inside the panel. Set `min-width: 0` on grid/flex children. Nonterminal tasks give the Active tab a 1px green orbiting border with a 2.4s period; use a static border for reduced motion and remove it when no tasks remain.
 
-多选元素每项包含独立描述框，与 selector 一起保存和提交。整体要求可选，任意元素有描述即可发送；Enter 发送、Shift+Enter 换行规则一致。再次选取同一元素保留描述，继续修改恢复各项描述。模型提示将用户描述与不可信网页上下文分开，按元素对应执行。
+## Local Commits
 
-## 其他 Agent（MCP）
+Completed tasks offer a manual Commit action. Automatic commit after completion is off by default, is saved with execution preferences, and is captured in each task. Generate a `fix:` message from the request with the task ID; show the short commit hash after success.
 
-输入框执行设置增加“执行方式”：Codex / 其他 Agent（MCP）。MCP 模式隐藏 Codex 模型、速度、思考、权限和自动 Commit 控件，明确这些选项由宿主 App 管理。已发布任务显示“待领取”，领取后“Agent 处理中”，回报后“Agent 已回报”，不将客户端回报误认为独立验证成功。设置页提供纯文本 DOM 与描述复制。外部任务不运行 Codex、不自动 Commit；取消批注提示仍需在外部 App 停止正在执行的操作。
+Commit only files that were clean at task start, changed during the task, and have not changed again afterward. Preserve unrelated staged changes. Explain refusal for pre-existing edits, changed HEAD, no changes, non-Git directories or older tasks without a tracked scope. Failures can be retried. Never push automatically.
 
-## OpenCode CLI 直接执行与后台启动
+## External Agents Through MCP
 
-首次安装在 macOS 注册用户级登录后台服务，保持原有 loopback、Host、配对和扩展 origin 校验。用户在各项目目录通过本机 CLI 绑定开发网页地址，服务在线时也能新增绑定；不修改业务项目的开发命令。扩展只提交已注册 projectId，不能注册本地目录。同一 origin 匹配多个项目时必须明确选择，不能沿用自动匹配的旧项目。
+The Other Agent (MCP) mode hides Codex model, speed, reasoning, approval and auto-commit controls; the host application owns those settings. Statuses distinguish Awaiting claim, Agent running and Agent reported. A client's report is not independent verification.
 
-执行方式增加“OpenCode CLI”。任务直接排队执行，无需 MCP 领取或打开 OpenCode 界面；每次任务使用独立会话和当前绑定目录。模型来自本机 OpenCode 配置或本机 CLI 为项目指定的 provider/model，插件隐藏 Codex 专属执行控件。默认请求命令和编辑权限，并将确认与补充问题显示在同一侧栏；只能确认本次请求，不自动永久批准。禁止跨项目目录访问。停止任务关闭该任务拥有的 CLI 进程，已发生的修改不回滚；服务重启不自动重跑未完成任务。服务恢复后侧栏自动重连，绑定列表动态更新。Codex 和手动 MCP 模式继续可用。
+Settings allow copying plain DOM context and descriptions. External tasks do not run Codex or auto-commit. Cancelling an annotation prevents further claims/reports but must explain that users still need to stop edits already running in the external application.
+
+## OpenCode CLI and Background Startup
+
+First installation registers a macOS user login service while preserving loopback, Host, pairing and extension-origin checks. Users link development origins from each project's local CLI; new bindings work while the service is online. Do not change a business project's development command. The extension submits registered project IDs, never filesystem registrations. When one origin matches several projects, require an explicit choice instead of reusing an automatically selected project.
+
+OpenCode CLI mode runs queued tasks directly without MCP claims or an open TUI. Each task owns a fresh session in the registered project directory. Models come from local OpenCode configuration or a locally specified `provider/model`; hide Codex-only controls.
+
+Request command/edit permissions and show confirmations/questions in the same panel. Approve only a single explicit request, never permanent approval. Deny external-directory access. Cancelling terminates the task's owned CLI process without rolling back writes. Do not rerun unfinished tasks after a restart. Reconnect automatically when the service returns and refresh project bindings dynamically. Codex and manual MCP modes remain available.
