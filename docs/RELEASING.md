@@ -20,6 +20,8 @@ The workflows run on GitHub-hosted Ubuntu with Node.js 24 and the pnpm version p
 4. Review the generated assets in `dist/release`. The archive includes the bundled CLI, extension, MIT license and third-party notices; it contains no Node runtime, dependency install directory, credentials or browser state. `install.sh` installs an official, checksum-verified Node runtime only if needed. Automatic login installation supports macOS arm64/x64; the release package is portable JavaScript, not a native executable.
 5. After maintainer review, commit and push the code, then create and push the tag matching the package version. For example, package version `0.1.0` requires tag `v0.1.0`. These are publishing operations; do not run them as part of ordinary implementation/testing.
 
+Maintainers can start a release check manually for an unpublished version tag with `gh workflow run release.yml --ref v0.1.0`. The version guard also applies to manual runs; running against a branch fails before publication.
+
 ## Automated release
 
 The tag workflow checks the version, installs frozen dependencies, runs formatting/type/unit/browser checks, packages and verifies the distribution, then uses `gh release create --verify-tag --generate-notes` to publish:
