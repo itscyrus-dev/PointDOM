@@ -1,11 +1,25 @@
-# 验证记录
+# Verification History
 
-2026-10-14，本机 Node 24.13.0 / pnpm 10.34.7。
+These records describe observed checks, not guarantees for every environment.
 
-- TypeScript 严格类型检查通过。
-- 4 个自动测试通过：HTTP 配对与 origin/目录约束；队列串行/幂等/确认/取消/持久化；重启中断恢复；真实 stdio JSONL 传输与连续审批请求。
-- Playwright 使用隔离 Chromium profile 加载实际构建扩展，通过点选网页元素、桥接提交和任务结果显示；确认点选未误触网页按钮。该测试使用模拟 Codex runner，不消耗模型额度。
-- 另用真实 Codex App Server 完成独立临时目录中的 CSS 修改，将按钮高度由 32px 改到 40px 并读取文件验证。没有修改业务项目。
-- 实际扩展侧边栏布局截图：extension-test.png。测试将 panel.html 作为扩展页加载，点击操作通过 DOM 事件模拟侧边栏，因为普通测试 tab 的激活行为不同；仍需用户首次加载时确认 Chrome 原生侧边栏入口与 activeTab 授权。
+## First Release: v0.1.0
 
-未覆盖：Chrome 商店发布、Windows/Linux 实机、跨域 iframe/封闭 Shadow DOM、自动启动服务、远程多人使用、Codex 桌面聊天同步。
+On 2026-10-14, local verification used Node.js 24.13.0 and pnpm 10.34.7. Formatting, strict TypeScript, 15 unit/protocol/installer tests, isolated Chromium E2E and distribution checks passed. GitHub's Ubuntu CI and release workflow also passed.
+
+Coverage includes pairing/origin/Host checks, local-only project registration, serialized and duplicate task handling, permission responses, cancellation, persistence, restart interruption, MCP task claims/reports, OpenCode task execution and installer checksum/download failures.
+
+The real OpenCode CLI 1.18.29 was exercised with a local mock model in a dedicated temporary project: it requested edit permission, changed a CSS height from 32px to 40px and returned a result. No paid model was called. macOS login-service and pipe-to-shell installation were checked with isolated state, unique test service labels and temporary ports, including online multi-project binding and removal.
+
+Published assets were downloaded and their SHA-256 hashes verified. The standalone CLI reported `pdo 0.1.0`, and the published installer pointed to its own versioned assets. Anonymous download through the latest installer URL was also verified.
+
+## Initial Prototype
+
+The earlier prototype record reported four tests for HTTP pairing/origin/directory constraints, queue serialization/idempotency/permissions/cancellation/persistence, restart recovery and real stdio JSONL transport. Its Playwright test loaded the built extension in an isolated profile, selected a real element without clicking the page button, submitted to the bridge and displayed results using a mock Codex runner.
+
+That record also reported a real Codex App Server editing temporary CSS from 32px to 40px and reading it back. This paid-model check was not rerun during first-release packaging. No business project was edited.
+
+Historical screenshots under this directory came from extension-page test fixtures. They are not proof of a current native side-panel session; users still perform the initial Chrome extension load and site authorization themselves. New screenshots are written to isolated test output.
+
+## Not Verified
+
+Chrome Web Store publication, Windows/Linux login-service installation, precise cross-origin iframe/closed Shadow DOM selection, remote multi-user access and desktop chat synchronization are not covered. Ubuntu browser/protocol tests do not establish full platform installation support.

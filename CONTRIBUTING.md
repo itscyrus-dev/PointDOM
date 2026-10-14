@@ -1,6 +1,6 @@
 # Contributing
 
-Use a separate branch and keep each pull request focused on one problem. Read [AGENTS.md](AGENTS.md) and [DESIGN.md](DESIGN.md) before making changes. Preserve other contributors' uncommitted work.
+Start every change on a separate `codex/` branch and keep each pull request focused on one problem. Open a PR to `main`; never commit or push directly to `main`, force-push it, or bypass its rules. Merge only after the required `verify` check passes and the branch is up to date. Merged feature branches are deleted automatically. Read [AGENTS.md](AGENTS.md) and [DESIGN.md](DESIGN.md) before making changes. Preserve other contributors' uncommitted work.
 
 Use Conventional Commits: `type(scope): description`. Types include `feat`, `fix`, `docs`, `test`, `refactor` and `chore`. Optional scopes include `extension`, `bridge`, `protocol` and `design`. For example: `fix(extension): preserve selection when reopening panel`.
 

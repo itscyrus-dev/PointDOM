@@ -22,9 +22,23 @@ The workflows run on GitHub-hosted Ubuntu with Node.js 24 and the pnpm version p
 
 Maintainers can start a release check manually for an unpublished version tag with `gh workflow run release.yml --ref v0.1.0`. The version guard also applies to manual runs; running against a branch fails before publication.
 
+## Release Notes
+
+The workflow fetches full tag history and runs `scripts/release-notes.ts`. Notes include a commit/contributor summary, feature and fix highlights, Conventional Commit categories, commit links, changes grouped by author, and a comparison link. The range is the previous reachable version tag through the current tag; a first release includes the full tagged history. GitHub author usernames are used when available, otherwise only the author name is shown. Commit bodies and email addresses are not published.
+
+This also supports historical direct commits, unlike PR-only notes. [Release Drafter](https://github.com/release-drafter/release-drafter) maintains release drafts from merged PRs; [Release Changelog Builder](https://github.com/mikepenz/release-changelog-builder-action) supports PR/commit templates. PointDOM uses its existing GitHub CLI workflow with a small formatter to match the desired summary and per-author layout without adding a separate Action dependency.
+
+Generate notes for review without publishing:
+
+```sh
+pnpm exec tsx scripts/release-notes.ts v0.1.0 /tmp/pointdom-release-notes.md
+```
+
+Do not edit existing release artifacts or move published tags. Maintainers may explicitly request a release-description correction after reviewing generated notes.
+
 ## Automated release
 
-The tag workflow checks the version, installs frozen dependencies, runs formatting/type/unit/browser checks, packages and verifies the distribution, then uses `gh release create --verify-tag --generate-notes` to publish:
+The tag workflow checks the version, installs frozen dependencies, runs formatting/type/unit/browser checks, packages and verifies the distribution, then uses `gh release create --verify-tag --notes-file` to publish:
 
 - `pointdom.tar.gz`: standalone CLI plus unpacked Chrome extension.
 - `pointdom-extension.zip`: browser-only package for manual loading.
