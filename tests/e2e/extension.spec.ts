@@ -447,7 +447,7 @@ test('packaged extension selects a real DOM element, submits to bridge and displ
       cwd: directory,
       origins: ['http://127.0.0.1:5175'],
     });
-    await panel.locator('#refresh').click();
+    // The live project poll may already open settings before a refresh click.
     await expect(panel.locator('#project option')).toHaveCount(3);
     expect(await panel.locator('#project').inputValue()).toBe('');
     await expect(panel.locator('#submit')).toBeDisabled();
