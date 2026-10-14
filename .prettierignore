@@ -1,0 +1,7 @@
+node_modules
+dist
+.cache
+.state
+test-results
+playwright-report
+pnpm-lock.yaml

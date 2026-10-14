@@ -1,0 +1,40 @@
+{
+  "name": "pagepatch",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser annotations to local Codex coding tasks",
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@10.34.7",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node dist/bridge/main.js serve",
+    "cli": "tsx src/bridge/main.ts",
+    "dev": "tsx watch src/bridge/main.ts serve",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "test:e2e": "pnpm build && playwright test",
+    "test:codex": "tsx scripts/smoke-codex.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "mcp:config": "node scripts/mcp-config.mjs"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.5",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "hono": "4.13.13",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/chrome": "0.3.5",
+    "@types/node": "24.19.2",
+    "esbuild": "0.28.2",
+    "prettier": "3.6.2",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}
