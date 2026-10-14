@@ -1,110 +1,126 @@
-# PagePatch
+# PointDOM
 
-在网页点选元素、写修改意见，直接让本机 Codex 修改绑定项目的代码。无需回到 Codex 聊天窗口粘贴截图。
+Select elements on a web page, describe the changes you want, and let your local Codex update the linked project's source code. There is no need to return to a Codex chat and paste screenshots.
 
-这是独立的 **Chrome Manifest V3 扩展 + Node.js/Hono 本地服务**。不是向 Codex 桌面聊天框自动输入的插件，也不会只临时更改网页 DOM。通过官方 Codex App Server 运行任务；每个项目保留自己的 Codex 会话。
+PointDOM is a standalone **Chrome Manifest V3 extension with a local Node.js/Hono service**. It runs tasks through the official Codex App Server, with a separate Codex session for each project. It does not automate typing into the Codex desktop chat or merely apply temporary DOM changes.
 
-## 安装
+The extension and local configuration currently use the **PagePatch** name.
 
-需要 Node.js 24+、pnpm 10+、Chrome 120+、已安装并登录的 Codex CLI。先运行 `codex --version` 和 `codex login status` 确认环境。
+## Installation
+
+Requirements: Node.js 24+, pnpm 10+, Chrome 120+, and an installed, authenticated Codex CLI. Run `codex --version` and `codex login status` to check your setup.
+
+From the repository directory:
 
 ```sh
-cd /Users/ranen/workspace/agents/pagepatch
 pnpm install --frozen-lockfile
 pnpm build
 ```
 
-打开 `chrome://extensions`，开启「开发者模式」，点击「加载已解压的扩展程序」，选择项目里的 **dist/extension** 目录。将 PagePatch 固定到工具栏。更新代码并重新构建后，在扩展管理页点「重新加载」。
+Open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select the project's **dist/extension** directory. Pin PagePatch to the toolbar. After updating the code and rebuilding, click **Reload** on the extension management page.
 
-## 绑定项目与启动
+## Register a Project and Start the Service
 
-网页地址只用于匹配项目，代码目录由你在本机注册，网页不能指定任意磁盘路径。注册时本地服务必须停止。同一个项目可以重复注册多个网页 origin；端口属于 origin 的一部分。
+Page URLs are used only to match registered projects. You register source directories locally; web pages cannot specify arbitrary filesystem paths. Stop the local service before registering a project. You can register multiple origins for the same project; the port is part of an origin.
+
+Replace the example project name and path with your own:
 
 ```sh
-pnpm cli project add --name lycoboai \
-  --path /Users/ranen/workspace/agents/lycoboai \
+pnpm cli project add --name my-app \
+  --path /absolute/path/to/my-app \
   --origin http://127.0.0.1:5173
-pnpm cli project add --name lycoboai \
-  --path /Users/ranen/workspace/agents/lycoboai \
+pnpm cli project add --name my-app \
+  --path /absolute/path/to/my-app \
   --origin http://localhost:5173
 pnpm start
 ```
 
-保持这个终端运行。在另一个终端执行：
+Keep this terminal running. In another terminal, run the following from the repository directory:
 
 ```sh
-cd /Users/ranen/workspace/agents/pagepatch
 pnpm cli pair
 ```
 
-复制输出的配对码，进入目标网页，点击工具栏 PagePatch，在侧边栏粘贴配对码并连接。配对码相当于本地修改权限，请不要发给别人或放入版本库。账号认证沿用本机 Codex CLI，不在扩展里填写 OpenAI API key。
+Copy the pairing code, open the target page, click PagePatch in the toolbar, and paste the code into the side panel to connect. The pairing code grants access to local editing capabilities. Do not share it or commit it to version control. Authentication uses your local Codex CLI account; you do not enter an OpenAI API key in the extension.
 
-## 使用
+## Usage
 
-1. 在目标网页点击 PagePatch 工具栏图标，打开侧边栏并授予当前标签页的临时访问权。
-2. 点击「启用网页批注」，允许当前网站的访问权限。网页右下角会出现「批注」「批注列表」，之后可关闭侧边栏。授权网站刷新后仍会显示入口。
-3. 在网页点击「批注」，移动鼠标查看高亮，点击要修改的元素。按 Esc 退出选取。选中后在 Chrome 原生右侧栏描述并提交修改，网页中不会打开编辑浮层。
-4. 填写修改意见，例如「这个按钮高度改为 40px，保留圆角」。确认匹配的代码项目，点击「提交修改」。
-5. 继续选择其他位置、提交其他修改；任务按顺序执行，避免多个任务同时写代码。侧边栏显示执行记录、结果与失败原因。
-6. 遇到 Codex 权限确认或补充问题，直接在侧边栏处理。关闭侧边栏不取消任务；本地服务必须保持运行。
+1. On the target page, click the PagePatch toolbar icon to open the side panel and grant temporary access to the active tab.
+2. Enable page annotations and grant access to the current site.
+3. Use the selection control or shortcut to highlight and select elements. Press Esc to exit selection mode. Describe and submit changes in Chrome's native side panel; no editing overlay opens inside the page.
+4. Enter a request, such as “Set this button's height to 40px and keep its rounded corners.” Confirm the matched project and submit the changes.
+5. Select more elements and submit additional requests. Tasks run sequentially to avoid concurrent writes. The side panel shows task history, results, and failure details.
+6. Respond to Codex approval requests or follow-up questions in the side panel. Closing the panel does not cancel tasks; the local service must remain running.
 
-Vite 等开发服务器会通过自己的热更新呈现改动；插件不负责启动业务项目或部署线上网站。上线仍需项目原有流程。不要同时让其他代理或编辑器修改相同文件。
+Development servers such as Vite display source changes through their own hot reload mechanisms. The extension does not start your application or deploy your website. Use your project's existing deployment workflow. Avoid having other agents or editors modify the same files at the same time.
 
-任务保存在 `~/.pagepatch/jobs.json`，重新打开侧边栏可查看最近 100 条；完整本地记录保留在文件中。服务意外重启后未完成任务会标为「已中断」，不会自动重做，以免重复修改。停止任务不会回滚已经写入的代码。
+Tasks are saved in `~/.pagepatch/jobs.json`. Reopening the panel shows the latest 100 tasks; the full local history remains in the file. If the service restarts unexpectedly, unfinished tasks are marked as interrupted and are not automatically rerun, preventing duplicate edits. Stopping a task does not roll back changes already written to disk.
 
-## 当前范围与限制
+## Scope and Limitations
 
-- 支持普通 http/https 页面元素，采集选择器、可见文本片段、尺寸和计算样式；不采集整页 HTML、截图、输入框值或 URL 查询参数。
-- iframe 内部、封闭 Shadow DOM 内部、Canvas 内部对象暂不支持精确选择。Chrome 设置页、扩展商店等受限页面不能注入。
-- 页面元素不一定能唯一对应 React 源组件。Codex 会结合项目源文件定位，复杂情况可能需要补充说明。
-- 源代码及选取的页面上下文会按本机 Codex 的配置发送给模型服务。任务会消耗该账号的 Codex 使用额度。
-- 独立 App Server 会话不保证自动出现在 Codex 桌面当前聊天中；结果入口是扩展侧边栏。
-- 服务仅监听 `127.0.0.1:4318`，不支持远程多人共享、开机自启动或扩展商店安装包。无需给业务项目添加 SDK。
+- Supports elements on ordinary HTTP/HTTPS pages. Captures selectors, visible text snippets, dimensions, and computed styles, but not full-page HTML, screenshots, input values, or URL query parameters.
+- Precise selection inside iframes, closed Shadow DOM trees, and canvas objects is not supported. Injection is unavailable on restricted pages such as Chrome settings and the Chrome Web Store.
+- A page element may not map uniquely to a React source component. Codex uses project source files to locate the relevant code; complex cases may need more explanation.
+- Source code and selected page context are sent to the model service according to your local Codex configuration. Tasks consume your account's Codex usage allowance.
+- Independent App Server sessions are not guaranteed to appear in the current Codex desktop chat. Task results are available in the extension's side panel.
+- The service listens only on `127.0.0.1:4318`. Remote multi-user access, automatic startup, and a Chrome Web Store package are not provided. Your application does not need an SDK.
 
-## 开发与验证
+## Development and Verification
 
 ```sh
-pnpm check         # TypeScript、桥接/队列/协议测试、构建
-pnpm test:e2e      # 独立 Chromium profile 中验证扩展 UI；模型执行用测试 runner
-pnpm test:codex    # 可选：真实 Codex 修改临时 CSS 文件，会消耗使用额度
+pnpm check         # TypeScript, bridge/queue/protocol tests, and build
+pnpm test:e2e      # Extension UI in an isolated Chromium profile with a test runner
+pnpm test:codex    # Optional: real Codex edits a temporary CSS file; consumes usage
 ```
 
-E2E 需要 Playwright Chromium：缺少浏览器时运行 `pnpm exec playwright install chromium`。测试仅给临时扩展副本授予 fixture 网站权限；发布扩展使用 activeTab 加按站点请求的可选权限。端口 4318、5175 必须空闲。
+E2E tests require Playwright Chromium. If it is missing, run `pnpm exec playwright install chromium`. Tests grant fixture-site access only to a temporary copy of the extension. The distributed extension uses `activeTab` and optional permissions requested per site. Ports 4318 and 5175 must be available.
 
-目录：`src/extension` 为扩展，`src/bridge` 为本地服务与 Codex JSON-RPC 适配器，`src/shared` 为校验协议，`tests` 为自动验证，`scripts` 为构建与真实执行 smoke test。
+Project structure:
 
-可选环境变量：
+- `src/extension`: browser extension.
+- `src/bridge`: local service and Codex JSON-RPC adapter.
+- `src/shared`: validated protocol definitions.
+- `tests`: automated verification.
+- `scripts`: build scripts and the real-execution smoke test.
 
-| 变量                  | 用途                                                              |
-| --------------------- | ----------------------------------------------------------------- |
-| `PAGEPATCH_HOME`      | 状态目录，默认 `~/.pagepatch`                                     |
-| `PAGEPATCH_CODEX_BIN` | Codex 可执行文件路径，默认 `codex`                                |
-| `PAGEPATCH_MODEL`     | 显式模型名称；未设置时使用 App Server `model/list` 返回的默认模型 |
+Optional environment variables:
 
-协议依据：[Codex App Server](https://learn.chatgpt.com/docs/app-server)、[Chrome Side Panel](https://developer.chrome.com/docs/extensions/reference/api/sidePanel)、[activeTab](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab)。
+| Variable              | Purpose                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| `PAGEPATCH_HOME`      | State directory; defaults to `~/.pagepatch`.                                         |
+| `PAGEPATCH_CODEX_BIN` | Path to the Codex executable; defaults to `codex`.                                   |
+| `PAGEPATCH_MODEL`     | Explicit model name; otherwise uses the default returned by App Server `model/list`. |
 
-匹配到唯一项目时自动选择，常用操作不显示项目下拉框。完成任务可点击「继续修改」，填写新意见后再次提交。「已完成」由 Codex 执行结果决定，没有手动标记功能。
+Protocol references: [Codex App Server](https://learn.chatgpt.com/docs/app-server), [Chrome Side Panel](https://developer.chrome.com/docs/extensions/reference/api/sidePanel), and [activeTab](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab).
 
-## 右侧栏与执行设置
+When exactly one project matches, it is selected automatically without a project dropdown in the common workflow. After a task finishes, choose the option to continue editing, enter a new request, and submit again. Completion status comes from the Codex execution result; tasks cannot be manually marked as complete.
 
-编辑与任务结果统一在 Chrome 原生右侧栏显示。网页中仅保留「批注」「批注列表」入口，没有编辑 iframe 或浮层。扩展更新后刷新网页，清除旧浮层。用 Chrome 侧栏右上角 × 关闭；执行设置点击外部或 Esc 收起。
+## Side Panel and Execution Settings
 
-模型、速度、思考程度和操作确认保存在扩展本地；每次提交记录参数快照。可选模型和档位来自 Codex model/list，不支持的选项不展示。速度档位可能影响账号额度，具体由服务端决定。
+Editing and task results appear in Chrome's native side panel, without an editing iframe or floating editor inside the page. After updating the extension, refresh the page to remove any old injected UI. Close the panel with Chrome's close button. Click outside the execution settings or press Esc to dismiss them.
 
-确认方式：需要时确认（on-request）；严格确认（untrusted，更多命令需确认，可信命令可直接运行）；不弹确认（never，需要越过工作区权限的操作会失败，不自动批准权限升级）。
+Model, speed, reasoning effort, and approval preferences are saved locally in the extension. Each submitted task stores a snapshot of these settings. Available models and options come from Codex `model/list`; unsupported options are hidden. Speed settings may affect account usage, as determined by the service.
 
-网页设置的模型优先于 PAGEPATCH_MODEL；两者未指定时使用模型目录默认值。旧的网页内面板描述已被本节替代。
+Approval modes:
 
-### 本地提交
+- **On request** (`on-request`): ask for approval when needed.
+- **Strict** (`untrusted`): more commands require approval; trusted commands may run directly.
+- **Never ask** (`never`): operations requiring permissions beyond the workspace fail rather than automatically receiving elevated access.
 
-任务完成后点击 **Commit**，自动根据修改要求生成提交说明并提交本地。输入框底栏的执行设置中可勾选 **修改完成后自动 Commit**，默认关闭，仅影响之后提交的任务。完成后显示短哈希；不会推送远端。混入已有未提交改动、文件被后续修改或旧任务未记录改动范围时，请在项目中检查并提交。
+The model selected in the panel takes precedence over `PAGEPATCH_MODEL`. If neither is set, the model catalog's default is used.
 
-## Trae / ZCode / DeepSeek Agent 接入
+### Local Commits
 
-现支持项目限定的本地 stdio MCP。侧栏执行方式选择“其他 Agent（MCP）”，向 Agent 提供 DOM 文本和多元素独立描述；不需要图片理解能力。配置与使用见 [MCP 接入指南](docs/MCP.md)。生成当前项目的配置：
+After a task finishes, click **Commit** to create a local commit with a message generated from the change request. You can enable automatic commits after completion in the execution settings below the input. This option is off by default and applies only to subsequently submitted tasks. A successful commit displays its short hash; it is not pushed to a remote.
+
+If changes overlap with pre-existing edits, files have been modified again, or an older task lacks a recorded change scope, inspect and commit the changes directly in your project.
+
+## Trae / ZCode / DeepSeek Agent Integration
+
+Project-scoped local stdio MCP is supported. Select the other-agent MCP execution mode in the side panel to provide an agent with DOM text and separate descriptions for multiple elements. Image understanding is not required. See the [MCP integration guide](docs/MCP.md) for setup and usage. Generate a configuration for your project with:
 
 ```sh
 pnpm --silent mcp:config --project /absolute/path/to/project
 ```
 
-标准 MCP 不会自动唤醒闲置会话；在宿主 App 中请求读取 PagePatch 待处理任务。模型、编辑、权限和提交由宿主 App 管理。
+Standard MCP does not automatically wake an idle session. Ask the host application to read pending PagePatch tasks. The host application manages the model, editing, permissions, and commits.
