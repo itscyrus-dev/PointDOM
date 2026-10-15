@@ -365,7 +365,8 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
     await panel.locator('#cancel-pairing').click();
     await expect(panel.locator('#token')).toHaveCount(0);
     await expect(panel.locator('#pairing-status')).toHaveText('已添加');
-    if (await panel.locator('#reconnect').isVisible()) await panel.locator('#reconnect').click();
+    // Restoring the saved credential reconnects through the panel poll. The transient
+    // reconnect button can disappear between visibility checking and clicking.
     await expect(panel.locator('#connection')).toHaveText('已连接');
     if ((await settingsToggle.getAttribute('aria-expanded')) === 'true')
       await settingsToggle.click();
