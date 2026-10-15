@@ -103,7 +103,7 @@ export function createApp(store: Store, queue: Queue, port = 4318) {
     }
     return c.json({
       connected: true,
-      version: '0.2.0',
+      version: '0.2.1',
       defaultExecutor: store.config.defaultExecutor,
     });
   });

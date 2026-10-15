@@ -25,6 +25,12 @@ try {
     encoding: 'utf8',
   });
   assert.match(result, /pdo link/);
+  const extensionPath = execFileSync(
+    process.execPath,
+    [`${app}/dist/bridge/main.js`, 'extension', '--path'],
+    { cwd: directory, encoding: 'utf8' },
+  ).trim();
+  assert.equal(extensionPath, `${app}/dist/extension`);
   // Verify the shipped CLI can generate CC Switch imports without source scripts or node_modules.
   const state = join(directory, 'state');
   await mkdir(state, { recursive: true });

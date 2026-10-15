@@ -130,7 +130,7 @@ stopped=false
 printf '\n  %sPointDOM %s is ready.%s Background service started.\n' "$green" "$version" "$reset"
 print_path_commands
 printf '\n  %sNext steps%s\n\n' "$bold" "$reset"
-printf '  1. Load the Chrome extension\n     Open chrome://extensions, enable Developer mode, choose Load unpacked:\n     %s/dist/extension\n' "$app"
+printf '  1. Load the Chrome extension\n     Run ~/.local/bin/pdo extension to open Chrome setup and copy the folder path.\n     Enable Developer mode and choose Load unpacked.\n     Extension folder: %s/dist/extension\n' "$app"
 printf '\n  2. Pair the extension\n     Run ~/.local/bin/pdo pair and paste the code into the extension settings.\n     Choose OpenCode CLI and allow access to your development site.\n'
 printf '\n  3. Link your project (once per project)\n     cd /path/to/your/project\n     ~/.local/bin/pdo link --origin http://localhost:5173\n'
 printf '\n  Start your app as usual, then select an element and describe a change.\n  Help: ~/.local/bin/pdo help\n\n'

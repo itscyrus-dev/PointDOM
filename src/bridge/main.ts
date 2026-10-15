@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { extensionDirectory, openExtensionSetup } from './extension-setup.js';
 import { upgrade } from './upgrade.js';
 import { connectionApp, connectionConfig, connectionLink } from './connection.js';
 import { serve } from '@hono/node-server';
@@ -58,7 +59,41 @@ async function local(path: string, body?: unknown) {
   if (!response.ok) throw new Error(result.error || 'Local service request failed');
   return result;
 }
-if (args[0] === 'upgrade') {
+if (args[0] === 'extension') {
+  if (args.some((arg) => ['-h', '--help'].includes(arg))) {
+    console.log(
+      'pdo extension         Open extension folder and Chrome setup; copy the folder path (macOS).',
+    );
+    console.log(
+      'pdo extension --path  Print the installed extension path without opening apps or changing the clipboard.',
+    );
+  } else {
+    if (args.slice(1).some((arg) => arg !== '--path'))
+      throw new Error('Usage: pdo extension [--path]');
+    const path = extensionDirectory(import.meta.url);
+    if (args.includes('--path')) console.log(path);
+    else {
+      const result = openExtensionSetup(path);
+      console.log('PointDOM extension setup\n');
+      console.log(
+        result.chromeOpened
+          ? 'Requested Chrome extensions page.'
+          : 'Open chrome://extensions in Google Chrome.',
+      );
+      console.log(
+        result.folderOpened ? 'Requested extension folder in Finder.' : `Extension folder: ${path}`,
+      );
+      if (result.pathCopied) console.log('Extension folder path copied to clipboard.');
+      console.log('\n1. Enable Developer mode.\n2. Click Load unpacked.');
+      console.log(
+        result.pathCopied
+          ? '3. Press Cmd+Shift+G, paste the copied path, then select the folder.'
+          : `3. Select this folder: ${path}`,
+      );
+      console.log('\nChrome requires you to confirm loading the extension.');
+    }
+  }
+} else if (args[0] === 'upgrade') {
   await upgrade(fileURLToPath(import.meta.url));
 } else if (args[0] === 'upgrade-stop') {
   // Internal installer handshake: the bridge atomically refuses active work and
@@ -218,6 +253,6 @@ if (args[0] === 'upgrade') {
     process.exitCode = 1;
   }
   console.log(
-    'PointDOM CLI (pdo)\n\n  pdo connect --origin URL  Link project and import MCP into CC Switch\n  pdo connect --json        Print MCP config for manual import\n  pdo connect --app codex   Target Codex (default: opencode)\n  pdo link --origin URL [--model provider/model]  Link the current project\n  pdo pair              Show the local pairing code\n  pdo status            Check the background service\n  pdo projects          List linked projects\n\n  pdo upgrade           Upgrade to the latest release\n  pdo install           Install macOS login startup\n  pdo uninstall         Remove login startup; keep local data\n  pdo serve             Run the service in the foreground\n  pdo help              Show help (-h, --help)\n  pdo version           Show version (-v, --version)',
+    'PointDOM CLI (pdo)\n\n  pdo connect --origin URL  Link project and import MCP into CC Switch\n  pdo connect --json        Print MCP config for manual import\n  pdo connect --app codex   Target Codex (default: opencode)\n  pdo link --origin URL [--model provider/model]  Link the current project\n  pdo extension         Open Chrome extension setup\n  pdo extension --path  Print the installed extension path\n  pdo pair              Show the local pairing code\n  pdo status            Check the background service\n  pdo projects          List linked projects\n\n  pdo upgrade           Upgrade to the latest release\n  pdo install           Install macOS login startup\n  pdo uninstall         Remove login startup; keep local data\n  pdo serve             Run the service in the foreground\n  pdo help              Show help (-h, --help)\n  pdo version           Show version (-v, --version)',
   );
 }

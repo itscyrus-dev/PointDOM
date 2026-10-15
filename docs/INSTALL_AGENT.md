@@ -24,11 +24,11 @@ Published installers download their own tagged package. `POINTDOM_RELEASE_BASE_U
 
 ## Chrome Setup
 
-1. Open `chrome://extensions`, enable Developer mode and load the unpacked extension from the absolute directory printed by the installer. The extension currently appears as PagePatch.
+1. Run `pdo extension`. On macOS, it requests the Chrome extensions page and extension folder in Finder, and copies the folder path to your clipboard. Enable Developer mode, click Load unpacked, press Cmd+Shift+G and paste the path. Select the folder to load it. The extension currently appears as PagePatch. If Chrome/Finder/clipboard access fails, follow the printed manual steps. Other platforms print manual instructions. Use `pdo extension --path` to print the path without opening apps or changing the clipboard; it works without a running bridge or project binding.
 2. Run `pdo pair` locally and copy the pairing code into the extension's connection settings. Do not send the code to an agent, chat, issue or repository.
 3. Open your development page, authorize access to the current site and choose OpenCode CLI in execution settings. New installations default to this mode; existing executor preferences are preserved.
 
-Chrome extension installation and updates require these manual browser actions. There is no Chrome Web Store package.
+Chrome requires manual confirmation to load an unpacked extension; the command does not change browser profiles, enable Developer mode, or claim installation succeeded. After upgrading, run `pdo extension` again to locate the extension shipped with the CLI you are using. There is no Chrome Web Store package.
 
 ## Use CC Switch for MCP
 
