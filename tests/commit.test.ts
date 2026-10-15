@@ -65,7 +65,7 @@ test('refuses mixed preexisting changes and modifications made after task comple
     f.close();
   }
 });
-test('queue automatically commits opted-in successful tasks and persists commit receipt', async () => {
+test('retired automatic commit settings never create a commit; explicit manual commit still works', async () => {
   const f = fixture();
   const state = realpathSync(mkdtempSync(join(tmpdir(), 'pagepatch-state-')));
   try {
@@ -103,7 +103,9 @@ test('queue automatically commits opted-in successful tasks and persists commit 
     });
     await new Promise(setImmediate);
     assert.equal(job.status, 'completed');
-    assert.equal(job.commit?.status, 'committed');
+    assert.equal(job.commit?.status, 'ready');
+    assert.equal(f.git('show', 'HEAD:button.css'), 'old');
+    queue.commit(job.id);
     assert.equal(f.git('show', 'HEAD:button.css'), 'auto');
     assert.equal(new Store(state).jobs[0]?.commit?.hash, job.commit?.hash);
     assert.equal(queue.commit(job.id).commit?.hash, job.commit?.hash);

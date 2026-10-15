@@ -1,6 +1,11 @@
 import { createServer } from 'node:http';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+if (process.argv.includes('--version')) {
+  console.log(process.env.FIXTURE_MODE === 'v3' ? 'opencode v3.0.0' : '1.18.29');
+  process.exit(0);
+}
+if (process.env.FIXTURE_MODE === 'v3') throw new Error('unknown server must not be started');
 let events, message;
 const emit = (type, properties) =>
   events.write(`data: ${JSON.stringify({ type, properties })}\n\n`);
@@ -24,6 +29,19 @@ const server = createServer(async (request, response) => {
       response.end();
       return;
     }
+    if (
+      process.env.FIXTURE_MODE === 'reduced' &&
+      !body.permission.some(
+        (rule) =>
+          rule.permission === 'edit' &&
+          rule.action === 'allow' &&
+          rule.pattern === `${process.cwd()}/**`,
+      )
+    ) {
+      response.writeHead(400);
+      response.end();
+      return;
+    }
     json(response, { id: 'ses_fixture' });
   } else if (request.url === '/event') {
     events = response;
@@ -31,6 +49,11 @@ const server = createServer(async (request, response) => {
     response.write('data: {"type":"server.connected","properties":{}}\n\n');
   } else if (request.url === '/session/ses_fixture/message') {
     message = response;
+    if (process.env.FIXTURE_MODE === 'reduced') {
+      writeFileSync(join(process.cwd(), 'button.css'), 'button { height: 40px; }');
+      json(response, { info: {}, parts: [{ type: 'text', text: '已修改 button.css 并验证' }] });
+      return;
+    }
     if (process.env.FIXTURE_MODE === 'error') {
       json(response, { info: { error: { message: 'fake-key-must-not-leak' } } });
       return;
@@ -38,7 +61,7 @@ const server = createServer(async (request, response) => {
     if (process.env.FIXTURE_MODE === 'exit') {
       process.exit(1);
     }
-    if (!body.parts[0].text.includes('不可信数据')) {
+    if (!body.parts[0].text.includes('untrustedPageContext')) {
       response.writeHead(400);
       response.end();
       return;

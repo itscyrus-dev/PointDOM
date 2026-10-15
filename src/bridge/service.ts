@@ -16,7 +16,7 @@ export function launchAgent(
   node: string,
   entry: string,
   state: string,
-  binary: string,
+  binary: string | undefined,
   path: string,
 ) {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -26,7 +26,11 @@ export function launchAgent(
 <key>ProgramArguments</key><array>${[node, entry, 'serve'].map((arg) => `<string>${xml(arg)}</string>`).join('')}</array>
 <key>WorkingDirectory</key><string>${xml(dirname(entry))}</string>
 <key>EnvironmentVariables</key><dict>
-${Object.entries({ PAGEPATCH_HOME: state, PAGEPATCH_OPENCODE_BIN: binary, PATH: path })
+${Object.entries({
+  PAGEPATCH_HOME: state,
+  ...(binary ? { PAGEPATCH_OPENCODE_BIN: binary } : {}),
+  PATH: path,
+})
   .map(([key, value]) => `<key>${key}</key><string>${xml(value)}</string>`)
   .join('\n')}
 </dict>
@@ -59,9 +63,16 @@ export function findOpenCode() {
 export function installService(state: string) {
   if (process.platform !== 'darwin')
     throw new Error('Login startup supports macOS only. Use pnpm start on other platforms.');
-  const binary = findOpenCode();
+  // The bridge serves MCP without any agent CLI. Resolve a direct executor only
+  // when available; a broken optional CLI must not block installation.
+  let binary: string | undefined;
+  try {
+    binary = findOpenCode();
+  } catch {
+    /* Optional direct integration. */
+  }
   const entry = fileURLToPath(new URL('./main.js', import.meta.url));
-  const path = `${dirname(process.execPath)}:${dirname(binary)}:${process.env.PATH || '/usr/bin:/bin'}`;
+  const path = `${dirname(process.execPath)}:${binary ? dirname(binary) + ':' : ''}${process.env.PATH || '/usr/bin:/bin'}`;
   const plist = file();
   if (existsSync(plist))
     throw new Error(

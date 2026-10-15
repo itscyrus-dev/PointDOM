@@ -1,4 +1,5 @@
-import { spawn } from 'node:child_process';
+import { acpRunner } from './acp.js';
+import { spawn, execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import { Readable } from 'node:stream';
@@ -6,7 +7,49 @@ import { buildPrompt, record, str, type Runner } from './codex.js';
 import type { Approval } from '../shared/contracts.js';
 
 // Each task owns an authenticated loopback server and a fresh, project-scoped session.
-export const runOpenCode: Runner = (project, job, _priorThread, hooks) => {
+export const runOpenCode: Runner = (project, job, priorThread, hooks) => {
+  let running: ReturnType<Runner> | undefined;
+  let cancelled = false;
+  let probe: ReturnType<typeof execFile> | undefined;
+  const done = (async () => {
+    const version = await new Promise<string>((resolve, reject) => {
+      probe = execFile(
+        process.env.PAGEPATCH_OPENCODE_BIN || 'opencode',
+        ['--version'],
+        { timeout: 5000, maxBuffer: 4096 },
+        (error, stdout) => {
+          if (error)
+            reject(new Error('无法检查 OpenCode CLI 版本，请检查安装与 PAGEPATCH_OPENCODE_BIN。'));
+          else resolve(stdout.trim());
+        },
+      );
+    });
+    if (cancelled) throw new Error('任务已停止；已写入的修改不会回滚');
+    const match = version.match(/^(?:opencode\s+)?v?(\d+)\.\d+\.\d+(?:[+\-][\w.-]+)?$/);
+    if (!match || !['1', '2'].includes(match[1] || ''))
+      throw new Error('无法识别 OpenCode 协议，请更新 CLI 或使用 Agent（MCP）');
+    running =
+      match[1] === '1'
+        ? runCompatibleOpenCode(project, job, priorThread, hooks)
+        : acpRunner(process.env.PAGEPATCH_OPENCODE_BIN || 'opencode', ['acp'], 'OpenCode')(
+            project,
+            job,
+            priorThread,
+            hooks,
+          );
+    await running.done;
+  })();
+  return {
+    done,
+    cancel: () => {
+      cancelled = true;
+      probe?.kill();
+      running?.cancel();
+    },
+    reply: (id, reply) => running?.reply(id, reply),
+  };
+};
+const runCompatibleOpenCode: Runner = (project, job, _priorThread, hooks) => {
   const password = randomBytes(32).toString('hex');
   const child = spawn(
     process.env.PAGEPATCH_OPENCODE_BIN || 'opencode',
@@ -148,6 +191,9 @@ export const runOpenCode: Runner = (project, job, _priorThread, hooks) => {
             pattern: '*',
             action: 'allow',
           })),
+          ...(job.permissions?.confirmation === 'reduced'
+            ? [{ permission: 'edit', pattern: `${project.cwd}/**`, action: 'allow' }]
+            : []),
           { permission: 'external_directory', pattern: '*', action: 'deny' },
         ],
       }),
@@ -159,14 +205,9 @@ export const runOpenCode: Runner = (project, job, _priorThread, hooks) => {
     const stream = (await request('/event', undefined, true)) as Response;
     void events(stream).catch(failure);
     hooks.event('OpenCode CLI 已启动，正在处理当前项目');
-    const model = project.openCodeModel;
-    const slash = model?.indexOf('/') ?? -1;
     const response = record(
       await request(`/session/${session}/message`, {
         parts: [{ type: 'text', text: buildPrompt(job) }],
-        ...(model
-          ? { model: { providerID: model.slice(0, slash), modelID: model.slice(slash + 1) } }
-          : {}),
       }),
     );
     if (settled) return;

@@ -1,10 +1,12 @@
-import { test } from 'node:test';
+import { fixtureDelivery } from './delivery-fixture.js';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { verifyInstaller } from '../src/bridge/upgrade.js';
+import { version } from '../src/bridge/version.js';
+import { upgrade, verifyInstaller } from '../src/bridge/upgrade.js';
 import { Store } from '../src/bridge/store.js';
 import { Queue } from '../src/bridge/queue.js';
 import { createApp } from '../src/bridge/server.js';
@@ -32,7 +34,7 @@ test('upgrade handshake refuses active tasks and blocks submissions and MCP clai
       origins: ['http://localhost:5173'],
     });
     const queue = new Queue(store);
-    const app = createApp(store, queue);
+    const app = createApp(store, queue, 4318, fixtureDelivery);
     const call = (path: string, body: unknown = {}) =>
       app.request(`http://127.0.0.1:4318${path}`, {
         method: 'POST',
@@ -90,5 +92,30 @@ test('upgrade handshake refuses active tasks and blocks submissions and MCP clai
     );
   } finally {
     rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('an up-to-date upgrade checks release metadata without downloading or installing files', async () => {
+  const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
+  Object.defineProperty(process, 'platform', { value: 'darwin' });
+  const requests: string[] = [];
+  const network = mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
+    requests.push(String(input));
+    return Response.json({ tag_name: `v${version}` });
+  });
+  const messages: string[] = [];
+  const logger = mock.method(console, 'log', (line: string) => {
+    messages.push(line);
+  });
+  try {
+    await upgrade('/fixture/not-executed.js');
+    assert.deepEqual(requests, [
+      'https://api.github.com/repos/itscyrus-dev/PointDOM/releases/latest',
+    ]);
+    assert.ok(messages.some((line) => line.includes('already up to date')));
+  } finally {
+    network.mock.restore();
+    logger.mock.restore();
+    Object.defineProperty(process, 'platform', platform);
   }
 });

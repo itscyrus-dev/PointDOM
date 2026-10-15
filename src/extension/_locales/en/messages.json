@@ -1,0 +1,14 @@
+{
+  "extensionName": {
+    "message": "PointDOM"
+  },
+  "extensionDescription": {
+    "message": "Annotate web pages and hand changes to your coding agent through local MCP. Use the models in your agent app."
+  },
+  "openPanel": {
+    "message": "Open PointDOM"
+  },
+  "pickElement": {
+    "message": "Select page elements"
+  }
+}

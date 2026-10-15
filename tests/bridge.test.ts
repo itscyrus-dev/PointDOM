@@ -1,3 +1,4 @@
+import { fixtureDelivery } from './delivery-fixture.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -50,7 +51,7 @@ const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 test('HTTP pairing rejects hostile origins, wrong tokens, unpaired clients and arbitrary workspaces', async () => {
   const f = fixture();
   const queue = new Queue(f.store, () => ({ done: Promise.resolve(), cancel() {}, reply() {} }));
-  const app = createApp(f.store, queue);
+  const app = createApp(f.store, queue, 4318, fixtureDelivery);
   const request = (path: string, body?: unknown, extra: Record<string, string> = {}) =>
     app.request(`http://127.0.0.1:4318${path}`, {
       method: body === undefined ? 'GET' : 'POST',
@@ -114,9 +115,13 @@ test('queue deduplicates retries, serializes jobs, surfaces approvals, cancels a
     assert.equal(f.store.jobs.length, 1);
     assert.throws(() => q.submit({ ...input, instruction: '其他修改' }));
     const second = q.submit(f.input());
+    assert.equal(second.startedAt, undefined);
+    assert.equal(second.finishedAt, undefined);
     await tick();
     assert.equal(runs.length, 1);
     const first = f.store.jobs[0]!;
+    assert.ok(first.startedAt);
+    const startedAt = first.startedAt;
     runs[0]!.hooks.approval({
       id: 'approval',
       kind: 'command',
@@ -127,16 +132,23 @@ test('queue deduplicates retries, serializes jobs, surfaces approvals, cancels a
     assert.throws(() => q.reply(first.id, 'stale', { decision: 'accept' }));
     q.reply(first.id, 'approval', { decision: 'decline' });
     assert.equal(first.status, 'running');
+    assert.equal(first.startedAt, startedAt);
     runs[0]!.hooks.result('已修改并检查');
     runs[0]!.resolve();
     await tick();
     assert.equal(first.status, 'completed');
+    assert.ok(first.finishedAt);
+    assert.ok(Date.parse(first.finishedAt) >= Date.parse(startedAt));
     assert.equal(runs.length, 2);
     q.cancel(second.id);
     await tick();
     assert.equal(second.status, 'cancelled');
+    assert.ok(second.startedAt);
+    assert.ok(second.finishedAt);
     const reloaded = new Store(f.directory);
     assert.equal(reloaded.jobs[0]!.result, '已修改并检查');
+    assert.equal(reloaded.jobs[0]!.startedAt, first.startedAt);
+    assert.equal(reloaded.jobs[0]!.finishedAt, first.finishedAt);
   } finally {
     f.cleanup();
   }

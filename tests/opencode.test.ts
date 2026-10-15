@@ -78,6 +78,13 @@ test('OpenCode CLI executes only in registered projects, waits for permissions, 
     await wait(() => other.status === 'completed');
     assert.match(readFileSync(join(otherDirectory, 'button.css'), 'utf8'), /40px/);
     assert.match(readFileSync(join(directory, 'button.css'), 'utf8'), /40px/);
+    store.config.projects[0]!.permissions = { confirmation: 'reduced', codexNetwork: false };
+    process.env.FIXTURE_MODE = 'reduced';
+    const reduced = submit();
+    await wait(() => reduced.status === 'completed' || reduced.status === 'failed');
+    assert.equal(reduced.status, 'completed', reduced.error);
+    delete store.config.projects[0]!.permissions;
+    delete process.env.FIXTURE_MODE;
     const cancel = submit();
     await wait(() => cancel.status === 'waiting');
     queue.cancel(cancel.id);
@@ -97,6 +104,11 @@ test('OpenCode CLI executes only in registered projects, waits for permissions, 
     const error = submit();
     await wait(() => error.status === 'failed');
     assert.equal(error.error!.includes('fake-key'), false);
+    process.env.FIXTURE_MODE = 'v3';
+    const incompatible = submit();
+    await wait(() => incompatible.status === 'failed');
+    assert.match(incompatible.error!, /无法识别 OpenCode 协议/);
+    assert.match(incompatible.error!, /MCP/);
     process.env.FIXTURE_MODE = 'exit';
     const exit = submit();
     await wait(() => exit.status === 'failed');

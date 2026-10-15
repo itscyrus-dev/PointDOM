@@ -1,10 +1,25 @@
+import { execFileSync } from 'node:child_process';
+import { resolve } from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+  realpathSync,
+  lstatSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
-import { extensionDirectory, openExtensionSetup } from '../src/bridge/extension-setup.js';
+import {
+  extensionDirectory,
+  extensionSetupDirectory,
+  openExtensionSetup,
+  extensionSetupInstructions,
+} from '../src/bridge/extension-setup.js';
 
 test('extension setup resolves files beside the installed CLI, including spaces and non-ASCII paths', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'pointdom-extension-')));
@@ -30,7 +45,7 @@ test('extension setup falls back independently when clipboard, Finder or Chrome 
   });
   assert.deepEqual(result, { pathCopied: true, folderOpened: true, chromeOpened: false });
   assert.deepEqual(calls[0], { command: '/usr/bin/pbcopy', args: [], input: path });
-  assert.deepEqual(calls[1]?.args, [path]);
+  assert.deepEqual(calls[1]?.args, ['-R', path]);
   assert.deepEqual(
     openExtensionSetup(path, 'darwin', () => {
       throw new Error('unavailable');
@@ -43,4 +58,108 @@ test('extension setup falls back independently when clipboard, Finder or Chrome 
     }),
     { pathCopied: false, folderOpened: false, chromeOpened: false },
   );
+});
+
+test('extension CLI prints its absolute directory even when all desktop actions succeed', () => {
+  const root = mkdtempSync(join(tmpdir(), 'pointdom-extension-output-'));
+  try {
+    const preload = join(root, 'desktop.mjs');
+    writeFileSync(
+      preload,
+      `import childProcess from 'node:child_process';
+      import { syncBuiltinESMExports } from 'node:module';
+      const original = childProcess.execFileSync;
+      childProcess.execFileSync = (command, ...args) =>
+        ['/usr/bin/open', '/usr/bin/pbcopy'].includes(command) ? Buffer.alloc(0) : original(command, ...args);
+      syncBuiltinESMExports();
+      Object.defineProperty(process, 'platform', { value: 'darwin' });`,
+    );
+    const output = execFileSync(
+      process.execPath,
+      [
+        '--import',
+        'tsx',
+        '--import',
+        pathToFileURL(preload).href,
+        'src/bridge/main.ts',
+        'extension',
+      ],
+      { encoding: 'utf8' },
+    );
+    assert.match(output, /Requested the extension folder selected in Finder/);
+    assert.ok(
+      output.includes(`Extension folder: ${realpathSync(resolve('src/extension'))}`),
+      output,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('release setup provides one fixed directory, switches versions, preserves old files and refuses unrelated folders', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'pointdom-extension-link-')));
+  try {
+    const entry = (version: string) => {
+      const dist = join(root, 'versions', version, 'dist');
+      mkdirSync(join(dist, 'bridge'), { recursive: true });
+      mkdirSync(join(dist, 'extension'));
+      writeFileSync(join(dist, 'extension/manifest.json'), '{}');
+      return pathToFileURL(join(dist, 'bridge/main.js')).href;
+    };
+    const first = entry('0.2.1.first'),
+      second = entry('0.2.2.second');
+    assert.equal(extensionSetupDirectory(first), extensionDirectory(first));
+    const shortcut = extensionSetupDirectory(first, true);
+    assert.equal(shortcut, join(root, 'PointDOM Extension'));
+    assert.equal(realpathSync(shortcut), shortcut);
+    assert.equal(lstatSync(shortcut).isSymbolicLink(), false);
+    assert.equal(extensionSetupDirectory(second), extensionDirectory(second));
+    assert.ok(
+      readFileSync(join(shortcut, '.pointdom-managed.json'), 'utf8').includes('0.2.1.first'),
+    ); // --path does not modify it.
+    assert.equal(extensionSetupDirectory(second, true), shortcut);
+    assert.ok(
+      readFileSync(join(shortcut, '.pointdom-managed.json'), 'utf8').includes('0.2.2.second'),
+    );
+    assert.equal(extensionSetupDirectory(second), shortcut);
+    rmSync(shortcut, { recursive: true });
+    mkdirSync(shortcut);
+    writeFileSync(join(shortcut, 'keep.txt'), 'user data');
+    assert.throws(() => extensionSetupDirectory(first, true), /regular file or folder/);
+    assert.equal(realpathSync(shortcut), shortcut);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('upgrade reload opens Chrome without replacing the clipboard or opening Finder', () => {
+  const calls: string[][] = [];
+  const result = openExtensionSetup(
+    '/fixture/PointDOM Extension',
+    'darwin',
+    (command, args) => {
+      calls.push([command, ...args]);
+    },
+    'reload',
+  );
+  assert.deepEqual(result, { folderOpened: false, pathCopied: false, chromeOpened: true });
+  assert.deepEqual(calls, [['/usr/bin/open', '-a', 'Google Chrome', 'chrome://extensions/']]);
+  const failed = extensionSetupInstructions({
+    path: '/fixture/PointDOM Extension',
+    platform: 'darwin',
+    pathCopied: false,
+    folderOpened: false,
+    chromeOpened: false,
+  });
+  assert.match(failed.join('\n'), /Cmd\+Shift\+G, enter \/fixture/);
+  assert.doesNotMatch(failed.join('\n'), /copied|Requested/);
+  const linux = extensionSetupInstructions({
+    path: '/fixture/extension',
+    platform: 'linux',
+    pathCopied: false,
+    folderOpened: false,
+    chromeOpened: false,
+  });
+  assert.match(linux.join('\n'), /Select the whole extension folder/);
+  assert.doesNotMatch(linux.join('\n'), /Cmd|Finder/);
 });

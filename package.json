@@ -1,9 +1,9 @@
 {
   "name": "pagepatch",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Browser annotations to local OpenCode and Codex coding tasks",
+  "description": "Browser annotations for coding agents through local MCP, independent of model provider",
   "engines": {
     "node": ">=24"
   },
@@ -23,20 +23,30 @@
     "mcp:config": "node scripts/mcp-config.mjs",
     "test:opencode": "tsx scripts/smoke-opencode.ts",
     "release:pack": "node scripts/release.mjs",
-    "release:verify": "node scripts/verify-release.mjs"
+    "release:verify": "node scripts/verify-release.mjs",
+    "icons": "tsx scripts/generate-icons.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.300",
+    "@heroui/react": "3.2.6",
+    "@heroui/styles": "3.2.6",
     "@hono/node-server": "2.1.5",
     "@modelcontextprotocol/sdk": "1.32.1",
     "hono": "4.13.13",
+    "react": "19.3.1",
+    "react-aria-components": "1.22.1",
+    "react-dom": "19.3.1",
     "zod": "4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "1.64.0",
     "@types/chrome": "0.3.5",
     "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "esbuild": "0.28.2",
     "prettier": "3.6.2",
+    "tailwindcss": "4.3.3",
     "tsx": "4.23.15",
     "typescript": "5.9.3"
   },

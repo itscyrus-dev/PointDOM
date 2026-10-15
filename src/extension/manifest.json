@@ -1,22 +1,33 @@
 {
   "manifest_version": 3,
-  "name": "PagePatch · 网页改代码",
-  "version": "0.2.1",
-  "description": "网页 DOM 批注：交给 Codex 或通过 MCP 连接其他编程 Agent。",
+  "name": "__MSG_extensionName__",
+  "default_locale": "zh_CN",
+  "version": "0.3.0",
+  "description": "__MSG_extensionDescription__",
   "minimum_chrome_version": "120",
   "permissions": ["activeTab", "scripting", "storage", "sidePanel"],
-  "host_permissions": ["http://127.0.0.1:4318/*"],
+  "host_permissions": ["http://127.0.0.1:4318/*", "https://api.github.com/*"],
   "action": {
-    "default_title": "打开 PagePatch"
+    "default_title": "__MSG_openPanel__",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
   },
   "side_panel": {
     "default_path": "panel.html"
+  },
+  "options_ui": {
+    "page": "panel.html?settings=1",
+    "open_in_tab": true
   },
   "background": {
     "service_worker": "background.js"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'none'; connect-src http://127.0.0.1:4318"
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src http://127.0.0.1:4318 https://api.github.com"
   },
   "optional_host_permissions": ["http://*/*", "https://*/*"],
   "commands": {
@@ -24,12 +35,18 @@
       "suggested_key": {
         "default": "Alt+Shift+A"
       },
-      "description": "选取网页元素"
+      "description": "__MSG_pickElement__"
     },
     "_execute_action": {
       "suggested_key": {
         "default": "Alt+Shift+P"
       }
     }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   }
 }

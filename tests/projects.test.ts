@@ -1,3 +1,4 @@
+import { fixtureDelivery } from './delivery-fixture.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, realpathSync, mkdirSync, rmSync } from 'node:fs';
@@ -12,7 +13,8 @@ test('live project binding is local-only, idempotent and persisted across multip
   const directory = realpathSync(mkdtempSync(join(tmpdir(), 'pointdom-bind-')));
   try {
     const store = new Store(join(directory, 'state'));
-    const app = createApp(store, new Queue(store));
+    assert.equal(store.config.defaultExecutor, 'mcp');
+    const app = createApp(store, new Queue(store), 4318, fixtureDelivery);
     const first = join(directory, 'one'),
       second = join(directory, 'two');
     mkdirSync(first);
@@ -77,4 +79,10 @@ test('login service uses absolute executables, retains loopback bridge and store
   assert.equal(xml.includes('apiKey'), false);
   assert.equal(xml.includes('token'), false);
   assert.equal(xml.includes('OPENCODE_SERVER_PASSWORD'), false);
+});
+
+test('login service supports MCP-only installations without an OpenCode executable', () => {
+  const xml = launchAgent('/node', '/app/main.js', '/state', undefined, '/usr/bin:/bin');
+  assert.equal(xml.includes('PAGEPATCH_OPENCODE_BIN'), false);
+  assert.match(xml, /PAGEPATCH_HOME/);
 });
