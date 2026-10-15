@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PagePatch · 网页改代码",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "网页 DOM 批注：交给 Codex 或通过 MCP 连接其他编程 Agent。",
   "minimum_chrome_version": "120",
   "permissions": ["activeTab", "scripting", "storage", "sidePanel"],
