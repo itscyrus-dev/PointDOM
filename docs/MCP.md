@@ -2,6 +2,30 @@
 
 PointDOM exposes selected DOM context, per-element descriptions and overall instructions as text through local stdio MCP. Screenshots and multimodal models are not required. The receiving agent owns code editing, model selection, reasoning, permissions and Git commits. This optional mode is separate from direct OpenCode CLI execution.
 
+## Quick setup with CC Switch
+
+After installing PointDOM and pairing the extension, run this from the project you want to edit:
+
+```sh
+pdo connect --origin http://localhost:5173
+```
+
+This links the current project to the site and opens CC Switch's MCP import confirmation for OpenCode. Confirm the import and restart OpenCode. Model/provider settings already managed by CC Switch stay in the host application; PointDOM does not ask for model keys. The import confirmation is not bypassed.
+
+In the browser extension, select **Other Agent (MCP)** and submit an annotation. In OpenCode, ask: **“Use PagePatch MCP to process pending annotations for this project, verify the edits, and report the results.”** MCP still requires the agent to start processing; importing it does not wake an idle session automatically.
+
+For an already linked project, run `pdo connect` from that directory. To target a different application, add `--app codex` or `--app claude`. Each project gets a distinct MCP name. After a PointDOM upgrade, a new installation gets a distinct entry so CC Switch cannot silently retain an obsolete command; remove unused older entries.
+
+If the deep link is unavailable in your CC Switch version:
+
+```sh
+pdo connect --json
+```
+
+Paste the output into **Add MCP** in CC Switch, save, and enable OpenCode's checkbox. `pdo connect --url` prints the import link without opening an app. JSON/link output contains launch paths and the state directory, never pairing codes or provider keys. A source checkout can use `node dist/bridge/main.js connect` after building.
+
+The link format follows [CC Switch's MCP deep-link protocol](https://github.com/farion1231/cc-switch/blob/main/docs/user-manual/en/5-faq/5.3-deeplink.md). Opening the link requests an import; PointDOM cannot assert that the user confirmed it or that the agent connected successfully.
+
 ## One-time Setup
 
 1. Build the source installation with `pnpm install --frozen-lockfile` and `pnpm build`. Keep the bridge running with the login service or `pnpm start`.

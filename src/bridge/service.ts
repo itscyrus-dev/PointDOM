@@ -51,19 +51,22 @@ export function findOpenCode() {
       return false;
     }
   });
-  if (!binary) throw new Error('请先安装 OpenCode CLI，或设置 PAGEPATCH_OPENCODE_BIN 的绝对路径');
+  if (!binary)
+    throw new Error('Install OpenCode CLI or set PAGEPATCH_OPENCODE_BIN to its absolute path.');
   execFileSync(binary, ['--version'], { stdio: 'pipe', timeout: 10000 });
   return binary;
 }
 export function installService(state: string) {
   if (process.platform !== 'darwin')
-    throw new Error('自动启动目前支持 macOS；其他平台请使用 pnpm start');
+    throw new Error('Login startup supports macOS only. Use pnpm start on other platforms.');
   const binary = findOpenCode();
   const entry = fileURLToPath(new URL('./main.js', import.meta.url));
   const path = `${dirname(process.execPath)}:${dirname(binary)}:${process.env.PATH || '/usr/bin:/bin'}`;
   const plist = file();
   if (existsSync(plist))
-    throw new Error('后台服务已安装；更新前请先执行 pdo uninstall（会停止当前任务）');
+    throw new Error(
+      'The background service is already installed. Run pdo uninstall before updating; this stops active tasks.',
+    );
   mkdirSync(dirname(plist), { recursive: true });
   mkdirSync(state, { recursive: true, mode: 0o700 });
   writeFileSync(plist, launchAgent(process.execPath, entry, state, binary, path), { mode: 0o600 });
@@ -76,12 +79,12 @@ export function installService(state: string) {
     execFileSync('launchctl', ['bootstrap', `gui/${process.getuid!()}`, plist], { stdio: 'pipe' });
   } catch {
     unlinkSync(plist);
-    throw new Error('后台服务注册失败，请检查 macOS 登录会话');
+    throw new Error('Could not register the background service. Check your macOS login session.');
   }
   return launcher;
 }
 export function uninstallService() {
-  if (process.platform !== 'darwin') throw new Error('自动启动目前支持 macOS');
+  if (process.platform !== 'darwin') throw new Error('Login startup supports macOS only.');
   if (!existsSync(file())) return;
   execFileSync('launchctl', ['bootout', `gui/${process.getuid!()}`, file()], { stdio: 'pipe' });
   unlinkSync(file());
