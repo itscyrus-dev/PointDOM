@@ -1,4 +1,22 @@
 import { z } from 'zod';
+const domAttributesSchema = z
+  .record(z.string().max(40), z.string().max(200))
+  .refine((value) => Object.keys(value).length <= 16);
+const domSummarySchema = z.object({
+  tag: z.string().max(40),
+  attributes: domAttributesSchema,
+  label: z.string().max(120),
+});
+export const domSnapshotSchema = z
+  .object({
+    capturedAt: z.iso.datetime(),
+    html: z.string().max(3200),
+    attributes: domAttributesSchema,
+    ancestors: z.array(domSummarySchema).max(4),
+    siblings: z.array(domSummarySchema.extend({ relation: z.enum(['previous', 'next']) })).max(2),
+    truncated: z.boolean(),
+  })
+  .refine((value) => new TextEncoder().encode(JSON.stringify(value)).length <= 10000);
 export const selectionSchema = z.object({
   url: z
     .string()
@@ -7,9 +25,12 @@ export const selectionSchema = z.object({
     .refine((v) => /^https?:/.test(v)),
   title: z.string().max(300),
   selector: z.string().max(3000),
+  selectorPath: z.array(z.string().min(1).max(3000)).min(1).max(8).optional(),
+  dom: domSnapshotSchema.optional(),
   label: z.string().max(500),
   description: z.string().max(2000).optional(),
   tag: z.string().max(40),
+  role: z.string().max(40).optional(),
   viewport: z.object({
     width: z.number().int().positive().max(20000),
     height: z.number().int().positive().max(20000),
@@ -50,9 +71,20 @@ export type ModelChoice = {
   defaultEffort: string;
   tiers: { id: string; name: string }[];
 };
+export const executorSchema = z.enum(['codex', 'opencode', 'claude', 'trae', 'mcp']);
+export type Executor = z.infer<typeof executorSchema>;
+export function executorName(executor: Executor = 'codex') {
+  return {
+    codex: 'Codex',
+    opencode: 'OpenCode',
+    claude: 'Claude Code',
+    trae: 'Trae',
+    mcp: 'Agent · MCP',
+  }[executor];
+}
 export const submissionSchema = z
   .object({
-    executor: z.enum(['codex', 'opencode', 'mcp']).optional(),
+    executor: executorSchema.optional(),
     id: z.string().uuid(),
     projectId: z.string().uuid(),
     instruction: z.string().trim().min(1).max(8000),
@@ -62,11 +94,23 @@ export const submissionSchema = z
   })
   .strict();
 export type Submission = z.infer<typeof submissionSchema>;
+export const projectPermissionsSchema = z
+  .object({
+    confirmation: z.enum(['default', 'reduced']),
+    codexNetwork: z.boolean(),
+  })
+  .strict();
+export type ProjectPermissions = z.infer<typeof projectPermissionsSchema>;
+export const defaultProjectPermissions: ProjectPermissions = {
+  confirmation: 'default',
+  codexNetwork: false,
+};
 export const projectSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(80),
   cwd: z.string().min(1),
   origins: z.array(z.string().url()).min(1),
+  permissions: projectPermissionsSchema.optional(),
   openCodeModel: z
     .string()
     .max(200)
@@ -106,12 +150,16 @@ export const commitSchema = z.object({
   error: z.string().optional(),
 });
 export type Job = Submission & {
+  permissions?: ProjectPermissions;
+  delivery?: Delivery;
   agent?: string;
   claim?: string;
   commit?: z.infer<typeof commitSchema>;
   status: JobStatus;
   createdAt: string;
   updatedAt: string;
+  startedAt?: string;
+  finishedAt?: string;
   events: { at: string; text: string }[];
   result: string;
   error?: string;
@@ -121,7 +169,17 @@ export type Job = Submission & {
 export const terminal = (status: JobStatus) =>
   ['completed', 'failed', 'cancelled', 'interrupted'].includes(status);
 
+export const deliverySchema = z.object({
+  target: executorSchema,
+  fingerprint: z.string().length(64),
+  state: z.enum(['cli', 'pending', 'pasted', 'copied', 'blocked', 'uncertain']),
+  detail: z.string().max(600).optional(),
+});
+export type Delivery = z.infer<typeof deliverySchema>;
+
 export const jobSchema = submissionSchema.extend({
+  permissions: projectPermissionsSchema.optional(),
+  delivery: deliverySchema.optional(),
   agent: z.string().optional(),
   claim: z.string().optional(),
   commit: commitSchema.optional(),
@@ -136,6 +194,8 @@ export const jobSchema = submissionSchema.extend({
   ]),
   createdAt: z.string(),
   updatedAt: z.string(),
+  startedAt: z.iso.datetime().optional(),
+  finishedAt: z.iso.datetime().optional(),
   events: z.array(z.object({ at: z.string(), text: z.string() })),
   result: z.string(),
   error: z.string().optional(),

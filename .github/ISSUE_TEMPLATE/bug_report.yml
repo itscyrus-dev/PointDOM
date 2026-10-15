@@ -15,7 +15,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: OS, architecture, Chrome version, Node version and OpenCode CLI version.
+      description: OS, architecture, Chrome version, PointDOM installation method, selected agent and its CLI/client version.
     validations:
       required: true
   - type: textarea

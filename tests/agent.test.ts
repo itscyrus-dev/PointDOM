@@ -1,3 +1,4 @@
+import { fixtureDelivery } from './delivery-fixture.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -24,7 +25,7 @@ test('MCP inbox isolates projects, authenticates, deduplicates claims and report
       executions++;
       return { done: Promise.resolve(), cancel() {}, reply() {} };
     });
-    const app = createApp(store, queue);
+    const app = createApp(store, queue, 4318, fixtureDelivery);
     const input = {
       id: randomUUID(),
       projectId,
@@ -43,6 +44,7 @@ test('MCP inbox isolates projects, authenticates, deduplicates claims and report
       },
     };
     const job = queue.submit(input);
+    assert.equal(job.startedAt, undefined);
     await new Promise((r) => setTimeout(r, 0));
     assert.equal(executions, 0);
     assert.equal(queue.submit(input), job);
@@ -77,7 +79,10 @@ test('MCP inbox isolates projects, authenticates, deduplicates claims and report
     assert.equal(job.status, 'queued');
     const owner = { projectId, claim: randomUUID(), agent: 'Trae' };
     assert.equal((await call(`/tasks/${job.id}/claim`, owner)).status, 200);
+    assert.ok(job.startedAt);
+    const startedAt = job.startedAt;
     assert.equal((await call(`/tasks/${job.id}/claim`, owner)).status, 200);
+    assert.equal(job.startedAt, startedAt);
     assert.equal(
       (await call(`/tasks/${job.id}/claim`, { ...owner, claim: randomUUID() })).status,
       409,
@@ -94,9 +99,15 @@ test('MCP inbox isolates projects, authenticates, deduplicates claims and report
       403,
     );
     assert.equal((await call(`/tasks/${job.id}/report`, report)).status, 200);
+    assert.ok(job.finishedAt);
+    const finishedAt = job.finishedAt;
     assert.equal((await call(`/tasks/${job.id}/report`, report)).status, 200);
+    assert.equal(job.finishedAt, finishedAt);
     assert.match(job.result, /未做浏览器验证/);
     assert.equal(job.status, 'completed');
+    const persisted = new Store(dir).jobs.find((entry) => entry.id === job.id)!;
+    assert.equal(persisted.startedAt, startedAt);
+    assert.equal(persisted.finishedAt, finishedAt);
     const pending = queue.submit({ ...input, id: randomUUID() });
     await call(`/tasks/${pending.id}/claim`, owner);
     queue.cancel(pending.id);

@@ -64,6 +64,7 @@ export function installAgentRoutes(app: Hono, store: Store, wake: () => void) {
     job.agent = input.agent;
     job.claim = hash(input.claim);
     job.updatedAt = new Date().toISOString();
+    job.startedAt = job.updatedAt;
     job.events.push({ at: job.updatedAt, text: `${input.agent} 已领取任务` });
     store.saveJobs();
     return c.json({ project: store.project(job.projectId), context: agentContext(job) });
@@ -88,6 +89,7 @@ export function installAgentRoutes(app: Hono, store: Store, wake: () => void) {
     job.status = input.outcome;
     job.result = result;
     job.updatedAt = new Date().toISOString();
+    job.finishedAt = job.updatedAt;
     job.events.push({
       at: job.updatedAt,
       text: `${job.agent} 已回报；文件与验证结果由外部 Agent 提供`,

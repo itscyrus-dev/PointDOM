@@ -3,7 +3,7 @@ import { mkdir, cp, readFile, writeFile, rm, readdir } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { resolve, dirname, basename } from 'node:path';
-await import('./build.mjs');
+const { browserBundle } = await import('./build.mjs');
 const output = resolve('dist/release');
 const app = resolve('dist/package/pointdom');
 await rm(resolve('dist/package'), { recursive: true, force: true });
@@ -22,7 +22,17 @@ const bundle = await build({
   outdir: `${app}/dist/bridge`,
 });
 const packages = new Map();
-for (const input of Object.keys(bundle.metafile.inputs)) {
+// Only attribute code actually emitted. Empty markers such as client-only are
+// resolved by the bundler but contribute no files or code to the distribution.
+const shippedInputs = new Set(
+  Object.values({ ...bundle.metafile.outputs, ...browserBundle.metafile.outputs }).flatMap(
+    (output) =>
+      Object.entries(output.inputs)
+        .filter(([, info]) => info.bytesInOutput > 0)
+        .map(([input]) => input),
+  ),
+);
+for (const input of shippedInputs) {
   if (!input.includes('node_modules/')) continue;
   let folder = dirname(resolve(input));
   while (folder !== dirname(folder)) {
@@ -41,6 +51,8 @@ for (const input of Object.keys(bundle.metafile.inputs)) {
 let notices = '';
 for (const [name, folder] of [...packages].sort()) {
   const files = (await readdir(folder)).filter((file) => /^(licen[cs]e|copying)(\.|$)/i.test(file));
+  const metadata = JSON.parse(await readFile(`${folder}/package.json`, 'utf8'));
+  if (!files.length && metadata.license === 'SEE LICENSE IN README.md') files.push('README.md');
   if (!files.length) throw new Error(`Dependency license missing: ${name}`);
   notices += `\n===== ${name} =====\n`;
   for (const file of files)
@@ -53,7 +65,19 @@ await writeFile(
   JSON.stringify({ name: 'pointdom', version: pkg.version, type: 'module' }),
 );
 await cp('dist/extension', `${app}/dist/extension`, { recursive: true });
-await cp('docs/INSTALL_AGENT.md', `${app}/INSTALL.md`);
+await cp('README.md', `${app}/README.md`);
+await cp('CHANGELOG.md', `${app}/CHANGELOG.md`);
+await cp('README.zh-CN.md', `${app}/README.zh-CN.md`);
+await cp('docs', `${app}/docs`, { recursive: true });
+await cp('AGENTS.md', `${app}/AGENTS.md`);
+await cp('DESIGN.md', `${app}/DESIGN.md`);
+await cp('CONTRIBUTING.md', `${app}/CONTRIBUTING.md`);
+await cp('SECURITY.md', `${app}/SECURITY.md`);
+await cp('CODE_OF_CONDUCT.md', `${app}/CODE_OF_CONDUCT.md`);
+await writeFile(
+  `${app}/INSTALL.md`,
+  '# Installation\n\nSee [the installation runbook](docs/INSTALL_AGENT.md).\n',
+);
 await cp('LICENSE', `${app}/LICENSE`);
 await writeFile(
   `${output}/install.sh`,

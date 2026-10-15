@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { version } from './version.js';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -28,6 +29,10 @@ export async function upgrade(entry: string) {
   const { tag_name: tag } = z
     .object({ tag_name: z.string().regex(/^v\d+\.\d+\.\d+$/) })
     .parse(await release.json());
+  if (tag === `v${version}`) {
+    console.log(`PointDOM ${version} is already up to date.`);
+    return;
+  }
   const base = `https://github.com/itscyrus-dev/PointDOM/releases/download/${tag}`;
   const response = await fetch(`${base}/install.sh`, { signal: AbortSignal.timeout(60000) });
   if (!response.ok) throw new Error('Could not download the latest installer. Try again later.');

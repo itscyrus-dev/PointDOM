@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { existsSync, realpathSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { z } from 'zod';
+import { pathToFileURL } from 'node:url';
+import { stableMcpEntry } from './release-paths.js';
 
 export const connectionApp = z.enum(['opencode', 'codex', 'claude']);
 const projectsSchema = z.object({
@@ -22,8 +24,9 @@ export function connectionConfig(
     );
   if (!existsSync(entry))
     throw new Error('MCP entry not found. Reinstall PointDOM or run pnpm build.');
-  // CC Switch merges existing IDs without replacing their commands. Include the installation
-  // path so an upgrade cannot silently keep launching an obsolete release.
+  entry = stableMcpEntry(pathToFileURL(entry).href);
+  // Fixed release entries retain the server ID across upgrades. Source checkouts
+  // still include their entry path so separate installations cannot collide.
   const suffix = createHash('sha256')
     .update(JSON.stringify([cwd, entry]))
     .digest('hex')

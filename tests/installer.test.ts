@@ -31,6 +31,7 @@ test('curl installer works with spaced paths, is repeatable and rejects tampered
     writeFileSync(
       `${app}/dist/bridge/main.js`,
       `import {mkdirSync,writeFileSync} from 'node:fs'; import {join} from 'node:path';
+      if(process.argv[2] === 'extension' && process.argv[3] === '--reload'){console.log('fixture: reload requested');process.exit(0);}
       if(process.argv[2] !== 'install' || process.env.FIXTURE_INSTALL_FAIL === '1')process.exit(1);
       const folder=join(process.env.HOME,'Library/LaunchAgents');mkdirSync(folder,{recursive:true});
       writeFileSync(join(folder,'dev.pointdom.bridge.plist'),'fixture');
@@ -133,6 +134,10 @@ test('curl installer works with spaced paths, is repeatable and rejects tampered
     );
     const upgraded = run('/bin/zsh', upgradeEnv, ['--upgrade']);
     assert.equal(upgraded.status, 0, upgraded.stderr);
+    assert.match(upgraded.stdout, /PointDOM 0.1.0 updated/);
+    assert.match(upgraded.stdout, /Project bindings, pairing and history were preserved/);
+    assert.match(upgraded.stdout, /fixture: reload requested/);
+    assert.doesNotMatch(upgraded.stdout, /pdo setup|Next steps/);
     assert.equal(
       readFileSync(`${home}/Library/LaunchAgents/dev.pointdom.bridge.plist`, 'utf8'),
       'fixture',
@@ -151,10 +156,11 @@ test('curl installer works with spaced paths, is repeatable and rejects tampered
     assert.equal(run('/bin/zsh', { PATH: systemPath }).status, 0);
     rmSync(`${home}/Library`, { recursive: true });
     rmSync(`${home}/.local`, { recursive: true });
-    const prerequisite = run('/bin/zsh', { PATH: systemPath });
-    assert.notEqual(prerequisite.status, 0);
-    assert.match(prerequisite.stderr, /Install and configure OpenCode CLI first/);
-    assert.doesNotMatch(prerequisite.stdout, /Downloading/);
+    const noCli = run('/bin/zsh', { PATH: systemPath });
+    assert.equal(noCli.status, 0, noCli.stderr);
+    assert.match(noCli.stdout, /is ready/);
+    rmSync(`${home}/Library`, { recursive: true });
+    rmSync(`${home}/.local`, { recursive: true });
     writeFileSync(`${bin}/opencode`, '#!/bin/sh\necho fixture\n', { mode: 0o700 });
     writeFileSync(`${release}/SHA256SUMS`, `${'0'.repeat(64)}  pointdom.tar.gz\n`);
     const tampered = run();

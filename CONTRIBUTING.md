@@ -6,6 +6,8 @@ Use Conventional Commits: `type(scope): description`. Types include `feat`, `fix
 
 Describe the concrete problem, resulting behavior, validation and limitations in your pull request. Document compatibility changes to protocols and storage. Include isolated test screenshots for UI changes without private content. Do not commit build output, browser profiles, pairing codes, API keys or state from `~/.pagepatch`.
 
+The default README, detailed repository guides, issue templates and generated MCP/context guidance are English. `README.zh-CN.md` is the supported Simplified Chinese translation; keep its commands, requirements and capability descriptions aligned with `README.md`. Language-navigation labels may be localized. Product UI remains Simplified Chinese/English, and original user/page content must not be translated as a side effect of changing UI language. Follow the [documentation map](README.md#development-and-contributing): keep onboarding in the installation runbook and host-specific details in `docs/agents`, rather than duplicating long instructions across pages.
+
 ## Validation
 
 Run:

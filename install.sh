@@ -56,7 +56,6 @@ if [ -f "$HOME/Library/LaunchAgents/dev.pointdom.bridge.plist" ] && [ "$upgrade"
   printf '\n  To update: run ~/.local/bin/pdo upgrade after active tasks finish.\n\n'
   exit 0
 fi
-command -v opencode >/dev/null 2>&1 || fail 'Install and configure OpenCode CLI first, then rerun this installer. See https://opencode.ai'
 
 base="$HOME/.local/share/pointdom"
 mkdir -p "$base"
@@ -127,10 +126,20 @@ if ! "$node_bin" "$app/dist/bridge/main.js" install --quiet; then
 fi
 
 stopped=false
-printf '\n  %sPointDOM %s is ready.%s Background service started.\n' "$green" "$version" "$reset"
-print_path_commands
-printf '\n  %sNext steps%s\n\n' "$bold" "$reset"
-printf '  1. Load the Chrome extension\n     Run ~/.local/bin/pdo extension to open Chrome setup and copy the folder path.\n     Enable Developer mode and choose Load unpacked.\n     Extension folder: %s/dist/extension\n' "$app"
-printf '\n  2. Pair the extension\n     Run ~/.local/bin/pdo pair and paste the code into the extension settings.\n     Choose OpenCode CLI and allow access to your development site.\n'
-printf '\n  3. Link your project (once per project)\n     cd /path/to/your/project\n     ~/.local/bin/pdo link --origin http://localhost:5173\n'
-printf '\n  Start your app as usual, then select an element and describe a change.\n  Help: ~/.local/bin/pdo help\n\n'
+if [ "$upgrade" = true ]; then
+  printf '\n  %sPointDOM %s updated.%s\n' "$green" "$version" "$reset"
+  printf '  Project bindings, pairing and history were preserved.\n\n'
+  "$node_bin" "$app/dist/bridge/main.js" extension --reload ||
+    printf '  Open chrome://extensions and reload PointDOM, then refresh your project page.\n'
+  printf '\n  Restart your MCP client to use the updated server.\n'
+  printf '  Older version-specific MCP configs need a one-time re-import with pdo connect --json.\n'
+  printf '  Future updates: ~/.local/bin/pdo upgrade\n\n'
+else
+  printf '\n  %sPointDOM %s is ready.%s Background service started.\n' "$green" "$version" "$reset"
+  print_path_commands
+  printf '\n  %sNext steps%s\n\n' "$bold" "$reset"
+  printf '  cd /path/to/your/project\n  ~/.local/bin/pdo setup\n'
+  printf '\n  The setup guide opens Chrome and copies the extension folder path.\n'
+  printf '  Later updates: ~/.local/bin/pdo upgrade\n'
+  printf '  Help: ~/.local/bin/pdo help\n\n'
+fi

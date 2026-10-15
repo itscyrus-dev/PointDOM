@@ -1,3 +1,4 @@
+import { executorSchema } from '../shared/contracts.js';
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -9,7 +10,7 @@ const configSchema = z.object({
   clients: z.array(z.string()),
   projects: z.array(projectSchema),
   threads: z.record(z.string(), z.string()),
-  defaultExecutor: z.enum(['codex', 'opencode']).default('codex'),
+  defaultExecutor: executorSchema.default('codex'),
 });
 export class Store {
   config: z.infer<typeof configSchema>;
@@ -25,7 +26,7 @@ export class Store {
           clients: [],
           projects: [],
           threads: {},
-          defaultExecutor: 'opencode',
+          defaultExecutor: 'mcp',
         };
     this.jobs = existsSync(this.path('jobs.json'))
       ? z.array(jobSchema).parse(JSON.parse(readFileSync(this.path('jobs.json'), 'utf8')))
@@ -49,6 +50,12 @@ export class Store {
     this.atomic('jobs.json', this.jobs);
   }
   recover() {
+    for (const job of this.jobs)
+      if (job.delivery?.state === 'pending') {
+        job.delivery.state = 'uncertain';
+        job.delivery.detail =
+          '服务已重启，未确认客户端是否已收到指令；请检查输入框后再决定是否重新填入。';
+      }
     for (const job of this.jobs)
       if (!terminal(job.status) && !(job.executor === 'mcp' && job.status === 'queued')) {
         job.status = 'interrupted';

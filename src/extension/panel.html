@@ -1,145 +1,16 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-mode="dark" data-accent="lime" data-shape="rounded">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>PagePatch</title>
+    <title>PointDOM</title>
+    <link rel="icon" type="image/png" href="icons/icon-32.png" />
+    <link rel="stylesheet" href="heroui.css" />
+    <link rel="stylesheet" href="palette.css" />
     <link rel="stylesheet" href="panel.css" />
   </head>
   <body>
-    <header>
-      <div>
-        <b>PagePatch<span>●</span></b
-        ><small>网页批注与代码修改</small>
-      </div>
-      <span id="connection" class="pill">未连接</span>
-    </header>
-    <main class="panel-layout">
-      <section class="fixed-composer">
-        <div class="composer-caption">
-          <small id="project-path"></small
-          ><button id="connection-settings" class="quiet" aria-label="设置">设置</button>
-        </div>
-        <div class="compose-box">
-          <div id="selected" class="target empty"></div>
-          <textarea
-            id="instruction"
-            aria-label="修改意见"
-            maxlength="8000"
-            placeholder="描述想修改的地方…"
-            title="Enter 发送，Shift + Enter 换行"
-            rows="4"
-          ></textarea>
-          <div class="compose-tools">
-            <button id="pick" class="quiet" aria-label="选取元素">＋ 选取</button>
-            <details id="execution-settings">
-              <summary>执行设置 <span id="execution-summary"></span></summary>
-              <div class="settings-grid">
-                <label class="agent-destination"
-                  >执行方式<select id="executor">
-                    <option value="opencode">OpenCode CLI</option>
-                    <option value="codex">Codex</option>
-                    <option value="mcp">其他 Agent（MCP）</option>
-                  </select></label
-                >
-                <label
-                  >模型<select id="model">
-                    <option value="">自动</option>
-                  </select></label
-                >
-                <label
-                  >速度<select id="speed">
-                    <option value="">默认</option>
-                  </select></label
-                >
-                <label
-                  >思考程度<select id="effort">
-                    <option value="">默认</option>
-                  </select></label
-                >
-                <label
-                  >操作确认<select id="approval">
-                    <option value="on-request">需要时确认</option>
-                    <option value="untrusted">严格确认</option>
-                    <option value="never">不弹确认</option>
-                  </select></label
-                >
-                <label class="auto-commit"
-                  ><input id="auto-commit" type="checkbox" />自动 Commit</label
-                >
-              </div>
-              <small id="execution-help">选项随模型变化，自动保存。</small>
-            </details>
-            <button
-              id="submit"
-              class="primary send"
-              disabled
-              aria-label="提交修改"
-              title="提交修改（Enter）"
-            >
-              ↑
-            </button>
-          </div>
-        </div>
-        <div id="notice" role="status" aria-live="polite"></div>
-      </section>
-      <nav class="record-tabs" aria-label="记录筛选">
-        <button id="tab-all" aria-pressed="true">修改记录 <span id="job-count">0</span></button
-        ><button id="tab-active" aria-pressed="false">
-          进行中 <span id="active-count">0</span></button
-        ><button id="refresh" class="quiet" aria-label="刷新记录">刷新</button>
-      </nav>
-      <section class="record-scroll" aria-label="修改记录">
-        <div id="jobs" class="stack"></div>
-      </section>
-      <section id="connection-view" hidden>
-        <div class="section-title">
-          <h2>设置</h2>
-          <button id="close-connection" class="quiet" aria-label="关闭设置">×</button>
-        </div>
-        <section class="shortcut-settings" aria-label="快捷键">
-          <div class="section-title">
-            <h2>快捷键</h2>
-            <button id="edit-shortcuts" class="quiet">修改快捷键 ↗</button>
-          </div>
-          <div class="shortcut-row"><span>选取元素</span><kbd id="shortcut-pick">读取中…</kbd></div>
-          <div class="shortcut-row">
-            <span>打开 / 关闭侧栏</span><kbd id="shortcut-panel">读取中…</kbd>
-          </div>
-          <small>再次按选取快捷键退出，也可按 Esc。修改按键后返回自动更新。</small>
-        </section>
-        <details id="setup" open>
-          <summary>连接 PagePatch</summary>
-          <div class="stack">
-            <p class="muted">
-              首次运行
-              <code>pointdom pair</code> 获取配对码，连接后自动保存。已安装的后台服务会随登录启动。
-            </p>
-            <label for="token">配对码</label
-            ><input
-              id="token"
-              type="password"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="粘贴本机配对码"
-            /><button id="connect" class="primary">连接</button
-            ><span id="account" class="muted"></span>
-          </div>
-        </details>
-        <div id="project-field">
-          <label for="project">代码项目</label
-          ><select id="project">
-            <option value="">连接后选择项目</option>
-          </select>
-        </div>
-        <button id="copy-context" class="quiet">复制 DOM 与修改描述</button>
-        <small
-          >Trae / ZCode：在 MCP 设置中添加 PagePatch，再让 Agent 读取待处理批注。模型在对应 App
-          中选择。</small
-        >
-        <button id="enable-page" class="primary">启用当前网页访问</button>
-      </section>
-    </main>
+    <div id="root"></div>
     <script src="panel.js"></script>
   </body>
 </html>

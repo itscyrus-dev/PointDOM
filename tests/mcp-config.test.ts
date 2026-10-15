@@ -47,9 +47,9 @@ test('MCP config selects one registered project and exports CC Switch and OpenCo
       assert.equal(result.stdout, '');
       assert.ok(result.stderr.includes(message));
     };
-    failure(['--project'], '缺少参数');
-    failure(['--client', 'unknown'], '仅支持');
-    failure(['--project', home], '项目尚未注册');
+    failure(['--project'], 'Missing value');
+    failure(['--client', 'unknown'], 'must be');
+    failure(['--project', home], 'Project not registered');
     config.projects.push({ cwd: home });
     save();
     failure([], '--project');

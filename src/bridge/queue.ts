@@ -1,4 +1,6 @@
 import { snapshot, prepareCommit, commitJob, type GitSnapshot } from './commit.js';
+import { runClaude } from './claude.js';
+import { runTrae } from './acp.js';
 import { runOpenCode } from './opencode.js';
 import { realpathSync } from 'node:fs';
 import type { Job, Reply, Submission } from '../shared/contracts.js';
@@ -10,11 +12,13 @@ export class Queue {
   constructor(
     readonly store: Store,
     readonly runner: Runner = (project, job, thread, hooks) =>
-      (job.executor === 'opencode' ? runOpenCode : runCodex)(project, job, thread, hooks),
+      ({ codex: runCodex, opencode: runOpenCode, claude: runClaude, trae: runTrae })[
+        job.executor === 'mcp' ? 'codex' : job.executor || 'codex'
+      ](project, job, thread, hooks),
   ) {}
   submit(input: Submission): Job {
-    if (input.executor === 'opencode' && input.execution)
-      throw new Error('OpenCode 的模型由本机配置管理，请勿提交 Codex 执行设置');
+    if (input.executor && input.executor !== 'codex' && input.execution)
+      throw new Error('该 Agent 的模型与权限由本机配置管理，请勿提交 Codex 执行设置');
     const existing = this.store.jobs.find((j) => j.id === input.id);
     if (existing) {
       if (
@@ -40,6 +44,7 @@ export class Queue {
       throw new Error('待处理任务过多，请等待现有任务完成');
     const job: Job = {
       ...input,
+      ...(project.permissions ? { permissions: { ...project.permissions } } : {}),
       status: 'queued',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -53,6 +58,7 @@ export class Queue {
   }
   private update(job: Job) {
     job.updatedAt = new Date().toISOString();
+    if (job.startedAt && terminal(job.status)) job.finishedAt ??= job.updatedAt;
     this.store.saveJobs();
   }
   wake() {
@@ -96,6 +102,7 @@ export class Queue {
       /* Editing still works without Git. */
     }
     job.status = 'running';
+    job.startedAt = new Date().toISOString();
     this.update(job);
     let handle: Running;
     try {
@@ -111,7 +118,7 @@ export class Queue {
         },
         thread: (id) => {
           job.threadId = id;
-          if (job.executor !== 'opencode') this.store.config.threads[project.id] = id;
+          if (!job.executor || job.executor === 'codex') this.store.config.threads[project.id] = id;
           this.store.saveConfig();
           this.update(job);
         },
@@ -139,15 +146,8 @@ export class Queue {
         () => {
           if (!terminal(job.status)) {
             job.status = 'completed';
+            job.finishedAt = new Date().toISOString();
             prepareCommit(project.cwd, before, job);
-            if (job.execution?.autoCommit && job.commit?.status === 'ready') {
-              try {
-                commitJob(project.cwd, job);
-              } catch (e) {
-                job.commit.status = 'failed';
-                job.commit.error = e instanceof Error ? e.message : '提交失败';
-              }
-            }
           }
         },
         (e) => {

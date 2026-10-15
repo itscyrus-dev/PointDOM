@@ -1,0 +1,14 @@
+import { brandAccent } from './ui-palette.js';
+
+// One geometric mark for the panel, toolbar and extension management page.
+export const logoFrame = 'M7 13V8a1 1 0 0 1 1-1h5M19 25h5a1 1 0 0 0 1-1v-5';
+export const logoDot = { cx: 16, cy: 16, r: 3.5 } as const;
+
+export function logoSvg() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <title>PointDOM</title>
+  <rect width="32" height="32" rx="8" fill="#191b1e"/>
+  <path d="${logoFrame}" stroke="#f1f2f3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="${logoDot.cx}" cy="${logoDot.cy}" r="${logoDot.r}" fill="${brandAccent}"/>
+</svg>\n`;
+}
