@@ -63,6 +63,7 @@ test('upgrade handshake refuses active tasks and blocks submissions and MCP clai
     assert.equal((await call('/api/local/upgrade/prepare')).status, 409);
     queue.cancel(job.id);
     assert.equal((await call('/api/local/upgrade/prepare')).status, 200);
+    assert.equal((await call('/api/local/upgrade/prepare')).status, 409);
     const headers = {
       Host: '127.0.0.1:4318',
       Authorization: `Bearer ${store.config.token}`,

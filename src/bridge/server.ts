@@ -63,6 +63,8 @@ export function createApp(store: Store, queue: Queue, port = 4318) {
     await next();
   });
   app.post('/api/local/upgrade/prepare', (c) => {
+    if (Date.now() < upgradeUntil)
+      return c.json({ error: 'Another upgrade is already in progress.' }, 409);
     if (store.jobs.some((job) => !terminal(job.status)))
       return c.json(
         {
