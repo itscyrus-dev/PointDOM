@@ -1,3 +1,4 @@
+import { extensionBrowserArgs } from './browser-args.js';
 import { test, expect, chromium } from '@playwright/test';
 import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,12 +11,7 @@ test('settings version checks work without pairing and handle pending, updates, 
   const context = await chromium.launchPersistentContext(profile, {
     channel: 'chromium',
     headless: true,
-    args: [
-      '--enable-unsafe-extension-debugging',
-      '--disable-features=DisableLoadExtensionCommandLineSwitch',
-      `--disable-extensions-except=${extension}`,
-      `--load-extension=${extension}`,
-    ],
+    args: extensionBrowserArgs(extension),
   });
   const current: string = JSON.parse(
     readFileSync(resolve('dist/extension/manifest.json'), 'utf8'),

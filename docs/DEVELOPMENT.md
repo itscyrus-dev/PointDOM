@@ -68,6 +68,8 @@ A source installation creates absolute Node/MCP/service paths. Moving the checko
 
 ## UI and generated assets
 
+Browser tests use a shared Chromium argument list in `tests/e2e/browser-args.ts`. On Linux, `--disable-frame-rate-limit` prevents inactive extension views from falling back to one compositor frame per second. This keeps screenshots and real HeroUI interactions within the existing test budgets without disabling animations, skipping actionability checks or changing the shipped extension. Do not remove the argument in one fixture or replace it with larger timeouts.
+
 React 19 and HeroUI 3 are pinned. Build copies precompiled HeroUI CSS locally; no remote CDN or runtime Tailwind compiler is involved. HeroUI owns dropdown, popover, disclosure and checkbox behavior. Keep CSS tokens consistent across light/dark surfaces and portals. See [Design](../DESIGN.md) for focus, compact layout, picking, access and running-task borders.
 
 `brand.ts` defines the logo. Run `pnpm icons` after geometry changes to regenerate SVG and 16/32/48/128px PNGs. Chrome `_locales` controls native labels; the panel's selected language is independent. Generated context guidance and MCP tool descriptions are English, while original notes/page text remain unchanged. Keep product UI bilingual.

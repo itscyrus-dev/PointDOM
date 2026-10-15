@@ -1,3 +1,4 @@
+import { extensionBrowserArgs } from './browser-args.js';
 import { fixtureDelivery } from '../delivery-fixture.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -157,12 +158,7 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
   const context = await chromium.launchPersistentContext(join(directory, 'profile'), {
     channel: 'chromium',
     headless: true,
-    args: [
-      '--enable-unsafe-extension-debugging',
-      '--disable-features=DisableLoadExtensionCommandLineSwitch',
-      `--disable-extensions-except=${extension}`,
-      `--load-extension=${extension}`,
-    ],
+    args: extensionBrowserArgs(extension),
   });
   context.setDefaultTimeout(7000);
   try {
@@ -362,6 +358,12 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
       ),
     ).toBe(true);
     await expect(panel.locator('#token')).toHaveValue('invalid-replacement');
+    // Let the saved credential reconnect before cancelling the failed replacement.
+    // A background reconnect must not dismiss settings or discard the pairing draft.
+    await expect(panel.locator('#connection')).toHaveText('已连接');
+    await expect(panel.locator('#connection-view')).toBeVisible();
+    await expect(panel.locator('#token')).toHaveValue('invalid-replacement');
+    await expect(panel.locator('#settings-notice')).toBeVisible();
     await panel.locator('#cancel-pairing').click();
     await expect(panel.locator('#token')).toHaveCount(0);
     await expect(panel.locator('#pairing-status')).toHaveText('已添加');

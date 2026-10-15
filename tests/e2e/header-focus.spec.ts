@@ -1,3 +1,4 @@
+import { extensionBrowserArgs } from './browser-args.js';
 import { test, expect, chromium } from '@playwright/test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -9,12 +10,7 @@ test('header pointer interactions never stack focus rings; keyboard focus stays 
   const context = await chromium.launchPersistentContext(profile, {
     channel: 'chromium',
     headless: true,
-    args: [
-      '--enable-unsafe-extension-debugging',
-      '--disable-features=DisableLoadExtensionCommandLineSwitch',
-      `--disable-extensions-except=${extension}`,
-      `--load-extension=${extension}`,
-    ],
+    args: extensionBrowserArgs(extension),
   });
   try {
     const worker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));

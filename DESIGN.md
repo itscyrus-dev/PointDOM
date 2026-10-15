@@ -53,7 +53,7 @@ Use a compact row: project name/URL on the left and access action on the right. 
 
 Request only a linked origin from the user's action. After grant, recheck active tab ID and actual origin before injection. Denial, navigation or a mismatched tab must not inject. Standalone settings can open/activate the linked page, but cannot inject into themselves. Cache only authenticated project origins for background recovery; pairing replacement or invalid authentication clears the cache.
 
-After verified pairing is saved locally, the connection card shows Added and collapses the password input. Added means the code is saved, not that the bridge is online. Offline state preserves pairing and offers Reconnect. Changing a code is explicit; cancellation clears temporary input and failed replacement preserves the saved credential. Never display a stored code.
+After verified pairing is saved locally, the connection card shows Added and collapses the password input. Added means the code is saved, not that the bridge is online. Offline state preserves pairing and offers Reconnect. Changing a code is explicit; cancellation clears temporary input and failed replacement preserves the saved credential. Background reconnection preserves the current settings view, pairing draft and any existing form error. Only an explicit successful connection closes settings. Never display a stored code.
 
 ## Composer and selection
 

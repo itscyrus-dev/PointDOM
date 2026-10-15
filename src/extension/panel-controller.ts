@@ -225,7 +225,10 @@ export class PanelController {
     void chrome.storage.local.set({ executor }).catch(this.fail);
     if (this.state.connection === 'connected') void this.connect();
   }
-  async connect(code = this.token): Promise<boolean> {
+  async connect(
+    code = this.token,
+    { background = false }: { background?: boolean } = {},
+  ): Promise<boolean> {
     if (!code.trim()) {
       this.notify('请先填写本机配对码', 'Enter the pairing code from this computer.', true);
       return false;
@@ -234,7 +237,7 @@ export class PanelController {
     this.token = code.trim();
     let saved = false;
     const version = ++this.connectVersion;
-    this.patch({ connection: 'connecting', notice: null });
+    this.patch({ connection: 'connecting', ...(background ? {} : { notice: null }) });
     try {
       const paired = z
         .object({ defaultExecutor: executorSchema.optional() })
@@ -250,21 +253,24 @@ export class PanelController {
         .object({ projects: z.array(projectSchema) })
         .parse(await this.api('/api/projects')).projects;
       if (version !== this.connectVersion) return false;
-      this.patch({ connection: 'connected', settings: false });
+      // Polling restores connectivity without dismissing an open settings form.
+      // Only an explicit successful connection should navigate back to annotations.
+      this.patch({ connection: 'connected', ...(background ? {} : { settings: false }) });
       this.bindProjects(projects);
       await this.refresh();
       return true;
     } catch (error) {
       if (version !== this.connectVersion) return false;
       if (!saved) this.token = previousToken;
-      this.patch({ connection: 'offline', settings: true });
-      this.fail(error);
+      this.patch({ connection: 'offline', ...(background ? {} : { settings: true }) });
+      if (!background || !this.state.notice?.error) this.fail(error);
       return false;
     }
   }
   refresh = async () => {
     if (this.state.connection !== 'connected') {
-      if (this.token && this.state.connection !== 'connecting') await this.connect();
+      if (this.token && this.state.connection !== 'connecting')
+        await this.connect(this.token, { background: true });
       return;
     }
     if (this.refreshing) return this.refreshing;

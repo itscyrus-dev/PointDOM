@@ -1,3 +1,4 @@
+import { extensionBrowserArgs } from './browser-args.js';
 import { test, expect, chromium } from '@playwright/test';
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
@@ -51,12 +52,7 @@ test('project permission saves close the popover only on success and preserve fa
   const context = await chromium.launchPersistentContext(join(directory, 'profile'), {
     channel: 'chromium',
     headless: true,
-    args: [
-      '--enable-unsafe-extension-debugging',
-      '--disable-features=DisableLoadExtensionCommandLineSwitch',
-      `--disable-extensions-except=${extension}`,
-      `--load-extension=${extension}`,
-    ],
+    args: extensionBrowserArgs(extension),
   });
   try {
     const worker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
