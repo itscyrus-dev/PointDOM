@@ -39,6 +39,24 @@ pnpm dev
 
 Open your app, select elements, describe a change, and send. The background service runs tasks automatically; review permission requests and results in the extension. Use `pdo help` for commands.
 
+## Already using CC Switch?
+
+From your project directory:
+
+```sh
+pdo connect --origin http://localhost:5173
+```
+
+Confirm the MCP import in CC Switch and restart OpenCode. Select **Other Agent (MCP)** in the extension, submit an annotation, and ask OpenCode to process pending PagePatch tasks. Your model configuration stays in CC Switch/OpenCode. [MCP setup and fallback](docs/MCP.md).
+
+## Updates
+
+```sh
+pdo upgrade
+```
+
+Upgrades verify downloads and wait for you to finish or cancel pending tasks. Reload the unpacked Chrome extension from the new directory printed afterward. On v0.1.0, first run `pdo uninstall` and rerun the installer to obtain the upgrade command.
+
 ## Documentation
 
 [Installation and updates](docs/INSTALL_AGENT.md) · [Other agents / MCP](docs/MCP.md) · [Development](docs/DEVELOPMENT.md) · [Contributing](CONTRIBUTING.md) · [Releases](docs/RELEASING.md) · [Security](SECURITY.md)

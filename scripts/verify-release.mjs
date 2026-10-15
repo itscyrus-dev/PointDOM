@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, mkdir, writeFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -14,7 +14,7 @@ for (const line of (await readFile(`${output}/SHA256SUMS`, 'utf8')).trim().split
     hash,
   );
 }
-const directory = await mkdtemp(join(tmpdir(), 'pointdom-release-'));
+const directory = await realpath(await mkdtemp(join(tmpdir(), 'pointdom-release-')));
 try {
   execFileSync('tar', ['-xzf', `${output}/pointdom.tar.gz`, '-C', directory]);
   const app = join(directory, 'pointdom');
@@ -25,6 +25,29 @@ try {
     encoding: 'utf8',
   });
   assert.match(result, /pdo link/);
+  // Verify the shipped CLI can generate CC Switch imports without source scripts or node_modules.
+  const state = join(directory, 'state');
+  await mkdir(state, { recursive: true });
+  await writeFile(
+    join(state, 'config.json'),
+    JSON.stringify({ token: 'fixture-do-not-export', projects: [{ cwd: directory }] }),
+  );
+  const connect = (option) =>
+    execFileSync(process.execPath, [`${app}/dist/bridge/main.js`, 'connect', option], {
+      cwd: directory,
+      env: { ...process.env, PAGEPATCH_HOME: state },
+      encoding: 'utf8',
+    });
+  const exported = connect('--json');
+  assert.ok(!exported.includes('fixture-do-not-export'));
+  const connection = Object.values(JSON.parse(exported).mcpServers)[0];
+  assert.deepEqual(connection.args, [`${app}/dist/bridge/mcp.js`, '--project', directory]);
+  const link = new URL(connect('--url').trim());
+  assert.equal(link.searchParams.get('apps'), 'opencode');
+  assert.deepEqual(
+    JSON.parse(Buffer.from(link.searchParams.get('config'), 'base64').toString('utf8')),
+    JSON.parse(exported),
+  );
   const version = JSON.parse(await readFile(`${app}/package.json`, 'utf8')).version;
   for (const option of ['version', '-v', '--version']) {
     assert.equal(

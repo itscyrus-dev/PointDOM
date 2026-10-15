@@ -51,6 +51,6 @@ Tags containing a prerelease suffix create prereleases and do not become the nor
 curl -fsSL https://github.com/itscyrus-dev/PointDOM/releases/latest/download/install.sh | sh
 ```
 
-Do not overwrite a published version or silently replace an existing installation. To update locally, wait for tasks to finish, run `pdo uninstall`, then install the new release and reload the Chrome extension from the newly printed directory. Pairing, registered projects and history remain in `~/.pagepatch`. Old version directories remain available; remove them manually only after checking that the installed service no longer references them.
+Do not overwrite a published version or silently replace an existing installation. From v0.2.0 onward, run `pdo upgrade` after tasks finish, then reload the Chrome extension from the newly printed directory. It verifies release downloads, refuses pending/running tasks, pauses new submissions during the switch and attempts rollback on installation failure. v0.1.0 users must run `pdo uninstall` and the release installer once to obtain this command. Pairing, registered projects and history remain in `~/.pagepatch`. Old version directories remain available; remove them manually only after checking that the installed service no longer references them.
 
 GitHub publication cannot be confirmed by local workflow validation. Check the Actions run and download/verify the actual Release assets after the authorized tag push.

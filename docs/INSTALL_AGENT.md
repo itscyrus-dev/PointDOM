@@ -12,7 +12,7 @@ curl -fsSL https://github.com/itscyrus-dev/PointDOM/releases/latest/download/ins
 
 The installer downloads prebuilt CLI/extension files and verifies SHA-256 hashes. No pnpm or source build is required. If Node.js 24+ is unavailable, it installs a private runtime under `~/.local/share/pointdom/runtime`. Application versions are stored under `~/.local/share/pointdom/versions`.
 
-Follow the printed zsh/bash commands to add `~/.local/bin` to PATH. The installer does not modify shell profiles automatically, overwrite an existing installation or stop active tasks. Use `pdo help` for commands and `pdo version` to check the installed version. `pointdom` remains a compatibility alias.
+The installer shows four progress steps followed by three setup actions: load the extension, pair it, and link a project. All installer and service-setup messages are in English. If `~/.local/bin` is missing from PATH, it prints a command for the current terminal and a persistent setting for your detected shell (zsh or bash). If PATH is already configured, those instructions are omitted. Output is plain when redirected; terminal colors respect `NO_COLOR`. The installer does not modify shell profiles automatically, overwrite an existing installation or stop active tasks. Use `pdo help` for commands and `pdo version` to check the installed version. `pointdom` remains a compatibility alias.
 
 To pin a version, use that release's installer URL:
 
@@ -29,6 +29,16 @@ Published installers download their own tagged package. `POINTDOM_RELEASE_BASE_U
 3. Open your development page, authorize access to the current site and choose OpenCode CLI in execution settings. New installations default to this mode; existing executor preferences are preserved.
 
 Chrome extension installation and updates require these manual browser actions. There is no Chrome Web Store package.
+
+## Use CC Switch for MCP
+
+If you already manage OpenCode through CC Switch, run this once from your project directory:
+
+```sh
+pdo connect --origin http://localhost:5173
+```
+
+Confirm the MCP import in CC Switch and restart OpenCode. In the extension choose **Other Agent (MCP)**, submit a request, and ask OpenCode to process the pending PagePatch tasks. No manual JSON editing is required. This is separate from the direct OpenCode CLI mode below. See the [MCP guide](MCP.md) for fallback imports and other applications.
 
 ## Link Each Project Once
 
@@ -55,12 +65,13 @@ Origins include the port. `localhost` and `127.0.0.1` are different origins. If 
 ```sh
 pdo status
 pdo projects
+pdo upgrade
 pdo uninstall
 ```
 
 Verify the service is online, the extension is paired, the site is authorized, the origin matches and OpenCode CLI is selected. A ready bridge does not prove that a model/provider call will succeed; check OpenCode's model settings and usage allowance when execution fails.
 
-Before updating, wait for tasks to finish. Uninstall the login service, rerun the release installer, and reload the extension from the newly printed directory. Uninstalling stops active tasks but preserves pairing, project bindings, history and CLI launchers. Old version directories remain; remove them only after checking that no installed service references them.
+To update from v0.2.0 onward, run `pdo upgrade`. It downloads and verifies the latest stable installer and package before stopping the service. Pending/running tasks block the upgrade; new submissions are briefly paused during the switch. If service setup fails, it attempts to restore the previous installation. Then reload the extension from the newly printed directory. If you are still on v0.1.0, wait for tasks to finish, run `pdo uninstall`, and rerun the release installer once. Uninstalling stops active tasks but preserves pairing, project bindings, history and CLI launchers. Old version directories remain; remove them only after checking that no installed service references them.
 
 The login service uses absolute executable paths. Moving a source installation or replacing its Node executable requires reinstalling it. On macOS, installation creates:
 

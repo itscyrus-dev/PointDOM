@@ -3,7 +3,7 @@ import { installAgentRoutes } from './agent-api.js';
 import { timingSafeEqual } from 'node:crypto';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
-import { replySchema, submissionSchema } from '../shared/contracts.js';
+import { replySchema, submissionSchema, terminal } from '../shared/contracts.js';
 import { Store } from './store.js';
 import { Queue } from './queue.js';
 import { Rpc, record, catalog } from './codex.js';
@@ -50,6 +50,33 @@ export function createApp(store: Store, queue: Queue, port = 4318) {
       return c.json({ error: '扩展尚未配对' }, 403);
     await next();
   });
+  let upgradeUntil = 0;
+  app.use('*', async (c, next) => {
+    if (
+      Date.now() < upgradeUntil &&
+      c.req.method === 'POST' &&
+      (c.req.path === '/api/jobs' ||
+        c.req.path.endsWith('/claim') ||
+        c.req.path.endsWith('/commit'))
+    )
+      return c.json({ error: 'PointDOM is upgrading. Please retry shortly.' }, 503);
+    await next();
+  });
+  app.post('/api/local/upgrade/prepare', (c) => {
+    if (store.jobs.some((job) => !terminal(job.status)))
+      return c.json(
+        {
+          error: 'Tasks are pending or running. Finish or cancel them, then run pdo upgrade again.',
+        },
+        409,
+      );
+    upgradeUntil = Date.now() + 60000;
+    return c.json({ ok: true });
+  });
+  app.post('/api/local/upgrade/release', (c) => {
+    upgradeUntil = 0;
+    return c.json({ ok: true });
+  });
   installAgentRoutes(app, store, () => queue.wake());
   // Local CLI only: extension/web requests cannot provide filesystem directories.
   app.post('/api/local/projects', async (c) => {
@@ -74,7 +101,7 @@ export function createApp(store: Store, queue: Queue, port = 4318) {
     }
     return c.json({
       connected: true,
-      version: '0.1.0',
+      version: '0.2.0',
       defaultExecutor: store.config.defaultExecutor,
     });
   });
