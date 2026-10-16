@@ -4,15 +4,7 @@ import { build } from 'esbuild';
 import { createServer } from 'node:http';
 import { spawn, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import {
-  mkdtempSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  rmSync,
-  existsSync,
-  readdirSync,
-} from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { AddressInfo } from 'node:net';
@@ -119,26 +111,7 @@ test(
         '-Command',
         invocation,
       ]);
-      if (first.code !== 0) {
-        const versions = join(env.LOCALAPPDATA, 'PointDOM/versions');
-        const installed = readdirSync(versions)[0]!;
-        const probe = spawn(
-          process.execPath,
-          [join(versions, installed, 'dist/bridge/main.js'), 'serve'],
-          {
-            env,
-            windowsHide: true,
-            stdio: 'pipe',
-          },
-        );
-        let diagnostic = '';
-        probe.stdout.on('data', (data) => (diagnostic += data));
-        probe.stderr.on('data', (data) => (diagnostic += data));
-        const timer = setTimeout(() => probe.kill(), 3000);
-        await new Promise<void>((done) => probe.once('exit', () => done()));
-        clearTimeout(timer);
-        assert.fail(`${first.stderr}\nDirect service diagnostic: ${diagnostic}`);
-      }
+      assert.equal(first.code, 0, first.stderr);
       assert.match(first.stdout, /Browser authorized/);
       const config = readFileSync(join(home, '.pagepatch/config.json'), 'utf8');
       const status = await fetch('http://127.0.0.1:4318/api/local/status', {

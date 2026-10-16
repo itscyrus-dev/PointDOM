@@ -121,18 +121,14 @@ export function startService(state: string) {
     });
   } else if (process.platform === 'win32') {
     const entry = fileURLToPath(new URL('./main.js', import.meta.url));
-    const child = spawn(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-WindowStyle',
-        'Hidden',
-        '-EncodedCommand',
-        encoded(windowsServiceCommand(process.execPath, entry, state)),
-      ],
-      { detached: true, stdio: 'ignore', windowsHide: true },
-    );
+    // Launch Node directly: a detached hidden PowerShell can exit before starting
+    // its native child in non-interactive Windows sessions.
+    const child = spawn(process.execPath, [entry, 'serve'], {
+      env: { ...process.env, PAGEPATCH_HOME: state },
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
     child.on('error', () => {}); // Readiness is checked by the calling installer.
     child.unref();
   } else throw new Error('Login startup supports macOS and Windows.');
