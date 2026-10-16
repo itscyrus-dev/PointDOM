@@ -1,17 +1,6 @@
 # Claude Code
 
-First follow the shared [installation runbook](../INSTALL_AGENT.md). PointDOM can launch the installed Claude Code CLI through the official Agent SDK, or expose annotations to an existing Claude Code session through MCP.
-
-## Automatic CLI execution
-
-```sh
-claude --version
-pdo link --path /absolute/path/to/app --origin http://localhost:3000
-```
-
-The CLI must already be installed, authenticated and configured. Complete Chrome setup, then choose **Claude Code** in the extension. PointDOM uses the installed `claude` executable, its existing settings and the SDK's sandbox support. Install the sandbox prerequisites required by that Claude Code version; PointDOM does not fall back to unrestricted execution when the sandbox is unavailable.
-
-Model/account setup remains in Claude Code. Missing executables, sandbox failures and protocol errors must be investigated rather than reported as a successful edit.
+First follow the shared [installation runbook](../INSTALL_AGENT.md). PointDOM uses MCP in the user's existing Claude Code session. Models, provider accounts, sandboxing and approval policies remain in the client. No Claude Agent SDK or separate CLI execution is used by PointDOM.
 
 ## MCP for an existing session
 
@@ -21,22 +10,14 @@ Generate the linked project's actual server definition:
 pdo connect --path /absolute/path/to/app --json
 ```
 
-For the current user's local project registration, run this from the application directory, substituting the generated values:
+Merge the generated standard `mcpServers` entries into the host-supported local/project MCP configuration, such as the project's `.mcp.json`. Preserve other servers and settings. The user handles host trust and enablement; writing a file does not grant trust. Never commit machine-specific paths automatically.
 
-```sh
-cd /absolute/path/to/app
-claude mcp add --scope local --env PAGEPATCH_HOME=/absolute/path/to/local/state \
-  --transport stdio GENERATED_SERVER_ID -- /absolute/path/to/node \
-  /absolute/path/to/mcp.js --project /absolute/path/to/app
-claude mcp list
-```
-
-Keep `--transport stdio` between the environment assignment and the server ID; Claude's `--env` parsing can otherwise consume the name as another assignment. Preserve other servers. Local scope avoids adding a machine-specific entry to a shared repository file.
-
-If the user wants project configuration, merge the generated standard `mcpServers` entries into `.mcp.json` instead. Preserve existing entries, and have the user approve project MCP when the host asks. Writing the file does not grant trust. Do not commit absolute local paths automatically.
-
-The interactive alternative is `pdo setup --agent claude --client standard --origin URL`, which prepares a registration command. Automated installation should use the non-interactive export and registration above.
-
-Reconnect the session, inspect `/mcp` and call `pointdom_list_tasks`. In PointDOM choose **Agent (MCP)** to send work to that session. Choose **Claude Code** for a separate automatic CLI task when the executable is available.
+Reconnect the session, inspect its actual MCP tool catalog and call `pointdom_list_tasks`. Read/claim/progress/report a user-submitted annotation in the same live session. Submission queues a task; use the connected agent to process it through MCP. PointDOM does not operate client windows or start an idle conversation.
 
 Official reference: [Claude Code MCP configuration and scopes](https://code.claude.com/docs/en/mcp).
+
+## Select this connection in PointDOM
+
+After the host initializes this project's MCP, its reported client name appears in the extension's recipient picker. Select that connection before submitting; only it can list/read/claim its assigned tasks. Distinguish duplicate names by their short session IDs. An empty list is valid when no tasks are assigned. Changing the picker affects future submissions; use Reassign on queued cards to transfer pending work explicitly. Running tasks must finish/report in their original session. A connected entry does not start an idle agent turn or identify a desktop chat. See [routing details](../MCP.md#client-presence-and-task-routing).
+
+After an update, a running stdio process may still contain old code. Finish any claimed work, then restart/reconnect this project's PointDOM MCP in the current host. Verify with a native pointdom_list_tasks call in this conversation: it must return the correct project and connection.id. tasks: [] alone, a saved config, or a temporary SDK subprocess cannot prove this host is connected. If reconnection requires the user, provide the exact action instead of reporting setup complete.

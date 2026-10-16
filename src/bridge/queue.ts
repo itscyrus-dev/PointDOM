@@ -1,215 +1,91 @@
-import { snapshot, prepareCommit, commitJob, type GitSnapshot } from './commit.js';
-import { runClaude } from './claude.js';
-import { runTrae } from './acp.js';
-import { runOpenCode } from './opencode.js';
-import { realpathSync } from 'node:fs';
-import type { Job, Reply, Submission } from '../shared/contracts.js';
+import type { Job, Submission } from '../shared/contracts.js';
 import { terminal } from '../shared/contracts.js';
 import { Store } from './store.js';
-import { runCodex, type Runner, type Running } from './codex.js';
+import { AgentConnections } from './agent-connections.js';
+
+/** Durable MCP inbox. Only the user's client may claim, execute and report work. */
 export class Queue {
-  private running?: { id: string; handle: Running };
-  constructor(
-    readonly store: Store,
-    readonly runner: Runner = (project, job, thread, hooks) =>
-      ({ codex: runCodex, opencode: runOpenCode, claude: runClaude, trae: runTrae })[
-        job.executor === 'mcp' ? 'codex' : job.executor || 'codex'
-      ](project, job, thread, hooks),
-  ) {}
+  readonly agents = new AgentConnections();
+  private stopping = false;
+  private settled = new Set<() => void>();
+  private stopListeners = new Set<() => void>();
+  constructor(readonly store: Store) {}
+  get isStopped() {
+    return this.stopping;
+  }
+  onStop(listener: () => void) {
+    this.stopListeners.add(listener);
+  }
+  onSettled(listener: () => void) {
+    this.settled.add(listener);
+  }
+  hasRunningProject(projectId: string) {
+    return this.store.jobs.some(
+      (job) => job.projectId === projectId && ['running', 'waiting'].includes(job.status),
+    );
+  }
   submit(input: Submission): Job {
-    if (input.executor && input.executor !== 'codex' && input.execution)
-      throw new Error('该 Agent 的模型与权限由本机配置管理，请勿提交 Codex 执行设置');
-    const existing = this.store.jobs.find((j) => j.id === input.id);
+    const { executor: _legacyExecutor, execution: _legacyExecution, ...context } = input;
+    const request = { ...context, executor: 'mcp' as const };
+    const existing = this.store.jobs.find((job) => job.id === input.id);
     if (existing) {
       if (
-        existing.executor !== input.executor ||
-        existing.projectId !== input.projectId ||
-        existing.instruction !== input.instruction ||
-        JSON.stringify(existing.execution) !== JSON.stringify(input.execution) ||
-        JSON.stringify(existing.selections) !== JSON.stringify(input.selections) ||
-        JSON.stringify(existing.selection) !== JSON.stringify(input.selection)
+        existing.executor !== 'mcp' ||
+        existing.projectId !== request.projectId ||
+        existing.recipientId !== request.recipientId ||
+        existing.instruction !== request.instruction ||
+        JSON.stringify(existing.selections) !== JSON.stringify(request.selections) ||
+        JSON.stringify(existing.selection) !== JSON.stringify(request.selection)
       )
         throw new Error('任务 ID 已用于不同请求');
       return existing;
     }
-    const project = this.store.project(input.projectId);
+    if (this.stopping) throw new Error('PointDOM is stopping. Retry after reconnecting.');
+    const recipient = request.recipientId
+      ? this.agents.get(request.recipientId, request.projectId)
+      : undefined;
+    if (request.recipientId && !recipient)
+      throw new Error('MCP recipient is not connected to this project.');
+    const project = this.store.project(request.projectId);
     if (
       !project ||
-      [input.selection, ...(input.selections || [])].some(
+      [request.selection, ...(request.selections || [])].some(
         (item) => !project.origins.includes(new URL(item.url).origin),
       )
     )
       throw new Error('当前网页未绑定该项目');
-    if (this.store.jobs.filter((j) => !terminal(j.status)).length >= 30)
+    if (this.store.jobs.filter((job) => !terminal(job.status)).length >= 30)
       throw new Error('待处理任务过多，请等待现有任务完成');
+    const now = new Date().toISOString();
     const job: Job = {
-      ...input,
-      ...(project.permissions ? { permissions: { ...project.permissions } } : {}),
+      ...request,
+      ...(recipient ? { recipient: { id: recipient.id, name: recipient.name } } : {}),
       status: 'queued',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       events: [],
       result: '',
     };
     this.store.jobs.push(job);
     this.store.saveJobs();
-    queueMicrotask(() => this.pump());
     return job;
-  }
-  private update(job: Job) {
-    job.updatedAt = new Date().toISOString();
-    if (job.startedAt && terminal(job.status)) job.finishedAt ??= job.updatedAt;
-    this.store.saveJobs();
   }
   wake() {
-    this.pump();
-  }
-  private pump() {
-    if (this.running) return;
-    const job = this.store.jobs.find(
-      (j) =>
-        j.status === 'queued' &&
-        j.executor !== 'mcp' &&
-        !this.store.jobs.some(
-          (other) =>
-            other.projectId === j.projectId &&
-            other.executor === 'mcp' &&
-            other.status === 'running',
-        ),
-    );
-    if (!job) return;
-    const project = this.store.project(job.projectId);
-    if (!project) {
-      job.status = 'failed';
-      job.error = '绑定项目已移除';
-      this.update(job);
-      queueMicrotask(() => this.pump());
-      return;
-    }
-    try {
-      if (realpathSync(project.cwd) !== project.cwd) throw new Error();
-    } catch {
-      job.status = 'failed';
-      job.error = '项目目录不存在或路径发生变化，请重新绑定';
-      this.update(job);
-      queueMicrotask(() => this.pump());
-      return;
-    }
-    let before: GitSnapshot | undefined;
-    try {
-      before = snapshot(project.cwd);
-    } catch {
-      /* Editing still works without Git. */
-    }
-    job.status = 'running';
-    job.startedAt = new Date().toISOString();
-    this.update(job);
-    let handle: Running;
-    try {
-      handle = this.runner(project, job, this.store.config.threads[project.id], {
-        event: (text) => {
-          job.events.push({ at: new Date().toISOString(), text });
-          job.events = job.events.slice(-150);
-          this.update(job);
-        },
-        result: (text) => {
-          job.result = (job.result + '\n' + text).trim().slice(-64000);
-          this.update(job);
-        },
-        thread: (id) => {
-          job.threadId = id;
-          if (!job.executor || job.executor === 'codex') this.store.config.threads[project.id] = id;
-          this.store.saveConfig();
-          this.update(job);
-        },
-        approval: (approval) => {
-          job.status = 'waiting';
-          job.approval = approval;
-          this.update(job);
-        },
-        approved: () => {
-          delete job.approval;
-          job.status = 'running';
-          this.update(job);
-        },
-      });
-    } catch (e) {
-      job.status = 'failed';
-      job.error = e instanceof Error ? e.message : '启动失败';
-      this.update(job);
-      queueMicrotask(() => this.pump());
-      return;
-    }
-    this.running = { id: job.id, handle };
-    void handle.done
-      .then(
-        () => {
-          if (!terminal(job.status)) {
-            job.status = 'completed';
-            job.finishedAt = new Date().toISOString();
-            prepareCommit(project.cwd, before, job);
-          }
-        },
-        (e) => {
-          if (!terminal(job.status)) {
-            job.status = 'failed';
-            job.error = e instanceof Error ? e.message : '运行失败';
-          }
-        },
-      )
-      .finally(() => {
-        delete job.approval;
-        this.running = undefined;
-        this.update(job);
-        this.pump();
-      });
-  }
-  commit(id: string) {
-    const job = this.store.jobs.find((j) => j.id === id);
-    if (!job || job.status !== 'completed') throw new Error('仅已完成任务可以 Commit');
-    if (job.commit?.status === 'committed') return job;
-    if (
-      this.running ||
-      this.store.jobs.some((j) => j.status === 'queued' || j.status === 'running')
-    )
-      throw new Error('请等待修改任务完成后再 Commit');
-    const project = this.store.project(job.projectId);
-    if (!project) throw new Error('绑定项目已移除');
-    try {
-      commitJob(project.cwd, job);
-    } catch (e) {
-      if (job.commit?.status === 'ready' || job.commit?.status === 'failed') {
-        job.commit.status = 'failed';
-        job.commit.error = e instanceof Error ? e.message : '提交失败';
-      }
-      this.update(job);
-      throw e;
-    }
-    this.update(job);
-    return job;
+    /* Execution is owned by the external MCP client. */
   }
   cancel(id: string) {
-    const job = this.store.jobs.find((j) => j.id === id);
+    const job = this.store.jobs.find((item) => item.id === id);
     if (!job) throw new Error('任务不存在');
     if (terminal(job.status)) return;
     job.status = 'cancelled';
     delete job.approval;
-    this.update(job);
-    if (this.running?.id === id) this.running.handle.cancel();
-  }
-  reply(id: string, approvalId: string, reply: Reply) {
-    const job = this.store.jobs.find((j) => j.id === id);
-    if (
-      !job ||
-      job.status !== 'waiting' ||
-      job.approval?.id !== approvalId ||
-      this.running?.id !== id
-    )
-      throw new Error('确认请求已过期');
-    this.running.handle.reply(approvalId, reply);
+    job.updatedAt = new Date().toISOString();
+    if (job.startedAt) job.finishedAt = job.updatedAt;
+    this.store.saveJobs();
+    for (const listener of this.settled) listener();
   }
   stop() {
-    for (const job of this.store.jobs)
-      if (!terminal(job.status) && job.executor !== 'mcp') this.cancel(job.id);
+    this.stopping = true;
+    for (const listener of this.stopListeners) listener();
   }
 }

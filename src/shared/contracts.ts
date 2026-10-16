@@ -73,6 +73,10 @@ export type ModelChoice = {
 };
 export const executorSchema = z.enum(['codex', 'opencode', 'claude', 'trae', 'mcp']);
 export type Executor = z.infer<typeof executorSchema>;
+export const agentSettingsSchema = z.object({
+  defaultExecutor: executorSchema,
+  traeAutoSend: z.boolean(),
+});
 export function executorName(executor: Executor = 'codex') {
   return {
     codex: 'Codex',
@@ -82,11 +86,22 @@ export function executorName(executor: Executor = 'codex') {
     mcp: 'Agent · MCP',
   }[executor];
 }
+export const agentConnectionSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.string().uuid(),
+  name: z.string().min(1).max(160),
+  version: z.string().max(80),
+  connectedAt: z.iso.datetime(),
+  lastSeenAt: z.iso.datetime(),
+});
+export type AgentConnection = z.infer<typeof agentConnectionSchema>;
+export const taskRecipientSchema = agentConnectionSchema.pick({ id: true, name: true });
 export const submissionSchema = z
   .object({
     executor: executorSchema.optional(),
     id: z.string().uuid(),
     projectId: z.string().uuid(),
+    recipientId: z.string().uuid().optional(),
     instruction: z.string().trim().min(1).max(8000),
     selection: selectionSchema,
     selections: z.array(selectionSchema).min(1).max(10).optional(),
@@ -105,12 +120,20 @@ export const defaultProjectPermissions: ProjectPermissions = {
   confirmation: 'default',
   codexNetwork: false,
 };
+export const traeConversationSchema = z
+  .object({
+    appId: z.string().regex(/^[\w.-]{1,120}$/),
+    conversation: z.string().trim().min(1).max(300),
+  })
+  .strict();
+export type TraeConversation = z.infer<typeof traeConversationSchema>;
 export const projectSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(80),
   cwd: z.string().min(1),
   origins: z.array(z.string().url()).min(1),
   permissions: projectPermissionsSchema.optional(),
+  traeHandoff: traeConversationSchema.optional(),
   openCodeModel: z
     .string()
     .max(200)
@@ -150,6 +173,7 @@ export const commitSchema = z.object({
   error: z.string().optional(),
 });
 export type Job = Submission & {
+  recipient?: z.infer<typeof taskRecipientSchema>;
   permissions?: ProjectPermissions;
   delivery?: Delivery;
   agent?: string;
@@ -160,7 +184,7 @@ export type Job = Submission & {
   updatedAt: string;
   startedAt?: string;
   finishedAt?: string;
-  events: { at: string; text: string }[];
+  events: { at: string; text: string; progressId?: string }[];
   result: string;
   error?: string;
   threadId?: string;
@@ -174,10 +198,25 @@ export const deliverySchema = z.object({
   fingerprint: z.string().length(64),
   state: z.enum(['cli', 'pending', 'pasted', 'copied', 'blocked', 'uncertain']),
   detail: z.string().max(600).optional(),
+  autoSend: traeConversationSchema.optional(),
+  automatic: z.boolean().optional(),
+  sentAt: z.iso.datetime().optional(),
+  attemptedAt: z.iso.datetime().optional(),
 });
 export type Delivery = z.infer<typeof deliverySchema>;
 
+export const taskProgressSchema = z.object({
+  stepId: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,79}$/),
+  message: z
+    .string()
+    .trim()
+    .min(1)
+    .max(1000)
+    .refine((value) => !/[\u0000-\u001f\u007f]/u.test(value), 'Use a single-line summary.'),
+});
+
 export const jobSchema = submissionSchema.extend({
+  recipient: taskRecipientSchema.optional(),
   permissions: projectPermissionsSchema.optional(),
   delivery: deliverySchema.optional(),
   agent: z.string().optional(),
@@ -196,7 +235,9 @@ export const jobSchema = submissionSchema.extend({
   updatedAt: z.string(),
   startedAt: z.iso.datetime().optional(),
   finishedAt: z.iso.datetime().optional(),
-  events: z.array(z.object({ at: z.string(), text: z.string() })),
+  events: z.array(
+    z.object({ at: z.string(), text: z.string(), progressId: z.string().optional() }),
+  ),
   result: z.string(),
   error: z.string().optional(),
   threadId: z.string().optional(),

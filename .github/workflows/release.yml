@@ -55,4 +55,5 @@ jobs:
             dist/release/pointdom.tar.gz \
             dist/release/pointdom-extension.zip \
             dist/release/SHA256SUMS \
-            dist/release/install.sh
+            dist/release/install.sh \
+            dist/release/install.ps1

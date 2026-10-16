@@ -2,6 +2,56 @@
 
 Notable changes to PointDOM. Release archives and installers are available from [GitHub Releases](https://github.com/itscyrus-dev/PointDOM/releases).
 
+## [Unreleased]
+
+### Added
+
+- A compact client setup directory with offline Codex, Trae, Claude Code, Zcode, OpenCode and generic MCP entries. Copy localized per-host setup instructions from each disconnected row; availability and selection unlock only after real project-bound MCP initialization. Unknown hosts and duplicate sessions remain supported.
+
+- Live, project-scoped MCP client presence and an explicit recipient picker. Only the chosen session can list/read/claim its tasks; same-name sessions remain distinct. Remember client preference for new submissions and allow explicit queued reassignment without moving running work. Disconnects never replay or distribute tasks.
+
+### Fixed
+
+- Reject unregistered/old MCP list calls with MCP_RECONNECT_REQUIRED instead of a misleading successful empty inbox. Setup copies require restarting/reconnecting old host processes and verifying the correct project plus connection.id through native tools in the actual conversation.
+
+### Changed
+
+- Scope this implementation to generic local stdio MCP: DOM context, project-scoped tasks, claim/progress/report, history and duration. Browser submission queues work; the host decides when to invoke tools.
+- Remove desktop chat binding, native Trae sending, delivery retries and related controls. Legacy records/settings remain readable and cannot trigger native actions. Retired handoff APIs return 410.
+- Keep `pdo` for service installation/pairing/project registration and MCP export. Agent CLI execution is deferred to a separate feature.
+
+## [0.3.1] - 2026-10-15
+
+### Changed
+
+- All new annotations now use MCP in the user's own Agent client. Removed agent CLI/ACP runners, Claude Agent SDK, binary detection, model/account queries, execution/approval/network controls, Git operations and paid-model smoke scripts. Legacy task payloads normalize to MCP; historical records remain readable. PointDOM owns context capture, explicit automatic delivery and progress/result receipts only. The `pdo` management commands remain for installation, pairing and project/MCP setup.
+
+### Added
+
+- Extension-first local-service discovery and system-specific one-command installation, with short-lived extension-bound authorization and automatic browser pairing. Manual pairing remains an advanced fallback; existing data and active services are preserved. Windows PowerShell installation and per-user startup are included as a candidate pending native verification.
+
+### Fixed
+
+- MCP is the fixed task transport; Trae auto-send is a shared application preference. New projects detect their own chat on first submission, with cross-project destination checks and no routine processing-copy buttons. Blocked sends offer direct rediscovery on retry. Long hover labels size to their content.
+
+- Trae auto-send focuses the verified accessibility input instead of relying on desktop coordinates. Explicit retries adopt the current project binding without replaying history; compact auto-send settings hide routine copy instructions while enabled and offer a direct retry on failure.
+
+- Trae always uses MCP. Application auto-send with project-specific conversation routing adds submit-and-send on macOS, with draft/context checks, native acknowledgement, serialized delivery, disable controls and no automatic replay of uncertain sends. Sending remains separate from task claim and completion.
+
+- MCP agents can send bounded, session-owned activity summaries with `pointdom_progress_task`; processing instructions request read/edit/check updates instead of leaving only a claim event. These are explicit host reports, not automatic access to private client logs.
+
+- Claimed and finished tasks hide obsolete client-delivery warnings. Automatic MCP processing uses a task-specific instruction and an explicit same-session claim/report requirement; routine processing-copy buttons are removed.
+
+- Concise setup instructions follow the selected panel language and reset copy feedback after language changes. Trae guidance calls out both enable switches and provides an exact configuration handoff when the host protects MCP files.
+
+- Trae client delivery recognizes `Trae CN.app`; unconfigured universal MCP delivery no longer reports an unspecified desktop client as missing. Setup handoff requires agents to create missing project MCP files instead of handing that work back to the user.
+- Paired settings offer a one-copy agent handoff for project registration, MCP configuration and read-only verification, with Trae project setup guidance and honest host-confirmation requirements.
+- Unlinked-project settings show `pdo link --origin` with source-directory and development-URL guidance instead of sending users back to initial setup.
+- Setup separates installation, pairing and completion into compact terminal blocks with highlighted actions and commands; redirected output and `NO_COLOR` remain plain.
+- First-install setup creates and selects the extension ZIP in Finder for direct drag installation, without a directory chooser. Managed-folder installation remains available through `pdo extension`. `pdo extension --zip` exports a standalone bundle with manual-update guidance.
+- Default setup only loads/pairs the extension without requiring a project or agent selection. Add projects later with `pdo link`; MCP configuration remains scoped to a linked project. Explicit `--origin`/`--path` options retain the combined project guide with correctable directory validation.
+- Project-directory errors and setup failures use English messages without Node.js stack traces. Explicit paths use the same root/home, directory and symlink validation as the local bridge.
+
 ## [0.3.0] - 2026-10-15
 
 ### Added
@@ -44,4 +94,5 @@ Notable changes to PointDOM. Release archives and installers are available from 
 - [0.2.0](https://github.com/itscyrus-dev/PointDOM/releases/tag/v0.2.0): simplified setup and `pdo upgrade`.
 - [0.1.0](https://github.com/itscyrus-dev/PointDOM/releases/tag/v0.1.0): initial release.
 
+[0.3.1]: https://github.com/itscyrus-dev/PointDOM/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/itscyrus-dev/PointDOM/compare/v0.2.1...v0.3.0

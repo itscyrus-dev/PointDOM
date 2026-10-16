@@ -440,12 +440,6 @@ button.send svg {
   font-size: 11px;
   margin: 0;
 }
-#copy-agent-instruction {
-  flex: none;
-  padding: 5px;
-  color: var(--success);
-  font-size: 11px;
-}
 #notice {
   color: var(--muted);
   background: transparent;
@@ -814,9 +808,6 @@ kbd {
     flex-direction: column;
     gap: 0;
   }
-  #copy-agent-instruction {
-    padding-left: 0;
-  }
   .compose-tools {
     gap: 4px;
   }
@@ -923,6 +914,7 @@ kbd {
     .selected-entry,
     .shortcut-settings,
     .pairing-settings,
+    .agent-setup-settings,
     .site-access-settings
   ) {
   border: 1px solid var(--border);
@@ -957,6 +949,7 @@ kbd {
 .selected-entry,
 .shortcut-settings,
 .pairing-settings,
+.agent-setup-settings,
 .site-access-settings {
   border-radius: var(--card-radius);
 }
@@ -1241,6 +1234,11 @@ button[data-pending='true'] {
   stroke-width: 1.5;
   color: var(--muted);
 }
+#execution-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .pd-select .select__indicator {
   position: static;
   inset: auto;
@@ -1280,6 +1278,53 @@ button[data-pending='true'] {
 }
 #execution-help {
   font-size: 11px;
+}
+.client-setup-hint {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.client-directory {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+}
+.client-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding-block: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.client-identity {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  overflow-wrap: anywhere;
+}
+.client-identity strong {
+  font-size: 13px;
+  font-weight: 550;
+}
+.client-status {
+  color: var(--muted);
+  font-size: 11px;
+}
+.client-status[data-available='true'] {
+  color: var(--success);
+}
+.client-identity [role='alert'] {
+  color: var(--error);
+  font-size: 11px;
+}
+.client-action {
+  width: auto;
+  padding-inline: 8px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 .pd-fold {
   padding: 0;
@@ -1379,6 +1424,7 @@ button[data-pending='true'] {
   padding: 0;
 }
 .pairing-settings,
+.agent-setup-settings,
 .site-access-settings {
   border: 1px solid var(--border);
   padding: 12px;
@@ -1681,7 +1727,7 @@ button[data-pending='true'] {
   font-size: 11px;
 }
 .project-permissions-footer .button {
-  width: 76px;
+  width: auto;
   min-width: 76px;
   min-height: 30px;
   height: 30px;
@@ -1803,9 +1849,32 @@ button[data-pending='true'] {
 }
 
 /* Linked project access is a compact row; the state reflects Chrome's grant. */
+.agent-setup-settings {
+  padding: 10px 12px;
+  gap: 8px;
+  min-width: 0;
+}
+.agent-setup-settings #copy-agent-setup {
+  justify-self: start;
+  max-width: 100%;
+  white-space: normal;
+}
 .site-access-settings {
   padding: 10px 12px;
   gap: 8px;
+}
+.project-link-guide {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.project-link-guide code {
+  padding: 7px 9px;
+  border-radius: 7px;
+  background: var(--input);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  user-select: text;
 }
 .site-access-row {
   display: flex;
@@ -2008,4 +2077,23 @@ button[data-pending='true'] {
   font-size: 10px;
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+
+.local-install-guide {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 12px;
+}
+.local-install-guide #copy-local-install {
+  width: fit-content;
+  max-width: 100%;
+}
+.local-install-guide small {
+  line-height: 1.6;
+}
+
+.application-settings-scope {
+  color: var(--muted);
+  font-size: 11px;
 }

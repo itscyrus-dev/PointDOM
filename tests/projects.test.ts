@@ -1,4 +1,3 @@
-import { fixtureDelivery } from './delivery-fixture.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, realpathSync, mkdirSync, rmSync } from 'node:fs';
@@ -14,7 +13,7 @@ test('live project binding is local-only, idempotent and persisted across multip
   try {
     const store = new Store(join(directory, 'state'));
     assert.equal(store.config.defaultExecutor, 'mcp');
-    const app = createApp(store, new Queue(store), 4318, fixtureDelivery);
+    const app = createApp(store, new Queue(store), 4318);
     const first = join(directory, 'one'),
       second = join(directory, 'two');
     mkdirSync(first);
@@ -35,7 +34,6 @@ test('live project binding is local-only, idempotent and persisted across multip
       path: first,
       name: 'one',
       origin: 'http://localhost:5173',
-      model: 'provider/model',
     };
     assert.equal(
       (await call(binding, { Origin: 'chrome-extension://' + 'a'.repeat(32) })).status,
@@ -44,7 +42,10 @@ test('live project binding is local-only, idempotent and persisted across multip
     assert.equal((await call(binding, { Origin: 'http://localhost:5173' })).status, 403);
     assert.equal((await call(binding, { 'X-PagePatch-Client': 'a'.repeat(32) })).status, 403);
     assert.equal((await call(binding, { Authorization: 'Bearer wrong' })).status, 403);
-    assert.equal((await call({ ...binding, path: '/' })).status, 400);
+    const rootRejected = await call({ ...binding, path: '/' });
+    assert.equal(rootRejected.status, 400);
+    assert.match((await rootRejected.json()).error, /specific project directory/);
+    assert.equal(store.config.projects.length, 0);
     assert.equal((await call({ ...binding, command: 'rm -rf' })).status, 400);
     assert.equal((await call({ ...binding, model: 'invalid' })).status, 400);
     const result = await (await call(binding)).json();
@@ -57,7 +58,7 @@ test('live project binding is local-only, idempotent and persisted across multip
     );
     assert.equal(store.config.projects.length, 2); // Ambiguous origins remain explicit choices in the panel.
     const reload = new Store(store.directory);
-    assert.equal(reload.config.projects[0]!.openCodeModel, 'provider/model');
+    assert.equal(reload.config.projects[0]!.openCodeModel, undefined);
     assert.equal(reload.config.projects[0]!.origins.length, 2);
     assert.notEqual(reload.config.projects[0]!.id, reload.config.projects[1]!.id);
   } finally {
@@ -75,7 +76,7 @@ test('login service uses absolute executables, retains loopback bridge and store
   assert.match(xml, /RunAtLoad/);
   assert.match(xml, /KeepAlive/);
   assert.match(xml, /tool &amp; app/);
-  assert.match(xml, /PAGEPATCH_OPENCODE_BIN/);
+  assert.doesNotMatch(xml, /PAGEPATCH_OPENCODE_BIN/);
   assert.equal(xml.includes('apiKey'), false);
   assert.equal(xml.includes('token'), false);
   assert.equal(xml.includes('OPENCODE_SERVER_PASSWORD'), false);

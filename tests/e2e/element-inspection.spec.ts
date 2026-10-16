@@ -9,7 +9,6 @@ import { randomUUID } from 'node:crypto';
 import { Store } from '../../src/bridge/store.js';
 import { Queue } from '../../src/bridge/queue.js';
 import { createApp } from '../../src/bridge/server.js';
-import { fixtureDelivery } from '../delivery-fixture.js';
 
 test('element names, grouped snapshots and exact locating preserve drafts and reject changed targets', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'pointdom-element-ui-'));
@@ -35,7 +34,7 @@ test('element names, grouped snapshots and exact locating preserve drafts and re
     cwd: directory,
     origins: [origin],
   });
-  app.route('/', createApp(store, new Queue(store), address.port, fixtureDelivery));
+  app.route('/', createApp(store, new Queue(store), address.port));
   for (const name of ['manifest.json', 'panel.js', 'background.js']) {
     const path = join(extension, name);
     writeFileSync(path, readFileSync(path, 'utf8').replaceAll('http://127.0.0.1:4318', origin));
@@ -53,6 +52,7 @@ test('element names, grouped snapshots and exact locating preserve drafts and re
     await panel.setViewportSize({ width: 390, height: 850 });
     panel.setDefaultTimeout(5000);
     await panel.goto(`chrome-extension://${new URL(worker.url()).host}/panel.html`);
+    await panel.getByRole('button', { name: '高级：手动配对', exact: true }).click();
     await panel.locator('#token').fill(store.config.token);
     await panel.locator('#connect').click();
     await page.bringToFront();

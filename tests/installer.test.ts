@@ -177,3 +177,73 @@ test('curl installer works with spaced paths, is repeatable and rejects tampered
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test('extension install command reuses an existing service, authorizes without exposing credentials, and rejects old CLIs safely', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'pointdom-browser-command-'));
+  try {
+    const home = join(directory, 'home with spaces'),
+      bin = join(directory, 'bin');
+    mkdirSync(join(home, 'Library/LaunchAgents'), { recursive: true });
+    mkdirSync(join(home, '.local/bin'), { recursive: true });
+    mkdirSync(bin);
+    writeFileSync(
+      join(bin, 'uname'),
+      '#!/bin/sh\ncase "$1" in -s) echo Darwin;; -m) echo arm64;; esac\n',
+      { mode: 0o700 },
+    );
+    writeFileSync(join(home, 'Library/LaunchAgents/dev.pointdom.bridge.plist'), 'preserve');
+    writeFileSync(
+      join(home, '.local/bin/pdo'),
+      `#!/bin/sh
+case "$1" in
+  status) if [ "\${FIXTURE_OLD:-}" = 1 ]; then echo 'service ready'; else echo '{"connected":true,"bootstrap":true}'; fi ;;
+  pair) printf '%s\\n' "$@" > "$HOME/authorization-fixture"; echo 'Browser authorized.' ;;
+  *) exit 1 ;;
+esac
+`,
+      { mode: 0o700 },
+    );
+    const id = 'a'.repeat(32),
+      nonce = 'b'.repeat(64);
+    const run = (args: string[], extra: Record<string, string> = {}) =>
+      spawnSync('sh', [resolve('install.sh'), ...args], {
+        env: {
+          ...process.env,
+          HOME: home,
+          PATH: `${bin}:${process.env.PATH}`,
+          POINTDOM_RELEASE_BASE_URL: 'file:///missing-must-not-download',
+          ...extra,
+        },
+        encoding: 'utf8',
+      });
+    const args = ['--extension-id', id, '--challenge', nonce];
+    const result = run(args);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Browser authorized/);
+    assert.doesNotMatch(result.stdout + result.stderr, new RegExp(nonce));
+    assert.equal(
+      readFileSync(join(home, 'authorization-fixture'), 'utf8'),
+      `pair\n--extension-id\n${id}\n--challenge\n${nonce}\n`,
+    );
+    assert.equal(existsSync(join(home, '.local/share/pointdom')), false);
+    rmSync(join(home, 'authorization-fixture'));
+    const old = run(args, { FIXTURE_OLD: '1' });
+    assert.notEqual(old.status, 0);
+    assert.match(old.stderr, /needs an update/);
+    assert.equal(existsSync(join(home, 'authorization-fixture')), false);
+    const invalid = run(['--extension-id', id, '--challenge', '$(touch injected)']);
+    assert.notEqual(invalid.status, 0);
+    assert.equal(existsSync(join(home, 'authorization-fixture')), false);
+    assert.equal(
+      readFileSync(join(home, 'Library/LaunchAgents/dev.pointdom.bridge.plist'), 'utf8'),
+      'preserve',
+    );
+    rmSync(join(home, 'Library/LaunchAgents/dev.pointdom.bridge.plist'));
+    const foreground = run(args);
+    assert.equal(foreground.status, 0, foreground.stderr);
+    assert.match(foreground.stdout, /Browser authorized/);
+    assert.equal(existsSync(join(home, '.local/share/pointdom')), false);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

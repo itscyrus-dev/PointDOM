@@ -2,11 +2,23 @@
 set -eu
 
 upgrade=false
-case "${1:-}" in
-  '') ;;
-  --upgrade) upgrade=true ;;
-  *) printf 'Usage: install.sh [--upgrade]\n' >&2; exit 1 ;;
-esac
+extension_id='' challenge=''
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --upgrade) upgrade=true; shift ;;
+    --extension-id|--challenge)
+      [ "$#" -ge 2 ] || { printf 'Missing connection parameter. Copy the command again.\n' >&2; exit 1; }
+      case "$1" in --extension-id) extension_id=$2 ;; --challenge) challenge=$2 ;; esac
+      shift 2 ;;
+    *) printf 'Usage: install.sh [--upgrade] [--extension-id ID --challenge HASH]\n' >&2; exit 1 ;;
+  esac
+done
+if [ -n "$extension_id$challenge" ]; then
+  [ "${#extension_id}" -eq 32 ] && [ "${#challenge}" -eq 64 ] || { printf 'Invalid connection command.\n' >&2; exit 1; }
+  case "$extension_id" in *[!a-p]*) exit 1 ;; esac
+  case "$challenge" in *[!a-f0-9]*) exit 1 ;; esac
+  [ "$upgrade" = false ] || { printf 'Connect and upgrade separately.\n' >&2; exit 1; }
+fi
 
 # Keep redirected output plain; respect NO_COLOR in interactive terminals.
 bold='' green='' dim='' reset=''
@@ -17,7 +29,7 @@ fi
 step() { printf '  %s%s%s  %s\n' "$dim" "$1" "$reset" "$2"; }
 fail() { printf '\n  Error: %s\n' "$*" >&2; exit 1; }
 download() {
-  curl --fail --location --silent --show-error --retry 2 "$1" -o "$2" ||
+  curl --fail --location --silent --show-error --connect-timeout 15 --max-time 300 --retry 2 "$1" -o "$2" ||
     fail "Could not download $(basename "$2"). Check your connection and try again."
 }
 checksum() {
@@ -27,6 +39,23 @@ checksum() {
   [ "$actual" = "$expected" ] || fail 'Checksum mismatch. Nothing was installed.'
 }
 
+authorize_browser() {
+  [ -n "$extension_id" ] || return 0
+  # Older CLIs ignored unknown pair flags and printed the secret. Check a public
+  # capability first; never invoke the old pair command with connection flags.
+  if ! status=$("$HOME/.local/bin/pdo" status --json 2>/dev/null); then
+    "$HOME/.local/bin/pdo" start >/dev/null 2>&1 || fail 'Could not start the existing service. Check pdo status. Existing data was preserved.'
+    attempt=0
+    while [ "$attempt" -lt 20 ]; do
+      sleep 0.25
+      if status=$("$HOME/.local/bin/pdo" status --json 2>/dev/null); then break; fi
+      attempt=$((attempt + 1))
+    done
+    [ "$attempt" -lt 20 ] || fail 'The existing service did not become ready. Existing data was preserved.'
+  fi
+  case "$status" in *'"bootstrap":true'*) ;; *) fail 'This version needs an update for automatic connection. Run pdo upgrade after active tasks finish, or use Advanced: manual pairing.' ;; esac
+  "$HOME/.local/bin/pdo" pair --extension-id "$extension_id" --challenge "$challenge" || fail 'Browser authorization failed. Copy a new command from the extension.'
+}
 print_path_commands() {
   case ":${PATH:-}:" in *":$HOME/.local/bin:"*) return ;; esac
   printf '\n  Enable pdo in this terminal:\n    export PATH="$HOME/.local/bin:$PATH"\n'
@@ -46,10 +75,14 @@ case "$(uname -m)" in
   x86_64) arch=x64 ;;
   *) fail 'Unsupported CPU architecture. Use an Apple Silicon or Intel Mac.' ;;
 esac
-for dependency in curl tar shasum awk; do
+for dependency in curl tar shasum awk zip; do
   command -v "$dependency" >/dev/null 2>&1 || fail "Missing command: $dependency. Install it and try again."
 done
-if [ -f "$HOME/Library/LaunchAgents/dev.pointdom.bridge.plist" ] && [ "$upgrade" = false ]; then
+if [ "$upgrade" = false ] && { [ -f "$HOME/Library/LaunchAgents/dev.pointdom.bridge.plist" ] || { [ -n "$extension_id" ] && [ -x "$HOME/.local/bin/pdo" ]; }; }; then
+  if [ -n "$extension_id" ]; then
+    authorize_browser
+    exit 0
+  fi
   printf '  PointDOM is already installed. No changes made.\n'
   print_path_commands
   printf '\n  Check service:  ~/.local/bin/pdo status\n  Link a project: ~/.local/bin/pdo link --origin http://localhost:5173\n'
@@ -126,6 +159,11 @@ if ! "$node_bin" "$app/dist/bridge/main.js" install --quiet; then
 fi
 
 stopped=false
+if [ -n "$extension_id" ]; then
+  authorize_browser
+  printf '\n  Return to PointDOM. The extension connects automatically.\n\n'
+  exit 0
+fi
 if [ "$upgrade" = true ]; then
   printf '\n  %sPointDOM %s updated.%s\n' "$green" "$version" "$reset"
   printf '  Project bindings, pairing and history were preserved.\n\n'
@@ -138,8 +176,8 @@ else
   printf '\n  %sPointDOM %s is ready.%s Background service started.\n' "$green" "$version" "$reset"
   print_path_commands
   printf '\n  %sNext steps%s\n\n' "$bold" "$reset"
-  printf '  cd /path/to/your/project\n  ~/.local/bin/pdo setup\n'
-  printf '\n  The setup guide opens Chrome and copies the extension folder path.\n'
+  printf '  ~/.local/bin/pdo setup\n'
+  printf '\n  The setup guide opens Chrome and selects the extension ZIP in Finder.\n'
   printf '  Later updates: ~/.local/bin/pdo upgrade\n'
   printf '  Help: ~/.local/bin/pdo help\n\n'
 fi

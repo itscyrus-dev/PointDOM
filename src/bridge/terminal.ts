@@ -1,5 +1,23 @@
 import { createInterface, emitKeypressEvents } from 'node:readline';
 import type { Readable, Writable } from 'node:stream';
+
+export function terminalColor(
+  output: Pick<NodeJS.WriteStream, 'isTTY'> = process.stdout,
+  env = process.env,
+) {
+  return output.isTTY === true && env.TERM !== 'dumb' && !('NO_COLOR' in env);
+}
+
+export function terminalStyle(color = false) {
+  const paint = (code: string, text: string) => (color ? `\x1b[${code}m${text}\x1b[0m` : text);
+  return {
+    heading: (text: string) => paint('1;36', text),
+    action: (text: string) => paint('1;36', text),
+    success: (text: string) => paint('32', text),
+    muted: (text: string) => paint('2', text),
+  };
+}
+
 export interface Choice {
   value: string;
   label: string;

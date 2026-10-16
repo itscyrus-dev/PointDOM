@@ -9,7 +9,6 @@ import { randomUUID } from 'node:crypto';
 import { Store } from '../../src/bridge/store.js';
 import { Queue } from '../../src/bridge/queue.js';
 import { createApp } from '../../src/bridge/server.js';
-import { fixtureDelivery } from '../delivery-fixture.js';
 import type { Job } from '../../src/shared/contracts.js';
 
 test('history and counts follow the selected project across tabs, shared origins and reopening', async () => {
@@ -77,7 +76,7 @@ test('history and counts follow the selected project across tabs, shared origins
     makeJob(b.id, originB, 'Beta completed request', 'completed'),
   );
   store.saveJobs();
-  app.route('/', createApp(store, new Queue(store), address.port, fixtureDelivery));
+  app.route('/', createApp(store, new Queue(store), address.port));
   for (const name of ['manifest.json', 'panel.js', 'background.js']) {
     const path = join(extension, name);
     writeFileSync(path, readFileSync(path, 'utf8').replaceAll('http://127.0.0.1:4318', originA));
@@ -99,6 +98,7 @@ test('history and counts follow the selected project across tabs, shared origins
     panel.setDefaultTimeout(5000);
     await panel.setViewportSize({ width: 390, height: 850 });
     await panel.goto(`chrome-extension://${new URL(worker.url()).host}/panel.html`);
+    await panel.getByRole('button', { name: '高级：手动配对', exact: true }).click();
     await panel.locator('#token').fill(store.config.token);
     await panel.locator('#connect').click();
     await page.bringToFront();

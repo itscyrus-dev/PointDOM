@@ -43,6 +43,7 @@ The tag workflow checks the version, installs frozen dependencies, runs formatti
 - `pointdom.tar.gz`: standalone CLI plus unpacked Chrome extension.
 - `pointdom-extension.zip`: browser-only package for manual loading.
 - `install.sh`: one-command macOS installer.
+- `install.ps1`: one-command Windows installer candidate; validate on native Windows before general distribution. Both installers accept the extension-generated connection challenge.
 - `SHA256SUMS`: hashes of all three downloadable files.
 
 Tags containing a prerelease suffix create prereleases and do not become the normal latest installer target. Stable releases are available through:

@@ -69,13 +69,28 @@ try {
     [`${app}/dist/bridge/main.js`, 'setup', '--help'],
     { cwd: directory, encoding: 'utf8' },
   );
-  assert.match(setupHelp, /Guided project/);
+  assert.match(setupHelp, /Load and pair the browser extension/);
+  assert.match(setupHelp, /also link a project/);
   // Verify the shipped CLI can generate CC Switch imports without source scripts or node_modules.
   const state = join(directory, 'state');
   await mkdir(state, { recursive: true });
   await writeFile(
     join(state, 'config.json'),
-    JSON.stringify({ token: 'fixture-do-not-export', projects: [{ cwd: directory }] }),
+    JSON.stringify({
+      version: 1,
+      token: 'fixture-do-not-export'.padEnd(64, 'x'),
+      clients: [],
+      threads: {},
+      defaultExecutor: 'mcp',
+      projects: [
+        {
+          id: '1cd967cd-47cc-4d11-8fa2-651b41562bb2',
+          name: 'fixture',
+          cwd: directory,
+          origins: ['http://localhost:3000'],
+        },
+      ],
+    }),
   );
   const connect = (option) =>
     execFileSync(process.execPath, [`${app}/dist/bridge/main.js`, 'connect', option], {
@@ -152,6 +167,16 @@ try {
   assert.ok((await readFile(`${app}/THIRD_PARTY_NOTICES.txt`, 'utf8')).includes('hono'));
   assert.ok((await readFile(`${app}/THIRD_PARTY_NOTICES.txt`, 'utf8')).includes('@heroui/react'));
   execFileSync('unzip', ['-t', `${output}/pointdom-extension.zip`], { stdio: 'pipe' });
+  const zipFiles = execFileSync('unzip', ['-Z1', `${output}/pointdom-extension.zip`], {
+    encoding: 'utf8',
+  })
+    .trim()
+    .split('\n');
+  assert.ok(zipFiles.includes('manifest.json'), 'The ZIP must have a root manifest');
+  assert.ok(
+    !zipFiles.some((path) => path.startsWith('dist/') || path.startsWith('pointdom/')),
+    'No repository wrapper directories in the extension ZIP',
+  );
   console.log(
     'Release checksums, standalone CLI, installation guides, extension ZIP and license notices: passed',
   );

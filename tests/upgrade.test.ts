@@ -1,4 +1,3 @@
-import { fixtureDelivery } from './delivery-fixture.js';
 import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
@@ -34,7 +33,7 @@ test('upgrade handshake refuses active tasks and blocks submissions and MCP clai
       origins: ['http://localhost:5173'],
     });
     const queue = new Queue(store);
-    const app = createApp(store, queue, 4318, fixtureDelivery);
+    const app = createApp(store, queue, 4318);
     const call = (path: string, body: unknown = {}) =>
       app.request(`http://127.0.0.1:4318${path}`, {
         method: 'POST',

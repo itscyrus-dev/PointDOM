@@ -37,6 +37,7 @@ async function fixture(accept: () => Promise<{ ok: boolean }>) {
       },
       storage: {
         local: {
+          set: async () => {},
           get: async () => ({ 'selection:7': [selection], 'draft:7': 'Keep overall requirements' }),
         },
         onChanged: event,
