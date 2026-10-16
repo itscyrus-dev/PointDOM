@@ -4,6 +4,8 @@ Notable changes to PointDOM. Release archives and installers are available from 
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-16
+
 ### Added
 
 - MCP listening alongside the existing CLI executors. Export one installation-scoped MCP configuration in settings, bind registered workspaces, and use one localized instruction to wait, claim, edit, report and wait again in an active agent session.
