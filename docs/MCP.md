@@ -1,3 +1,5 @@
+> Legacy compatibility reference. New browser submissions use CLI execution; do not use this guide to configure a new installation. See [CLI integration](CLI.md).
+
 # MCP protocol and clipboard reference
 
 PointDOM exposes project-scoped annotations through **local stdio MCP**. The host launches a Node process using generated command/args/env fields; that process communicates with the authenticated loopback bridge. Do not configure the bridge's HTTP URL as a remote MCP endpoint.
@@ -5,10 +7,10 @@ PointDOM exposes project-scoped annotations through **local stdio MCP**. The hos
 For installation, use the [runbook](INSTALL_AGENT.md) and [agent-specific guides](../README.md#set-up-your-agent). Generate configuration from the actual installed CLI:
 
 ```sh
-pdo connect --path /absolute/path/to/app --json
+pdo connect --json
 ```
 
-Each generated server is bound to one registered project. Its ID includes a hash of project/installation paths so separate projects and upgrades do not silently overwrite each other's launch commands. Preserve generated paths and existing host configuration. Re-export after moving an installation or its Node executable.
+The generated server is named `pointdom`, independent of business projects. Preserve its installation paths and other host configuration. Re-export after moving the installation or its Node executable; new projects only need registration and a native bind call.
 
 ## Task lifecycle
 
@@ -23,15 +25,26 @@ MCP clients initiate calls; the protocol alone cannot wake a closed or idle sess
 
 Cancelling prevents subsequent claims/reports, but does not terminate commands already started in an external application. Stop those in the host. A new MCP process cannot take over an old process's claim: inspect the edits, cancel the old annotation and submit a new draft if appropriate. Restart interrupts unfinished execution without silently rerunning it.
 
+## One configuration, multiple projects
+
+Export `pdo connect --json` once per host (`--client opencode` for OpenCode). The server key is `pointdom` and arguments contain only the installed MCP entry. Configure it in user scope, without `--project`. Register development directories with `pdo link` separately.
+
+Call `pointdom_list_projects` to inspect registered IDs and paths. Call `pointdom_bind_project` with a trusted absolute workspace path to bind that project to this connection. It returns `project` and `connection`; it does not claim or edit. Every subsequent task tool takes `projectId`. There is no mutable default and omission is rejected even when only one project is bound. Multiple project calls can run concurrently without changing each other's scope. Unknown/unbound IDs and unregistered directories are rejected. The bind tool does not register arbitrary directories from browser content.
+
+Old `--project` launches remain restricted to their original project and may omit `projectId`. Finish claimed work, remove unused old per-project registrations, add one universal entry, reconnect and bind the workspace. Do not terminate active sessions or erase history during migration.
+
 ## Tools
 
-| Tool                     | Input                                                   | Behavior                                                                                                                                     |
-| ------------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pointdom_list_tasks`    | None                                                    | List the latest 100 tasks assigned to this connection in the bound project. Returns the public connection ID/name too.                       |
-| `pointdom_get_task`      | `taskId`                                                | Read user instructions and untrusted DOM location data. Reading does not claim or edit.                                                      |
-| `pointdom_claim_task`    | `taskId`, `agent`                                       | Claim a task assigned to the calling session. The initialized client name is authoritative; the legacy `agent` argument does not route work. |
-| `pointdom_progress_task` | `taskId`, `stepId`, `message`                           | Append an activity summary to this session's running task. Identical step retries are idempotent; conflicting reuse is rejected.             |
-| `pointdom_report_task`   | `taskId`, `outcome`, `summary`, `files`, `verification` | Report this session's claimed task. Outcome is `completed` or `failed`; identical report retries are idempotent.                             |
+| Tool                     | Input                                                                | Behavior                                                                                                                                     |
+| ------------------------ | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pointdom_list_projects` | None                                                                 | List registered project IDs and source paths without binding.                                                                                |
+| `pointdom_bind_project`  | `path`                                                               | Bind a registered absolute workspace path; return project and connection metadata.                                                           |
+| `pointdom_wait_for_task` | `projectId`, optional `timeoutSeconds`                               | Wait up to 25 seconds for assigned queued work without claiming.                                                                             |
+| `pointdom_list_tasks`    | `projectId`                                                          | List the latest 100 tasks assigned to this connection in the bound project. Returns the public connection ID/name too.                       |
+| `pointdom_get_task`      | `projectId`, `taskId`                                                | Read user instructions and untrusted DOM location data. Reading does not claim or edit.                                                      |
+| `pointdom_claim_task`    | `projectId`, `taskId`, `agent`                                       | Claim a task assigned to the calling session. The initialized client name is authoritative; the legacy `agent` argument does not route work. |
+| `pointdom_progress_task` | `projectId`, `taskId`, `stepId`, `message`                           | Append an activity summary to this session's running task. Identical step retries are idempotent; conflicting reuse is rejected.             |
+| `pointdom_report_task`   | `projectId`, `taskId`, `outcome`, `summary`, `files`, `verification` | Report this session's claimed task. Outcome is `completed` or `failed`; identical report retries are idempotent.                             |
 
 Task IDs are UUIDs. A host may prefix tool names with its MCP server ID; use that host's discovered names. Legacy `pagepatch_*` aliases remain for compatibility and share the same claim identity. Prefer canonical `pointdom_*` names in new integrations.
 
@@ -39,11 +52,11 @@ All new tasks use MCP. Legacy delivery receipts remain historical data; they do 
 
 ## Client presence and task routing
 
-The stdio server registers the client's `initialize.clientInfo.name` and version after MCP initialization. It sends a local heartbeat every 15 seconds; a connection disappears after 45 seconds without a heartbeat, or on a clean disconnect. Presence means a live MCP transport, not an active model turn, a verified application identity, or permission to run arbitrary work. Configuration files alone never appear as connected clients. Connection names are host-supplied metadata. Known name aliases may display compact catalog labels; the exact connection ID, not a catalog brand or model-supplied name, controls task routing.
+The universal stdio server initializes without choosing a project. `pointdom_bind_project(path)` registers the client's `initialize.clientInfo.name` and version for a registered source directory. Legacy `--project` processes still register their fixed project on initialization. It sends a local heartbeat every 15 seconds; a connection disappears after 45 seconds without a heartbeat, or on a clean disconnect. Presence means a live MCP transport, not an active model turn, a verified application identity, or permission to run arbitrary work. Configuration files alone never appear as connected clients. Connection names are host-supplied metadata. Known name aliases may display compact catalog labels; the exact connection ID, not a catalog brand or model-supplied name, controls task routing.
 
 An unregistered caller (including an old stdio process loaded before presence support) receives HTTP 409 with `MCP_RECONNECT_REQUIRED` on list requests. It cannot mistake a successful empty inbox for a live connection. Updating the bundle on disk or changing the `current` pointer does not update code already loaded in a Node process. Finish any claimed work, then restart/reconnect that MCP service in the current host window; the agent must verify `connection.id` before reporting connected.
 
-The extension client directory includes static setup shortcuts for Codex, Trae, Claude Code, Zcode, OpenCode and other clients. A disconnected row offers Copy setup in the panel language, using that host’s static guide (Zcode uses the generic MCP guide). Paste it into the corresponding project chat to merge MCP configuration and verify a read-only tool call. Setup copies never include pairing credentials, page content, drafts or browser-derived project paths. They do not run commands or mark a client connected. Only live connections bound to the current project appear as Available and selectable; unknown hosts keep their reported names. Copy errors allow retry, and language changes reset copy feedback. Existing polling updates presence while the panel is visible. Select an available recipient before submitting. It remembers the client-name preference across projects and reopening; reuse is allowed only when exactly one matching connection is available. Same-name sessions have distinct IDs and short visible suffixes. A client may share one MCP process across several conversations: PointDOM identifies the MCP connection, not a desktop window or chat. Choose the correct conversation inside that host.
+The extension client directory includes static setup shortcuts for Codex, Trae, Claude Code, Zcode, OpenCode and other clients. A disconnected row offers Copy setup in the panel language, using that host’s static guide (Zcode uses the generic MCP guide). Paste it into the corresponding project chat to merge MCP configuration and verify a read-only tool call. Setup copies never include pairing credentials, page content, drafts or browser-derived project paths. They do not run commands or mark a client connected. Only live connections bound to the current project appear as Available and selectable; unknown hosts keep their reported names. Copy errors allow retry, and language changes reset copy feedback. Existing polling updates presence while the panel is visible. Select an available recipient before submitting. It remembers the client-name preference across projects and reopening; reuse is allowed only when exactly one matching connection is available. Same-name sessions are grouped under one client row; expand it to choose a distinct connection by its short ID. A client may share one MCP process across several conversations: PointDOM identifies the MCP connection, not a desktop window or chat. Choose the correct conversation inside that host.
 
 A task stores its recipient connection ID/name. Changing the composer selection affects future submissions only. Use **Reassign** on an unclaimed task to transfer it explicitly, including an old unassigned task or one whose recipient has disconnected. The bridge checks both queued status and the expected previous recipient atomically. Running/finished tasks cannot be transferred. At most one task can run per project, even when different recipients have work queued. Other projects keep separate queues.
 
@@ -125,3 +138,9 @@ blocked state honestly. The user can cancel the old annotation in PointDOM and
 submit a separate verification-only annotation for the existing change. Complete
 that annotation in one live session; do not repeat destructive edits, bypass
 ownership checks, mutate task storage or invent a successful report.
+
+## Watch for assigned annotations
+
+After the user explicitly asks the agent to monitor the project, call `pointdom_wait_for_task` (default 25 seconds). A pending call marks that session as Listening in the extension. When `taskId` is returned, read and claim it with the existing tools, perform and verify the change, report progress and completion, then wait again. A wait never claims work: the ordinary claim endpoint still enforces one owner and one running task per project. Timeout returns `timedOut: true`; repeat only while the user's monitoring request remains active. Stop on user cancellation, connection loss or tool errors rather than spinning on failures.
+
+The extension's Copy watch instruction button provides the one-time prompt for the selected agent conversation. Copying does not enable listening. Only an actual outstanding wait does. The host can terminate a turn, cancel a tool or impose limits, so this is not an unattended agent daemon and cannot wake a closed/idle conversation. Different sessions receive only explicitly assigned tasks. After a restart, reconnect and explicitly reassign any queued work before resuming monitoring.

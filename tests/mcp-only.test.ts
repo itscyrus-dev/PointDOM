@@ -58,6 +58,7 @@ function fixture() {
   };
   return {
     directory,
+    queue,
     store,
     project,
     call,
@@ -66,28 +67,22 @@ function fixture() {
   };
 }
 
-test('all submissions use MCP, including legacy CLI choices and execution overrides', async () => {
+test('new browser submissions reject MCP and legacy execution overrides', async () => {
   const f = fixture();
   try {
-    f.store.config.projects[0]!.permissions = { confirmation: 'reduced', codexNetwork: true };
-    for (const executor of ['codex', 'opencode', 'claude', 'trae', 'mcp']) {
-      const response = await f.call('/api/jobs', {
-        ...f.input,
-        id: randomUUID(),
-        executor,
-        execution: { approvalPolicy: 'never', autoCommit: true, model: 'old-model' },
-      });
-      assert.equal(response.status, 202);
-      const { job } = await response.json();
-      assert.equal(job.executor, 'mcp');
-      assert.equal(job.execution, undefined);
-      assert.equal(job.permissions, undefined);
-      assert.equal(job.status, 'queued');
-      assert.equal(job.startedAt, undefined);
-    }
-    assert.equal(f.store.jobs.length, 5);
-    await new Promise<void>((done) => setImmediate(done));
-    assert.ok(f.store.jobs.every((job) => job.status === 'queued' && !job.startedAt));
+    assert.equal((await f.call('/api/jobs', { ...f.input, executor: 'mcp' })).status, 410);
+    for (const executor of ['codex', 'claude', 'opencode', 'trae'])
+      assert.equal(
+        (
+          await f.call('/api/jobs', {
+            ...f.input,
+            executor,
+            execution: { approvalPolicy: 'never', autoCommit: true },
+          })
+        ).status,
+        400,
+      );
+    assert.equal(f.store.jobs.length, 0);
   } finally {
     f.close();
   }
@@ -118,8 +113,7 @@ test('MCP project context never suggests retired model or permission policies to
     const project = f.store.config.projects[0]!;
     project.permissions = { confirmation: 'reduced', codexNetwork: true };
     project.openCodeModel = 'retired/model';
-    const response = await f.call('/api/jobs', f.input);
-    assert.equal(response.status, 202);
+    f.queue.submit(f.input);
     const queue = new Queue(f.store),
       claim = randomUUID();
     queue.agents.register({
@@ -184,9 +178,7 @@ test('generic MCP submissions ignore old auto-send opt-ins and persist no deskto
   try {
     f.store.config.traeAutoSend = true;
     f.store.saveConfig();
-    const response = await f.call('/api/jobs', f.input);
-    assert.equal(response.status, 202);
-    const { job } = await response.json();
+    const job = f.queue.submit(f.input);
     assert.equal(job.delivery, undefined);
     assert.equal(job.status, 'queued');
     assert.equal(job.startedAt, undefined);
@@ -238,8 +230,7 @@ test('generic MCP runtime has no native client automation in its dependency grap
 test('recovery keeps legacy delivery receipts readable without replaying or rewriting a queued annotation', async () => {
   const f = fixture();
   try {
-    const response = await f.call('/api/jobs', f.input);
-    assert.equal(response.status, 202);
+    f.queue.submit(f.input);
     const job = f.store.jobs[0]!;
     job.delivery = {
       target: 'trae',

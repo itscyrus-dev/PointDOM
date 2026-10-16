@@ -1,34 +1,10 @@
-# Codex
+# Codex CLI
 
-First follow the shared [installation runbook](../INSTALL_AGENT.md). PointDOM uses MCP in the user's existing Codex session. Configure models, accounts and permissions in Codex; PointDOM does not launch `codex app-server` or a separate coding process.
+Follow the [installation runbook](../INSTALL_AGENT.md). PointDOM's new workflow starts the local `codex` process directly, with no PointDOM MCP server or repeated chat handoff.
 
-## MCP for the current project
+1. Install and sign in to Codex CLI using its [official documentation](https://developers.openai.com/codex/noninteractive/). Keep your account, model and permissions configured there.
+2. Register the source project with `pdo link --path /absolute/path/to/app --origin http://localhost:3000`, replacing the path and URL with verified values.
+3. In the menu beside Submit, choose **Check again → Codex**. Detection confirms executable capability only, not authentication/model access.
+4. Open the registered page, grant page access, select the DOM elements, describe the change and submit. Progress and the final CLI report appear in PointDOM.
 
-Export the actual server definition:
-
-```sh
-pdo connect --path /absolute/path/to/app --json
-```
-
-Read the generated `mcpServers` entry and merge it into the application's `.codex/config.toml`. Convert its fields as follows, using the generated server ID:
-
-```toml
-[mcp_servers.pointdom_generated_id]
-command = "/absolute/path/to/node"
-args = ["/absolute/path/to/mcp.js", "--project", "/absolute/path/to/app"]
-
-[mcp_servers.pointdom_generated_id.env]
-PAGEPATCH_HOME = "/absolute/path/to/local/state"
-```
-
-The values above are illustrative. Preserve existing TOML, servers, comments and account settings. Project configuration is loaded for trusted projects; the user must accept the host's trust decisions. Do not commit machine-specific absolute paths automatically.
-
-Reconnect the host, inspect its MCP tools and call `pointdom_list_tasks`. Read, claim, update and report submitted annotations in that same live MCP session. A written configuration file is not proof of connectivity. PointDOM does not wake idle conversations, operate client windows or run an Agent CLI; host execution remains in your control.
-
-Official references: [Codex MCP configuration](https://developers.openai.com/codex/mcp/) and [CLI commands](https://learn.chatgpt.com/docs/developer-commands#codex-mcp).
-
-## Select this connection in PointDOM
-
-After the host initializes this project's MCP, its reported client name appears in the extension's recipient picker. Select that connection before submitting; only it can list/read/claim its assigned tasks. Distinguish duplicate names by their short session IDs. An empty list is valid when no tasks are assigned. Changing the picker affects future submissions; use Reassign on queued cards to transfer pending work explicitly. Running tasks must finish/report in their original session. A connected entry does not start an idle agent turn or identify a desktop chat. See [routing details](../MCP.md#client-presence-and-task-routing).
-
-After an update, a running stdio process may still contain old code. Finish any claimed work, then restart/reconnect this project's PointDOM MCP in the current host. Verify with a native pointdom_list_tasks call in this conversation: it must return the correct project and connection.id. tasks: [] alone, a saved config, or a temporary SDK subprocess cannot prove this host is connected. If reconnection requires the user, provide the exact action instead of reporting setup complete.
+The CLI invocation uses the registered source directory and does not target an existing desktop chat. No permission-bypass flags or automatic commits are added. If permission, authentication or model configuration blocks the run, the task reports failure; inspect partial edits before retrying. See [CLI execution](../CLI.md) for supported invocation formats, limits and cancellation behavior.

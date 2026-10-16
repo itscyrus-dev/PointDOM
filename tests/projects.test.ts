@@ -12,7 +12,7 @@ test('live project binding is local-only, idempotent and persisted across multip
   const directory = realpathSync(mkdtempSync(join(tmpdir(), 'pointdom-bind-')));
   try {
     const store = new Store(join(directory, 'state'));
-    assert.equal(store.config.defaultExecutor, 'mcp');
+    assert.equal(store.config.defaultExecutor, 'codex');
     const app = createApp(store, new Queue(store), 4318);
     const first = join(directory, 'one'),
       second = join(directory, 'two');

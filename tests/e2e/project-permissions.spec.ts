@@ -1,3 +1,4 @@
+import { fixtureCli } from '../fixtures/cli.js';
 import { extensionBrowserArgs } from './browser-args.js';
 import { test, expect, chromium } from '@playwright/test';
 import { serve } from '@hono/node-server';
@@ -30,7 +31,10 @@ test('project page access keeps compact grant, denial and reopening states witho
     name: '权限测试',
     origins: [origin],
   });
-  app.route('/', createApp(store, new Queue(store), address.port));
+  app.route(
+    '/',
+    createApp(store, new Queue(store, fixtureCli(directory, { available: [] })), address.port),
+  );
   for (const name of ['manifest.json', 'panel.js', 'background.js']) {
     const file = join(extension, name);
     writeFileSync(file, readFileSync(file, 'utf8').replaceAll('http://127.0.0.1:4318', origin));
@@ -57,9 +61,11 @@ test('project page access keeps compact grant, denial and reopening states witho
     await expect(panel.locator('#executor, #project-confirmation')).toHaveCount(0);
     await expect(panel.getByRole('checkbox', { name: /Codex/ })).toHaveCount(0);
     await expect(
-      panel.getByRole('dialog', { name: '接收客户端', exact: true }).locator('.client-status'),
-    ).toHaveText(Array(6).fill('未连接'));
-    await panel.getByRole('dialog', { name: '接收客户端', exact: true }).press('Escape');
+      panel
+        .getByRole('dialog', { name: '执行工具', exact: true })
+        .locator('.client-select:disabled'),
+    ).toHaveCount(0);
+    await panel.getByRole('dialog', { name: '执行工具', exact: true }).press('Escape');
     await panel.locator('#instruction').fill('Do not submit without a recipient');
     await expect(panel.locator('#submit')).toBeDisabled();
     expect(store.jobs).toHaveLength(0);

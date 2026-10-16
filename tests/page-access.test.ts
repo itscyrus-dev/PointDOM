@@ -78,6 +78,7 @@ async function fixture(
           ? { defaultExecutor: 'mcp' }
           : input.endsWith('/api/projects')
             ? {
+                agentSettings: { defaultExecutor: 'codex' },
                 projects: [
                   {
                     id: 'a8d86399-42aa-4203-8456-61dab92ffde1',
@@ -87,7 +88,9 @@ async function fixture(
                   },
                 ],
               }
-            : { jobs: [] },
+            : input.endsWith('/api/clis')
+              ? { clis: [] }
+              : { jobs: [] },
       ),
   });
   const controller = new PanelController();

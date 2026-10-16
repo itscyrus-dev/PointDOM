@@ -47,16 +47,11 @@ test('fixed extension and MCP entries change releases without changing exported 
   const f = fixture();
   try {
     activateRelease(f.first);
-    const state = { projects: [{ cwd: f.root }] };
     const config = (url: string) =>
-      connectionConfig(state, f.root, f.root, fileURLToPath(new URL('./mcp.js', url)));
+      connectionConfig(f.root, fileURLToPath(new URL('./mcp.js', url)));
     const first = config(f.first);
     const server = Object.values(first.mcpServers)[0]!;
-    assert.deepEqual(server.args, [
-      join(f.root, 'current/dist/bridge/mcp.js'),
-      '--project',
-      f.root,
-    ]);
+    assert.deepEqual(server.args, [join(f.root, 'current/dist/bridge/mcp.js')]);
     const run = () => execFileSync(server.command, server.args, { encoding: 'utf8' }).trim();
     assert.equal(run(), 'first');
     assert.equal(lstatSync(f.paths.extension).isSymbolicLink(), false);

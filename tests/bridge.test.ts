@@ -1,3 +1,4 @@
+import { fixtureCli } from './fixtures/cli.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -48,12 +49,7 @@ function fixture() {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 test('HTTP pairing rejects hostile origins, wrong tokens, unpaired clients and arbitrary workspaces', async () => {
   const f = fixture();
-  const queue = new Queue(f.store);
-  const recipient = queue.agents.register({
-    projectId: f.store.config.projects[0]!.id,
-    claim: randomUUID(),
-    client: { name: 'Fixture', version: '1' },
-  });
+  const queue = new Queue(f.store, fixtureCli(f.directory));
   const app = createApp(f.store, queue, 4318);
   const request = (path: string, body?: unknown, extra: Record<string, string> = {}) =>
     app.request(`http://127.0.0.1:4318${path}`, {
@@ -88,17 +84,15 @@ test('HTTP pairing rejects hostile origins, wrong tokens, unpaired clients and a
       (
         await request('/api/jobs', {
           ...f.input(),
-          recipientId: recipient.id,
+          executor: 'codex',
           selection: { ...page, url: 'https://unbound.test' },
         })
       ).status,
       400,
     );
-    assert.equal(
-      (await request('/api/jobs', { ...f.input(), recipientId: recipient.id })).status,
-      202,
-    );
-    await tick();
+    assert.equal((await request('/api/jobs', { ...f.input(), executor: 'codex' })).status, 202);
+    while (f.store.jobs.some((job) => job.status === 'running'))
+      await new Promise((r) => setTimeout(r, 10));
   } finally {
     f.cleanup();
   }

@@ -1,3 +1,4 @@
+import { fixtureCli } from '../fixtures/cli.js';
 import { extensionBrowserArgs } from './browser-args.js';
 import { test, expect, chromium } from '@playwright/test';
 import { serve } from '@hono/node-server';
@@ -76,7 +77,7 @@ test('history and counts follow the selected project across tabs, shared origins
     makeJob(b.id, originB, 'Beta completed request', 'completed'),
   );
   store.saveJobs();
-  app.route('/', createApp(store, new Queue(store), address.port));
+  app.route('/', createApp(store, new Queue(store, fixtureCli(directory)), address.port));
   for (const name of ['manifest.json', 'panel.js', 'background.js']) {
     const path = join(extension, name);
     writeFileSync(path, readFileSync(path, 'utf8').replaceAll('http://127.0.0.1:4318', originA));

@@ -30,11 +30,18 @@ test('client directory keeps offline setup entries and uses live connection IDs 
     entries.find((entry) => entry.label === 'Independent host')?.connection?.id,
     extra.id,
   );
-  const duplicates = clientEntries([trae, connection('Trae')]).filter(
+  const secondTrae = connection('Trae');
+  const duplicates = clientEntries([trae, secondTrae]).filter(
     (entry) => entry.preset.id === 'trae',
   );
-  assert.equal(duplicates.length, 2);
-  assert.notEqual(duplicates[0]!.label, duplicates[1]!.label);
+  assert.equal(duplicates.length, 1);
+  assert.equal(duplicates[0]!.label, 'Trae');
+  assert.equal(duplicates[0]!.connection, undefined);
+  assert.equal(duplicates[0]!.sessions?.length, 2);
+  assert.deepEqual(
+    duplicates[0]!.sessions?.map((s) => s.id),
+    [trae.id, secondTrae.id],
+  );
   assert.ok(clientEntries([connection('not-codex')]).some((entry) => entry.label === 'not-codex'));
 });
 test('per-client setup copies are short, localized and use static guides with host-resolved project paths', () => {
@@ -43,6 +50,11 @@ test('per-client setup copies are short, localized and use static guides with ho
       en = clientSetupInstruction('en', id);
     assert.match(zh, /当前项目/);
     assert.match(zh, /pdo connect/);
+    assert.match(zh, /pointdom_bind_project/);
+    assert.match(zh, /projectId/);
+    assert.doesNotMatch(zh, /pdo connect --path/);
+    assert.match(en, /pointdom_bind_project/);
+    assert.doesNotMatch(en, /pdo connect --path/);
     assert.match(zh, /pointdom_list_tasks/);
     assert.match(zh, /connection\.id/);
     assert.match(zh, /原生/);

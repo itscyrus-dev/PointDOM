@@ -93,6 +93,7 @@ export const agentConnectionSchema = z.object({
   version: z.string().max(80),
   connectedAt: z.iso.datetime(),
   lastSeenAt: z.iso.datetime(),
+  listening: z.boolean().optional(),
 });
 export type AgentConnection = z.infer<typeof agentConnectionSchema>;
 export const taskRecipientSchema = agentConnectionSchema.pick({ id: true, name: true });

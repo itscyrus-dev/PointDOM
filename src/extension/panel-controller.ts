@@ -1,3 +1,4 @@
+import { cliStatusSchema, cliIdSchema, type CliStatus, type CliId } from '../shared/cli.js';
 import {
   newConnectionNonce,
   connectionChallenge,
@@ -7,8 +8,6 @@ import {
 import { z } from 'zod';
 import { agentContext } from '../shared/agent-context.js';
 import {
-  agentConnectionSchema,
-  type AgentConnection,
   executorSchema,
   jobSchema,
   projectSchema,
@@ -46,8 +45,8 @@ export type PanelState = {
   enablingOrigin: string;
   projectId: string;
   jobs: Job[];
-  agents: AgentConnection[];
-  recipientId: string;
+  clis: CliStatus[];
+  cliExecutor: CliId;
   selections: Selection[];
   pickerActive: boolean;
   draft: string;
@@ -72,8 +71,8 @@ export class PanelController {
     enablingOrigin: '',
     projectId: '',
     jobs: [],
-    agents: [],
-    recipientId: '',
+    clis: [],
+    cliExecutor: 'codex',
     selections: [],
     pickerActive: false,
     draft: '',
@@ -89,8 +88,6 @@ export class PanelController {
   private discovering = false;
   private explicitProject = { origin: '', id: '' };
   private retry: Submission | null = null;
-  private preferredAgent = '';
-  private recipients = new Map<string, string>();
   private syncVersion = 0;
   private pickerVersion = 0;
   private accessVersion = 0;
@@ -132,6 +129,12 @@ export class PanelController {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: AbortSignal.timeout(10000),
     });
+    if (path.startsWith('/api/clis') && response.status === 404)
+      throw new Error(
+        this.state.preferences.language === 'en'
+          ? 'Update the local PointDOM service to use CLI execution.'
+          : '请先更新 PointDOM 本地服务，再使用 CLI 执行。',
+      );
     const value: unknown = await response.json();
     if (!response.ok) {
       const parsed = z.object({ error: z.string() }).safeParse(value);
@@ -153,7 +156,7 @@ export class PanelController {
     this.patch({
       projects,
       projectId,
-      ...(projectChanged ? { jobs: [], agents: [], recipientId: '' } : {}),
+      ...(projectChanged ? { jobs: [] } : {}),
       ...(matches.length > 1 && !projectId && this.state.connection === 'connected'
         ? { settings: true }
         : {}),
@@ -187,22 +190,16 @@ export class PanelController {
     this.retry = null;
     this.bindProjects();
   }
-  setRecipient(id: string) {
-    const agent = this.state.agents.find((agent) => agent.id === id);
-    if (!agent) return;
-    // An uncertain submission must keep its original ID and recipient until resolved.
-    if (this.retry) {
-      this.notify(
-        '请先确认上次提交；已有任务可在卡片中改派。',
-        'Resolve the previous submission first. Reassign existing tasks from their cards.',
-        true,
-      );
-      return;
-    }
-    this.preferredAgent = agent.name;
-    this.recipients.set(this.state.projectId, id);
-    this.patch({ recipientId: id });
-    void chrome.storage.local.set({ pointdomPreferredAgent: agent.name }).catch(this.fail);
+  async detectClis() {
+    const { clis } = z
+      .object({ clis: z.array(cliStatusSchema) })
+      .parse(await this.api('/api/clis?refresh=1'));
+    this.patch({ clis });
+  }
+  async setCli(id: CliId) {
+    if (this.retry || !this.state.clis.some((cli) => cli.id === id && cli.available)) return;
+    await this.api('/api/settings', { executor: id });
+    this.patch({ cliExecutor: id });
   }
   setPreferences(value: Partial<Preferences>) {
     const preferences = readPreferences({ ...this.state.preferences, ...value });
@@ -336,11 +333,12 @@ export class PanelController {
     while (this.running && this.state.connection === 'connected') {
       const projectId = this.state.projectId;
       try {
-        const [projectResponse, incoming, agents] = await Promise.all([
+        const [projectResponse, incoming, clis] = await Promise.all([
           this.api('/api/projects').then((value) =>
             z
               .object({
                 projects: z.array(projectSchema),
+                agentSettings: z.object({ defaultExecutor: cliIdSchema }),
               })
               .parse(value),
           ),
@@ -349,11 +347,9 @@ export class PanelController {
                 (value) => z.object({ jobs: z.array(jobSchema) }).parse(value).jobs,
               )
             : Promise.resolve([]),
-          projectId
-            ? this.api(`/api/agents?projectId=${encodeURIComponent(projectId)}`).then(
-                (value) => z.object({ agents: z.array(agentConnectionSchema) }).parse(value).agents,
-              )
-            : Promise.resolve([]),
+          this.api('/api/clis').then(
+            (value) => z.object({ clis: z.array(cliStatusSchema) }).parse(value).clis,
+          ),
         ]);
         if (!this.running) return;
         const { projects } = projectResponse;
@@ -364,15 +360,7 @@ export class PanelController {
         // Older bridges may ignore the query. Never expose their foreign-project records.
         const jobs = incoming.filter((job) => job.projectId === projectId);
         if (JSON.stringify(jobs) !== JSON.stringify(this.state.jobs)) this.patch({ jobs });
-        const scoped = agents.filter((agent) => agent.projectId === projectId);
-        const saved = this.recipients.get(projectId);
-        const preferred = scoped.filter((agent) => agent.name === this.preferredAgent);
-        const recipientId = scoped.some((agent) => agent.id === saved)
-          ? saved!
-          : preferred.length === 1
-            ? preferred[0]!.id
-            : '';
-        this.patch({ agents: scoped, recipientId });
+        this.patch({ clis, cliExecutor: projectResponse.agentSettings.defaultExecutor });
         return;
       } catch (error) {
         if (!this.running) return;
@@ -534,7 +522,6 @@ export class PanelController {
         'bridgeToken',
         'pointdomPreferences',
         'pointdomConnectionNonce',
-        'pointdomPreferredAgent',
       ]);
       // Persist one pending capability across panel/tab reopening. No page content is involved.
       this.nonce =
@@ -548,8 +535,6 @@ export class PanelController {
         installPlatform: platform?.os === 'mac' || platform?.os === 'win' ? platform.os : null,
       });
       this.token = typeof data.bridgeToken === 'string' ? data.bridgeToken : '';
-      this.preferredAgent =
-        typeof data.pointdomPreferredAgent === 'string' ? data.pointdomPreferredAgent : '';
       this.patch({
         pairingSaved: Boolean(this.token.trim()),
         preferences: readPreferences(data.pointdomPreferences),
@@ -791,7 +776,7 @@ export class PanelController {
       state.submitting ||
       state.connection !== 'connected' ||
       !state.projectId ||
-      (!this.retry && !state.agents.some((agent) => agent.id === state.recipientId)) ||
+      (!this.retry && !state.clis.some((cli) => cli.id === state.cliExecutor && cli.available)) ||
       !(state.draft.trim() || state.selections.some((s) => s.description?.trim()))
     )
       return;
@@ -801,10 +786,9 @@ export class PanelController {
       return;
     }
     const data: Submission = this.retry || {
-      executor: 'mcp',
+      executor: state.cliExecutor,
       id: crypto.randomUUID(),
       projectId: state.projectId,
-      recipientId: state.recipientId,
       instruction:
         state.draft.trim() ||
         (state.preferences.language === 'en'
@@ -825,7 +809,7 @@ export class PanelController {
           tabId: state.tabId,
         });
       if (this.state.tabId === state.tabId) this.patch({ selections: [], draft: '' });
-      this.notify('已提交，等待 Agent 领取。', 'Submitted. Awaiting an agent claim.');
+      this.notify('已提交，自动执行。', 'Submitted. Execution starts automatically.');
       await this.refresh();
     } catch (error) {
       this.notify(
@@ -850,19 +834,6 @@ export class PanelController {
         [`draft:${this.state.tabId}`]: '',
       });
     this.notify('填写修改意见后提交。', 'Describe your next change, then submit.');
-  }
-  async reassign(job: Job, recipientId: string) {
-    z.object({ job: jobSchema }).parse(
-      await this.api(`/api/jobs/${job.id}/recipient`, {
-        recipientId,
-        expectedRecipientId: job.recipient?.id || null,
-      }),
-    );
-    await this.refresh();
-    this.notify(
-      '已改派；等待所选客户端领取。',
-      'Reassigned. Waiting for the selected client to claim.',
-    );
   }
   async cancel(job: Job) {
     await this.api(`/api/jobs/${job.id}/cancel`, {});

@@ -2,6 +2,35 @@
 
 Notable changes to PointDOM. Release archives and installers are available from [GitHub Releases](https://github.com/itscyrus-dev/PointDOM/releases).
 
+## [Unreleased]
+
+## [0.5.0] - 2026-10-16
+
+### Added
+
+- Direct local Codex, Claude Code, OpenCode and Trae CLI execution. Browser submissions start in the registered project and return real tool calls, commands, changed paths, exit codes, bounded redacted output and final reports.
+- Capability-based CLI detection, Trae exec/print support and OpenCode standalone mode when advertised. The compact executor menu shows detected tools, with one preference shared across projects.
+- Persistent same-project queues, duplicate-submission protection, process-tree cancellation, bounded runtime/output and recovery that interrupts unfinished work without replay.
+- Universal MCP configuration exports and explicit project binding for legacy integrations, without a project-specific server ID or source path in the shared configuration.
+
+### Changed
+
+- Replace the new-task MCP workflow with CLI execution. Remove MCP configuration copying, recipient/session selection, monitoring instructions and duplicate CLI settings from the extension. Historical MCP records and compatibility APIs remain available; new MCP submissions are rejected.
+- Preserve local CLI accounts, models and permission settings without bypass flags. PointDOM does not edit client configuration or automate desktop conversations.
+- Simplify English/Chinese documentation, setup instructions and panel copy. Keep the executor picker compact and separate the manual-pairing button from its input.
+
+### Fixed
+
+- Support OpenCode v2 clean completion with a nonempty report when step_finish is absent; errors, cancellation, timeout and empty reports still fail.
+- Distinguish authentication, model and argument failures and return bounded redacted diagnostics instead of a generic exit message.
+- Correlate Claude tool results, deduplicate activity and redact credentials. Old discarded activity is not fabricated.
+
+### Upgrade notes
+
+- Run `pdo upgrade` after pending tasks finish, then reload the extension and refresh project pages. ZIP-installed extension copies require a manual update.
+- Install and sign in to the selected CLI. Detection alone does not prove account access. Trae CLI authentication is separate from the desktop app; failed tasks are never retried automatically.
+- Existing pairing, registered projects and history are retained. Windows execution still requires native verification; automated tests use isolated executable fixtures, not paid models.
+
 ## [0.4.0] - 2026-10-16
 
 ### Added
