@@ -2,12 +2,7 @@ import { elementType, shortLabel, styleGroups } from './element-info.js';
 import { checkLatestRelease } from './release-check.js';
 import { logoFrame, logoDot } from './brand.js';
 import { formatTaskDuration } from './task-duration.js';
-import { agentSetupInstruction } from '../shared/agent-setup.js';
-import {
-  clientEntries,
-  clientSetupInstruction,
-  type ClientEntry,
-} from '../shared/agent-clients.js';
+import { cliIds } from '../shared/cli.js';
 import { executorName } from '../shared/contracts.js';
 import {
   createContext,
@@ -301,144 +296,64 @@ function HeaderPreferences({ preferences }: { preferences: Preferences }) {
     </>
   );
 }
-function RecipientSelect({
-  id,
-  agents,
-  value,
-  onChange,
-}: {
-  id: string;
-  agents: PanelState['agents'];
-  value: string;
-  onChange: (id: string) => void;
-}) {
-  const t = useContext(Locale);
-  return (
-    <FieldSelect
-      id={id}
-      label={t('MCP 客户端', 'MCP client')}
-      value={value}
-      items={[
-        { id: '', name: t('选择客户端', 'Choose a client') },
-        ...agents.map((agent) => ({
-          id: agent.id,
-          name:
-            agents.filter((other) => other.name === agent.name).length > 1
-              ? `${agent.name} · ${agent.id.slice(0, 6)}`
-              : agent.name,
-        })),
-      ]}
-      onChange={onChange}
-      isDisabled={!agents.length}
-    />
-  );
-}
-function ClientSetupRow({
-  entry,
-  selected,
-  language,
-  onSelect,
-}: {
-  entry: ClientEntry;
-  selected: boolean;
-  language: Preferences['language'];
-  onSelect: (id: string) => void;
-}) {
-  const t = useContext(Locale);
-  const [copy, setCopy] = useState<'idle' | 'copied' | 'error'>('idle');
-  const name =
-    entry.preset.id === 'other' && !entry.connection
-      ? t('其他 MCP 客户端', 'Other MCP client')
-      : entry.label;
-  return (
-    <li className="client-entry" data-client={entry.preset.id}>
-      <div className="client-identity">
-        <strong title={entry.connection?.name}>{name}</strong>
-        <small className="client-status" data-available={!!entry.connection}>
-          {entry.connection ? t('可用', 'Available') : t('未连接', 'Not connected')}
-        </small>
-        {copy === 'error' && !entry.connection ? (
-          <small role="alert">{t('复制失败，请重试。', 'Copy failed. Try again.')}</small>
-        ) : null}
-      </div>
-      {entry.connection ? (
-        <Button
-          className="quiet client-action"
-          isDisabled={selected}
-          aria-pressed={selected}
-          aria-label={t(`使用 ${name}`, `Use ${name}`)}
-          onPress={() => onSelect(entry.connection!.id)}
-        >
-          {selected ? t('已选择', 'Selected') : t('使用', 'Use')}
-        </Button>
-      ) : (
-        <AsyncButton
-          className="quiet client-action"
-          aria-label={t(`复制 ${name} 接入指令`, `Copy ${name} setup instruction`)}
-          run={async () => {
-            setCopy('idle');
-            try {
-              await navigator.clipboard.writeText(
-                clientSetupInstruction(language, entry.preset.id),
-              );
-              setCopy('copied');
-            } catch {
-              setCopy('error');
-            }
-          }}
-        >
-          <span role="status" aria-live="polite">
-            {copy === 'copied' ? t('已复制', 'Copied') : t('复制指令', 'Copy setup')}
-          </span>
-        </AsyncButton>
-      )}
-    </li>
-  );
-}
 function ExecutionSettings({ state }: { state: PanelState }) {
   const t = useContext(Locale);
   const [open, setOpen] = useState(false);
-  const entries = clientEntries(state.connection === 'connected' ? state.agents : []);
-  const recipient = entries.find((entry) => entry.connection?.id === state.recipientId);
   return (
     <Popover isOpen={open} onOpenChange={setOpen}>
       <Button
         id="execution-settings"
         className="quiet execution-trigger"
-        aria-label={t('选择 MCP 客户端', 'Choose MCP client')}
+        aria-label={t('选择 CLI', 'Choose CLI')}
       >
-        <span id="execution-summary">{recipient?.label || t('选择客户端', 'Choose a client')}</span>
+        <span id="execution-summary">{executorName(state.cliExecutor)}</span>
         <Chevron />
       </Button>
       <Popover.Content className="execution-popover" placement="bottom end">
         <Popover.Dialog>
-          <Popover.Heading>{t('接收客户端', 'Recipient')}</Popover.Heading>
-          <p className="client-setup-hint">
-            {t(
-              '复制到对应客户端的项目对话，接通后即可选择。',
-              'Paste into that client’s project chat. Select it once connected.',
-            )}
-          </p>
-          <ul className="client-directory" aria-label={t('MCP 客户端', 'MCP clients')}>
-            {entries.map((entry) => (
-              <ClientSetupRow
-                key={`${state.preferences.language}:${entry.connection?.id || entry.preset.id}`}
-                entry={entry}
-                selected={!!entry.connection && entry.connection.id === state.recipientId}
-                language={state.preferences.language}
-                onSelect={(id) => {
-                  controller.setRecipient(id);
-                  if (controller.snapshot().recipientId === id) setOpen(false);
-                }}
-              />
-            ))}
+          <Popover.Heading>{t('执行工具', 'CLI executor')}</Popover.Heading>
+          <ul className="client-directory" aria-label={t('CLI 列表', 'CLI executors')}>
+            {cliIds
+              .filter(
+                (id) =>
+                  state.connection === 'connected' &&
+                  state.clis.some((cli) => cli.id === id && cli.available),
+              )
+              .map((id) => {
+                const available =
+                  state.connection === 'connected' &&
+                  state.clis.some((cli) => cli.id === id && cli.available);
+                return (
+                  <li className="client-entry" data-client={id} key={id}>
+                    <AsyncButton
+                      className="quiet client-select"
+                      isDisabled={!available}
+                      aria-pressed={available && state.cliExecutor === id}
+                      aria-label={t(`使用 ${executorName(id)}`, `Use ${executorName(id)}`)}
+                      run={async () => {
+                        await controller.setCli(id);
+                        setOpen(false);
+                      }}
+                    >
+                      <strong className="client-name">{executorName(id)}</strong>
+                      {available && state.cliExecutor === id ? (
+                        <Icon name="check" />
+                      ) : (
+                        <small className="client-status">
+                          {available ? t('已检测到', 'Detected') : t('未检测到', 'Not detected')}
+                        </small>
+                      )}
+                    </AsyncButton>
+                  </li>
+                );
+              })}
           </ul>
-          <small id="execution-help">
-            {t(
-              '仅影响新批注；模型与权限由客户端管理。',
-              'For new annotations only. Your client manages models and permissions.',
-            )}
-          </small>
+          {!state.clis.some((cli) => cli.available) ? (
+            <p className="cli-empty">{t('未检测到 CLI', 'No CLI detected')}</p>
+          ) : null}
+          <AsyncButton className="quiet cli-detect" run={() => controller.detectClis()}>
+            {t('重新检测', 'Check again')}
+          </AsyncButton>
         </Popover.Dialog>
       </Popover.Content>
     </Popover>
@@ -585,7 +500,7 @@ function Composer({ state }: { state: PanelState }) {
     state.ready &&
     state.connection === 'connected' &&
     !!state.projectId &&
-    !!state.recipientId &&
+    state.clis.some((cli) => cli.id === state.cliExecutor && cli.available) &&
     !!(state.draft.trim() || state.selections.some((s) => s.description?.trim())) &&
     !state.submitting;
   const project = state.projects.find((p) => p.id === state.projectId);
@@ -757,80 +672,110 @@ function Composer({ state }: { state: PanelState }) {
           </Button>
         </div>
       </Card>
-      <div id="delivery-guide">
-        <p id="delivery-description">
-          {t(
-            state.agents.length
-              ? '等待所选客户端领取；连接不会自动启动对话。'
-              : '请先在客户端连接当前项目的 PointDOM MCP。',
-            state.agents.length
-              ? 'Waiting for the selected client to claim. Connection does not start a chat.'
-              : 'Connect this project’s PointDOM MCP in your client first.',
-          )}
-        </p>
-      </div>
       <NoticeBox notice={state.notice} id="notice" />
     </section>
   );
 }
-function ReassignTask({ job, agents }: { job: Job; agents: PanelState['agents'] }) {
-  const t = useContext(Locale);
-  const [open, setOpen] = useState(false);
-  const [recipientId, setRecipientId] = useState('');
-  return (
-    <Popover isOpen={open} onOpenChange={setOpen}>
-      <Button className="quiet" onPress={() => setRecipientId('')}>
-        {t('改派', 'Reassign')}
-      </Button>
-      <Popover.Content className="execution-popover" placement="top start">
-        <Popover.Dialog>
-          <Popover.Heading>{t('改派待领取批注', 'Reassign unclaimed annotation')}</Popover.Heading>
-          <RecipientSelect
-            id={`reassign-${job.id}`}
-            agents={agents}
-            value={recipientId}
-            onChange={setRecipientId}
-          />
-          <AsyncButton
-            className="primary"
-            isDisabled={!recipientId || recipientId === job.recipient?.id}
-            run={async () => {
-              await controller.reassign(job, recipientId);
-              setOpen(false);
-            }}
-          >
-            {t('确认改派', 'Assign')}
-          </AsyncButton>
-        </Popover.Dialog>
-      </Popover.Content>
-    </Popover>
+function cliMessage(code: string, t: Translator) {
+  const messages: Record<string, [string, string]> = {
+    CLI_STARTING: ['正在启动 CLI', 'Starting CLI'],
+    CLI_STARTED: ['已启动 CLI', 'CLI started'],
+    CLI_ACTIVITY_TRUNCATED: [
+      '执行记录已达上限，后续记录未保存。',
+      'Activity limit reached; further records were not saved.',
+    ],
+    CLI_TOOL_STARTED: ['CLI 正在处理', 'CLI is working'],
+    CLI_NOT_FOUND: ['未检测到 CLI，请先安装并登录。', 'CLI not found. Install and sign in first.'],
+    CLI_PERMISSION_DENIED: [
+      'CLI 拒绝了权限请求，请在该 CLI 中配置权限后重新提交。',
+      'CLI denied permission. Configure permissions in that CLI before submitting again.',
+    ],
+    CLI_REPORTED_ERROR: [
+      'CLI 返回错误，请检查该 CLI 的登录、模型和权限设置。',
+      'CLI reported an error. Check its login, model and permissions.',
+    ],
+    CLI_AUTH_REQUIRED: [
+      'CLI 认证失败，请先在对应 CLI 完成登录；具体原因见执行记录。',
+      'CLI authentication failed. Sign in to the corresponding CLI; see Activity for details.',
+    ],
+    CLI_MODEL_UNAVAILABLE: [
+      '模型不可用，请检查该 CLI 的默认模型和供应商配置；具体原因见执行记录。',
+      'Model unavailable. Check the CLI default model and provider; see Activity for details.',
+    ],
+    CLI_USAGE_ERROR: [
+      'CLI 参数或输入不兼容，具体原因见执行记录。',
+      'CLI argument or input mismatch. See Activity for details.',
+    ],
+    CLI_EXIT_FAILED: [
+      'CLI 异常退出，请在终端检查其登录和配置。',
+      'CLI exited unsuccessfully. Check its login and configuration in a terminal.',
+    ],
+    CLI_TIMEOUT: [
+      '执行超时，已停止。请检查代码后再提交。',
+      'Execution timed out and was stopped. Check changes before resubmitting.',
+    ],
+    CLI_NO_RESULT: [
+      'CLI 未返回完整结果，请检查代码后再提交。',
+      'CLI returned no complete result. Check changes before resubmitting.',
+    ],
+    CLI_PROJECT_MOVED: [
+      '项目目录已变化，请重新绑定项目。',
+      'The project directory changed. Link it again.',
+    ],
+    CLI_OUTPUT_LIMIT: [
+      'CLI 输出超出限制，已停止。',
+      'CLI output exceeded the limit; execution stopped.',
+    ],
+    CLI_START_FAILED: [
+      '无法启动 CLI，请检查本机安装。',
+      'Could not start CLI. Check its installation.',
+    ],
+    CLI_SERVICE_STOPPED: ['本地服务停止，任务已中断。', 'Local service stopped; task interrupted.'],
+  };
+  const message = messages[code];
+  if (message) return t(...message);
+  return code.replace(
+    /^(command|tool|files|web_search|process_exit) · (running|completed|failed|error|in_progress|reported|declined|exit=\d+|signal)/,
+    (_match, kind: string, status: string) => {
+      const kinds: Record<string, string> = {
+        command: t('命令', 'Command'),
+        tool: t('工具', 'Tool'),
+        files: t('文件修改', 'Files'),
+        web_search: t('网页搜索', 'Web search'),
+        process_exit: t('进程结束', 'Process exited'),
+      };
+      const statuses: Record<string, string> = {
+        running: t('执行中', 'Running'),
+        in_progress: t('执行中', 'Running'),
+        completed: t('已完成', 'Completed'),
+        failed: t('失败', 'Failed'),
+        error: t('失败', 'Failed'),
+        reported: t('已回传', 'Reported'),
+        declined: t('已拒绝', 'Declined'),
+        signal: t('信号终止', 'Terminated by signal'),
+      };
+      return `${kinds[kind]} · ${statuses[status] || status}`;
+    },
   );
 }
 const JobCard = memo(function JobCard({
   job,
-  agents,
   projectName,
   language,
 }: {
   job: Job;
-  agents: PanelState['agents'];
   projectName: string;
   language: Preferences['language'];
 }) {
   const t = useContext(Locale);
   const names = {
-    queued: t('排队中', 'Queued'),
-    running: t('修改中', 'Running'),
-    waiting: t('需要确认', 'Approval needed'),
+    queued: job.executor === 'mcp' ? t('待领取', 'Awaiting claim') : t('排队中', 'Queued'),
+    running: t('执行中', 'Running'),
+    waiting: t('待确认', 'Awaiting approval'),
     completed: t('已完成', 'Completed'),
-    failed: t('失败', 'Failed'),
-    cancelled: t('已停止', 'Cancelled'),
+    failed: t('执行失败', 'Failed'),
+    cancelled: t('已取消', 'Cancelled'),
     interrupted: t('已中断', 'Interrupted'),
-  };
-  const mcpNames = {
-    queued: t('待领取', 'Awaiting claim'),
-    running: t('Agent 处理中', 'Agent running'),
-    completed: t('Agent 已回报', 'Agent reported'),
   };
   const described = job.selections?.filter((s) => s.description?.trim()) || [];
   const duration = formatTaskDuration(job, language);
@@ -843,11 +788,7 @@ const JobCard = memo(function JobCard({
             ? t(` 等 ${job.selections!.length} 个元素`, ` + ${job.selections!.length - 1} elements`)
             : ''}
         </strong>
-        <span className={`pill status-${job.status}`}>
-          {job.executor === 'mcp' && job.status in mcpNames
-            ? mcpNames[job.status as keyof typeof mcpNames]
-            : names[job.status]}
-        </span>
+        <span className={`pill status-${job.status}`}>{names[job.status]}</span>
       </div>
       <p className="job-instruction">{job.instruction}</p>
       <div className="job-meta">
@@ -868,11 +809,12 @@ const JobCard = memo(function JobCard({
           })}
         </span>
       </div>
-      {job.executor === 'mcp' && job.status === 'queued' ? (
+      {job.executor === 'mcp' && !terminal(job.status) ? (
         <small className="job-agent">
-          {job.recipient
-            ? `${t('接收方', 'Recipient')}：${job.recipient.name} · ${job.recipient.id.slice(0, 6)}${agents.some((agent) => agent.id === job.recipient?.id) ? '' : t(' · 未连接，可改派', ' · Offline; reassign to continue')}`
-            : t('尚未指定客户端，请改派后领取。', 'No recipient. Assign a client before claiming.')}
+          {t(
+            '旧版批注。取消后可通过 CLI 重新提交。',
+            'Legacy annotation. Cancel and submit again through CLI.',
+          )}
         </small>
       ) : null}
       {job.delivery?.detail ? (
@@ -894,7 +836,7 @@ const JobCard = memo(function JobCard({
               : t('此任务未完成', 'This task was not completed')}
           </b>
           <Fold title={t('错误详情', 'Error details')} open>
-            <pre>{job.error}</pre>
+            <pre>{cliMessage(job.error, t)}</pre>
           </Fold>
         </div>
       ) : null}
@@ -911,10 +853,17 @@ const JobCard = memo(function JobCard({
             </Fold>
           ) : null}
           {job.events.length ? (
-            <Fold title={t('执行记录', 'Activity')} count={job.events.length}>
+            <Fold
+              className="job-activity"
+              title={t('执行记录', 'Activity')}
+              count={job.events.length}
+            >
               <pre>
                 {job.events
-                  .map((e) => `${new Date(e.at).toLocaleTimeString(language)}  ${e.text}`)
+                  .map(
+                    (e) =>
+                      `${new Date(e.at).toLocaleTimeString(language)}  ${cliMessage(e.text, t)}`,
+                  )
                   .join('\n')}
               </pre>
             </Fold>
@@ -938,9 +887,6 @@ const JobCard = memo(function JobCard({
         </small>
       ) : null}
       <div className="job-actions">
-        {job.executor === 'mcp' && job.status === 'queued' ? (
-          <ReassignTask job={job} agents={agents} />
-        ) : null}
         {terminal(job.status) ? (
           <>
             <AsyncButton className="quiet" run={() => controller.restore(job)}>
@@ -1015,52 +961,6 @@ function VersionFooter() {
     </footer>
   );
 }
-function AgentSetupGuide({ language }: { language: Preferences['language'] }) {
-  const t = useContext(Locale);
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
-  return (
-    <Card className="agent-setup-settings">
-      <h2>{t('下一步：接入 Agent', 'Next: connect your agent')}</h2>
-      <p className="muted">
-        {t(
-          '复制到当前项目对话，关联项目并配置 MCP。',
-          'Paste into your project chat to link the project and configure MCP.',
-        )}
-      </p>
-      <p className="muted">
-        {t(
-          'Trae：在当前窗口的设置 → MCP 中接入；Agent 窗口未加载项目配置时，可在“本地”导入。',
-          'Trae: connect in the current window’s Settings → MCP; import under Local if the Agent window has not loaded project config.',
-        )}
-      </p>
-      <AsyncButton
-        id="copy-agent-setup"
-        className="primary"
-        run={async () => {
-          setCopyState('idle');
-          try {
-            await navigator.clipboard.writeText(agentSetupInstruction(language));
-            setCopyState('copied');
-          } catch {
-            setCopyState('error');
-          }
-        }}
-      >
-        {copyState === 'copied'
-          ? t('已复制接入指令', 'Setup instruction copied')
-          : t('复制接入指令', 'Copy setup instruction')}
-      </AsyncButton>
-      {copyState === 'copied' ? (
-        <small role="status">
-          {t('在项目对话中粘贴并发送。', 'Paste and send in your project chat.')}
-        </small>
-      ) : copyState === 'error' ? (
-        <small role="alert">{t('复制失败，请重试。', 'Copy failed. Try again.')}</small>
-      ) : null}
-    </Card>
-  );
-}
-
 function ConnectionSettings({ state, locked = false }: { state: PanelState; locked?: boolean }) {
   const t = useContext(Locale);
   const [code, setCode] = useState('');
@@ -1091,9 +991,6 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
       <div className="section-title">
         <div>
           <h2>{t('连接与设置', 'Connection settings')}</h2>
-          <small>
-            {t('配对、关联项目并接入 Agent。', 'Pair, link a project and connect your agent.')}
-          </small>
         </div>
         <Button
           id="close-connection"
@@ -1285,9 +1182,6 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
           )}
         </Fold>
       </Card>
-      {state.connection === 'connected' ? (
-        <AgentSetupGuide key={state.preferences.language} language={state.preferences.language} />
-      ) : null}
       <div id="project-field" hidden={matching.length <= 1}>
         <FieldSelect
           id="project"
@@ -1393,12 +1287,6 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
       <AsyncButton id="copy-context" className="quiet" run={() => controller.copyContext()}>
         {t('复制 DOM 与修改描述', 'Copy DOM and change descriptions')}
       </AsyncButton>
-      <small>
-        {t(
-          '在支持本地 MCP 和代码编辑的 Agent 中添加 PointDOM。模型在宿主中选择，提交后让 Agent 领取批注。',
-          'Add PointDOM to an agent with local MCP and code-editing tools. Choose its model in that app and ask it to claim your annotations.',
-        )}
-      </small>
       <NoticeBox notice={state.notice} id="settings-notice" />
       <VersionFooter />
     </section>
@@ -1533,7 +1421,6 @@ function Panel() {
                       <JobCard
                         key={job.id}
                         job={job}
-                        agents={state.agents}
                         projectName={
                           state.projects.find((p) => p.id === job.projectId)?.name ||
                           t('项目', 'Project')

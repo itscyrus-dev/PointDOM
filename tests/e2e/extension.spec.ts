@@ -1,6 +1,5 @@
+import { fixtureCli } from '../fixtures/cli.js';
 import { extensionBrowserArgs } from './browser-args.js';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { test, expect, chromium } from '@playwright/test';
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
@@ -23,7 +22,7 @@ import { Store } from '../../src/bridge/store.js';
 import { Queue } from '../../src/bridge/queue.js';
 import { createApp } from '../../src/bridge/server.js';
 
-test('packaged React + HeroUI extension preserves drafts, preferences and the real MCP task lifecycle', async () => {
+test('packaged React + HeroUI extension preserves drafts, preferences and the CLI task lifecycle', async () => {
   test.setTimeout(90000);
   const directory = realpathSync(mkdtempSync(join(tmpdir(), 'pagepatch-extension-')));
   const extension = join(directory, 'PointDOM Extension');
@@ -50,7 +49,7 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
   git('add', '.');
   git('commit', '-m', 'initial');
   const store = new Store(join(directory, 'state'));
-  expect(store.config.defaultExecutor).toBe('mcp');
+  expect(store.config.defaultExecutor).toBe('codex');
   store.config.projects.push({
     id: randomUUID(),
     name: '测试项目',
@@ -58,7 +57,7 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
     origins: ['http://127.0.0.1:5175', 'http://localhost:5175'],
   });
   store.saveConfig();
-  const queue = new Queue(store);
+  const queue = new Queue(store, fixtureCli(directory, { holdAfterFirst: true }));
   const reservation = createServer();
   await new Promise<void>((resolve) => reservation.listen(0, '127.0.0.1', resolve));
   const address = reservation.address();
@@ -70,9 +69,6 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
   writeFileSync(join(extension, 'manifest.json'), rewritePort(JSON.stringify(manifest)));
   for (const name of ['panel.js', 'background.js'])
     writeFileSync(join(extension, name), rewritePort(readFileSync(join(extension, name), 'utf8')));
-  const mcpEntry = join(directory, 'mcp.mjs');
-  writeFileSync(mcpEntry, rewritePort(readFileSync(resolve('dist/bridge/mcp.js'), 'utf8')));
-  symlinkSync(resolve('node_modules'), join(directory, 'node_modules'));
   const app = new Hono();
   let codexCalls = 0;
   app.use('/api/models', async (_c, next) => {
@@ -99,16 +95,8 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
     headless: true,
     args: extensionBrowserArgs(extension),
   });
-  const mcpClient = new Client({ name: 'isolated-agent-fixture', version: '1.0.0' });
   context.setDefaultTimeout(7000);
   try {
-    await mcpClient.connect(
-      new StdioClientTransport({
-        command: process.execPath,
-        args: [mcpEntry, '--project', projectDirectory],
-        env: { ...process.env, PAGEPATCH_HOME: store.directory },
-      }),
-    );
     console.log('Extension test browser launched');
     const worker =
       context.serviceWorkers()[0] ||
@@ -209,7 +197,7 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
       animations: 'disabled',
     });
     await panel.unroute(`http://${fixtureAddress}/**`);
-    await panel.locator('#reconnect').click();
+    // Restoring transport also allows background reconnect; do not race its disappearing button.
     await expect(panel.locator('#connection')).toHaveText('已连接');
     // The test manifest grants 127.0.0.1 only. localhost reproduces the real first-use
     // state where Chrome withholds Tab.url, without adding a broad tabs permission.
@@ -249,10 +237,10 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
     await panel.setViewportSize({ width: 390, height: 850 });
     await panel.locator('#execution-settings').click();
     await panel
-      .getByRole('dialog', { name: '接收客户端', exact: true })
-      .getByRole('button', { name: '使用 isolated-agent-fixture', exact: true })
+      .getByRole('dialog', { name: '执行工具', exact: true })
+      .getByRole('button', { name: '使用 Codex', exact: true })
       .click();
-    const executionDialog = panel.getByRole('dialog', { name: '接收客户端', exact: true });
+    const executionDialog = panel.getByRole('dialog', { name: '执行工具', exact: true });
     const openExecution = async () => {
       if (!(await executionDialog.isVisible())) await panel.locator('#execution-settings').click();
     };
@@ -262,7 +250,7 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
         await expect(executionDialog).toBeHidden();
       }
     };
-    await expect(panel.locator('#execution-summary')).toHaveText('isolated-agent-fixture');
+    await expect(panel.locator('#execution-summary')).toHaveText('Codex');
     await panel.locator('#execution-settings').hover();
     await panel.screenshot({
       path: test.info().outputPath('pointdom-compact-executor-hover.png'),
@@ -401,7 +389,7 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
       ),
     ).toHaveCount(0);
     await expect(panel.getByRole('checkbox', { name: /Codex/ })).toHaveCount(0);
-    await expect(panel.locator('#execution-help')).toContainText('客户端管理');
+    await expect(panel.locator('#execution-help')).toHaveCount(0);
     expect(codexCalls).toBe(0);
     await closeExecution();
     await panel.locator('#connection-settings').click();
@@ -796,62 +784,15 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
       .dispatchEvent('keydown', { key: 'Enter', isComposing: true });
     expect(store.jobs).toHaveLength(0);
     await panel.locator('#instruction').press('Enter');
-    await expect.poll(() => store.jobs[0]?.status).toBe('queued');
-    expect(store.jobs[0]?.startedAt).toBeUndefined();
-    expect(store.jobs[0]?.result).toBe('');
-    {
-      const tools = (await mcpClient.listTools()).tools.map((tool) => tool.name);
-      expect(tools).toContain('pointdom_progress_task');
-      const taskId = store.jobs[0]!.id;
-      expect(
-        (await mcpClient.callTool({ name: 'pointdom_get_task', arguments: { taskId } })).isError,
-      ).not.toBe(true);
-      expect(
-        (
-          await mcpClient.callTool({
-            name: 'pointdom_claim_task',
-            arguments: { taskId, agent: 'Fixture Agent' },
-          })
-        ).isError,
-      ).not.toBe(true);
-      await expect(panel.locator('#jobs')).toContainText('Agent 处理中');
-      await expect(panel.locator('.delivery-status')).toHaveCount(0);
-      for (const [stepId, message] of [
-        ['read', '已定位 button.css'],
-        ['edit', '已更新 button.css'],
-        ['check', '已检查按钮高度'],
-      ] as const) {
-        const arguments_ = { taskId, stepId, message };
-        expect(
-          (await mcpClient.callTool({ name: 'pointdom_progress_task', arguments: arguments_ }))
-            .isError,
-        ).not.toBe(true);
-        expect(
-          (await mcpClient.callTool({ name: 'pointdom_progress_task', arguments: arguments_ }))
-            .isError,
-        ).not.toBe(true);
-      }
-      await panel.getByRole('button', { name: /^执行记录/ }).click();
-      await expect(panel.locator('.job-details pre')).toContainText('已检查按钮高度');
-      expect(store.jobs[0]!.events.filter((event) => event.progressId)).toHaveLength(3);
-      // The external fixture client performs the edit; PointDOM only receives the report.
-      writeFileSync(join(projectDirectory, 'button.css'), 'button { height: 40px; }');
-      expect(
-        (
-          await mcpClient.callTool({
-            name: 'pointdom_report_task',
-            arguments: {
-              taskId,
-              outcome: 'completed',
-              summary: '已将发送按钮高度改为 40px',
-              files: ['button.css'],
-              verification: '已检查临时项目中的 CSS 文件',
-            },
-          })
-        ).isError,
-      ).not.toBe(true);
-    }
-    await expect(panel.locator('#jobs')).toContainText('Agent 已回报');
+    await expect.poll(() => store.jobs[0]?.status).toBe('completed');
+    expect(readFileSync(join(projectDirectory, 'button.css'), 'utf8')).toContain('40px');
+    await expect(panel.locator('#jobs')).toContainText('已完成');
+    await panel.getByRole('button', { name: /^执行记录/ }).click();
+    await expect(panel.locator('.job-activity pre')).toContainText('node --version');
+    await expect(panel.locator('.job-activity pre')).toContainText(process.version);
+    await expect(panel.locator('.job-activity pre')).toContainText('exit=0');
+    await expect(panel.locator('.job-activity pre')).not.toContainText('CLI 正在处理');
+    await panel.getByRole('button', { name: /^执行记录/ }).click();
     expect(store.jobs[0]?.permissions).toBeUndefined();
     expect(store.jobs[0]?.execution).toBeUndefined();
     expect(store.jobs[0]?.selections?.map((s) => s.description)).toEqual([
@@ -950,11 +891,10 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
     expect(scroll.moved).toBeGreaterThan(0);
     expect(scroll.overflow).toBe(false);
     expect(await panel.locator('#instruction').boundingBox()).toEqual(before);
-    // An external agent has not claimed this second annotation; cancellation,
-    // not a local runner, removes it from the active inbox.
+    // Stop the running fixture child without replaying its task.
     await panel
-      .locator('.job[data-status="queued"]')
-      .getByRole('button', { name: '取消批注', exact: true })
+      .locator('.job[data-status="running"]')
+      .getByRole('button', { name: '停止任务', exact: true })
       .click();
     await panel.locator('#tab-active').click();
     await expect(panel.locator('#jobs')).toContainText('暂无进行中的修改');
@@ -1046,17 +986,18 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
     await panel.locator('#refresh').click();
     await expect(panel.locator('#tab-active')).not.toHaveClass(/has-active-jobs/);
     await expect(panel.locator('.job[data-status="running"]')).toHaveCount(0);
-    await panel.locator('#instruction').fill('取消这条 MCP 批注');
+    await panel.locator('#instruction').fill('取消这条 CLI 批注');
     await panel.locator('#submit').click();
-    await expect.poll(() => store.jobs.at(-1)?.status).toBe('queued');
-    const pendingCard = panel.locator('.job').filter({ hasText: '取消这条 MCP 批注' });
+    await expect.poll(() => store.jobs.at(-1)?.status).toBe('running');
+    const pendingCard = panel.locator('.job').filter({ hasText: '取消这条 CLI 批注' });
     await expect(pendingCard.getByRole('button', { name: /复制/ })).toHaveCount(0);
-    await pendingCard.getByRole('button', { name: '取消批注', exact: true }).click();
+    await pendingCard.getByRole('button', { name: '停止任务', exact: true }).click();
     await expect.poll(() => store.jobs.at(-1)?.status).toBe('cancelled');
-    await expect(panel.locator('#execution-summary')).toHaveText('isolated-agent-fixture');
+    await expect(panel.locator('#execution-summary')).toHaveText('Codex');
     expect(runtimeErrors).toEqual([]);
   } finally {
-    await mcpClient.close();
+    queue.stop();
+    await new Promise((resolve) => setTimeout(resolve, 250));
     console.log('Closing browser');
     await context.close();
     bridge.close();

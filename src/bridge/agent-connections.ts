@@ -39,6 +39,15 @@ export class AgentConnections {
     this.records.set(id, connection);
     return connection;
   }
+  beginWait(id: string) {
+    const record = this.records.get(id);
+    if (!record || record.listening) return undefined;
+    record.listening = true;
+    return () => {
+      const current = this.records.get(id);
+      if (current) current.listening = false;
+    };
+  }
   disconnect(projectId: string, claim: string) {
     this.records.delete(this.id(projectId, claim));
   }

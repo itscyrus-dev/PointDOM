@@ -145,13 +145,8 @@ async function main() {
               };
             },
             pairingCode: () => config().token,
-            config: (cwd) =>
-              connectionConfig(
-                config(),
-                cwd,
-                directory,
-                fileURLToPath(new URL('./mcp.js', import.meta.url)),
-              ),
+            config: () =>
+              connectionConfig(directory, fileURLToPath(new URL('./mcp.js', import.meta.url))),
             copy: copyToClipboard,
             open: openLink,
           },
@@ -251,8 +246,6 @@ async function main() {
       await local('/projects', input);
     }
     const exported = connectionConfig(
-      config(),
-      cwd,
       directory,
       fileURLToPath(new URL('./mcp.js', import.meta.url)),
     );

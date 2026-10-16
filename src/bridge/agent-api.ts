@@ -1,3 +1,4 @@
+import { waitForTask } from './task-wait.js';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { Hono } from 'hono';
@@ -61,6 +62,29 @@ export function installAgentRoutes(
           createdAt: j.createdAt,
         })),
     });
+  });
+  app.post('/api/mcp/wait', async (c) => {
+    const input = identity
+      .extend({ timeoutMs: z.number().int().min(100).max(25000) })
+      .parse(await c.req.json());
+    if (input.claim !== c.req.header('X-PointDOM-Session'))
+      return c.json({ error: 'Session mismatch.' }, 403);
+    if (!store.project(input.projectId)) return c.json({ error: 'Project not registered.' }, 404);
+    try {
+      return c.json(
+        await waitForTask(
+          store,
+          agents,
+          input.projectId,
+          input.claim,
+          input.timeoutMs,
+          c.req.raw.signal,
+        ),
+      );
+    } catch (error) {
+      const code = error instanceof Error ? error.message : 'MCP_WAIT_FAILED';
+      return c.json({ error: code }, 409);
+    }
   });
   app.get('/api/mcp/tasks/:id', (c) => {
     const job = store.jobs.find(

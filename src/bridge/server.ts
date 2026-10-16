@@ -1,3 +1,4 @@
+import { cliIdSchema } from '../shared/cli.js';
 import { BootstrapGrants, bootstrapGrantSchema, bootstrapPollSchema } from './bootstrap.js';
 import { version } from './version.js';
 import { bindingSchema, bindProject } from './projects.js';
@@ -105,6 +106,9 @@ export function createApp(store: Store, queue: Queue, port = 4318) {
     return c.json({ ok: true });
   });
   installAgentRoutes(app, store, () => queue.wake(), queue.agents);
+  app.get('/api/clis', async (c) =>
+    c.json({ clis: await queue.cli.list(c.req.query('refresh') === '1') }),
+  );
   app.get('/api/agents', (c) => {
     const projectId = c.req.query('projectId') || '';
     if (!store.project(projectId)) return c.json({ error: 'Project not registered.' }, 404);
@@ -142,7 +146,7 @@ export function createApp(store: Store, queue: Queue, port = 4318) {
       .strict()
       .parse(await c.req.json());
     if (input.executor) {
-      store.config.defaultExecutor = 'mcp';
+      store.config.defaultExecutor = cliIdSchema.safeParse(input.executor).data || 'codex';
       store.saveConfig();
     }
     return c.json({ ok: true });
@@ -152,9 +156,9 @@ export function createApp(store: Store, queue: Queue, port = 4318) {
       connected: true,
       pid: process.pid,
       bootstrap: true,
-      defaultExecutor: 'mcp',
-      automaticDelivery: false,
-      transport: 'mcp',
+      defaultExecutor: cliIdSchema.safeParse(store.config.defaultExecutor).data || 'codex',
+      automaticDelivery: true,
+      transport: 'cli',
       automaticCommits: false,
     }),
   );
@@ -169,11 +173,11 @@ export function createApp(store: Store, queue: Queue, port = 4318) {
     return c.json({
       connected: true,
       version,
-      defaultExecutor: 'mcp',
+      defaultExecutor: cliIdSchema.safeParse(store.config.defaultExecutor).data || 'codex',
     });
   });
   const agentSettings = () => ({
-    defaultExecutor: 'mcp',
+    defaultExecutor: cliIdSchema.safeParse(store.config.defaultExecutor).data || 'codex',
     traeAutoSend: false, // Compatibility only: native client automation is retired.
   });
   app.get('/api/settings', (c) => c.json(agentSettings()));
@@ -185,10 +189,10 @@ export function createApp(store: Store, queue: Queue, port = 4318) {
     if (!parsed.success) return c.json({ error: 'Agent 设置格式不正确' }, 400);
     if (parsed.data.traeAutoSend !== undefined)
       return c.json(
-        { error: 'Desktop auto-send is retired. Use PointDOM tools in your MCP client.' },
+        { error: 'Desktop auto-send is retired. Select a local CLI in PointDOM.' },
         410,
       );
-    store.config.defaultExecutor = 'mcp';
+    store.config.defaultExecutor = cliIdSchema.parse(parsed.data.executor);
     store.saveConfig();
     return c.json(agentSettings());
   });
@@ -199,7 +203,7 @@ export function createApp(store: Store, queue: Queue, port = 4318) {
     c.json(
       {
         error:
-          'PointDOM uses MCP only. Configure models, permissions and Git actions in your agent client.',
+          'Configure accounts, models and permissions in your CLI. PointDOM does not manage Git actions.',
       },
       410,
     );
@@ -207,7 +211,7 @@ export function createApp(store: Store, queue: Queue, port = 4318) {
   const retiredDelivery = (c: Context) =>
     c.json(
       {
-        error: 'Desktop auto-send is retired. Use PointDOM tools in your MCP client.',
+        error: 'Desktop auto-send is retired. Select a local CLI in PointDOM.',
       },
       410,
     );
@@ -234,14 +238,23 @@ export function createApp(store: Store, queue: Queue, port = 4318) {
   app.post('/api/jobs', async (c) => {
     const result = submissionSchema.safeParse(await c.req.json());
     if (!result.success) return c.json({ error: '任务格式不正确' }, 400);
+    const executor = cliIdSchema.safeParse(result.data.executor);
+    if (!executor.success)
+      return c.json({ error: 'Choose a CLI executor. MCP submissions are retired.' }, 410);
+    if (result.data.execution || result.data.recipientId)
+      return c.json(
+        {
+          error: 'CLI tasks use local CLI settings, without MCP recipients or execution overrides.',
+        },
+        400,
+      );
     const existing = store.jobs.find((job) => job.id === result.data.id);
     if (
       !existing &&
-      (!result.data.recipientId ||
-        !queue.agents.get(result.data.recipientId, result.data.projectId))
+      !(await queue.cli.list()).some((cli) => cli.id === executor.data && cli.available)
     )
       return c.json(
-        { error: '请先选择已连接的 MCP 客户端 / Choose a connected MCP client first.' },
+        { error: 'CLI_NOT_FOUND: Install and sign in to the selected CLI, then retry.' },
         409,
       );
     const job = queue.submit(result.data);

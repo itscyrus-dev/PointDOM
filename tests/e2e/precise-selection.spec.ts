@@ -1,3 +1,4 @@
+import { fixtureCli } from '../fixtures/cli.js';
 import { extensionBrowserArgs } from './browser-args.js';
 import { test, expect, chromium } from '@playwright/test';
 import { serve } from '@hono/node-server';
@@ -46,7 +47,7 @@ test('nested card children are picked independently with accurate DOM context', 
     cwd: directory,
     origins: [origin],
   });
-  const queue = new Queue(store);
+  const queue = new Queue(store, fixtureCli(directory));
   queue.agents.register({
     projectId: store.config.projects[0]!.id,
     claim: randomUUID(),
@@ -76,8 +77,8 @@ test('nested card children are picked independently with accurate DOM context', 
     await page.bringToFront();
     await panel.locator('#execution-settings').click();
     await panel
-      .getByRole('dialog', { name: '接收客户端', exact: true })
-      .getByRole('button', { name: '使用 Selection fixture', exact: true })
+      .getByRole('dialog', { name: '执行工具', exact: true })
+      .getByRole('button', { name: '使用 Codex', exact: true })
       .click();
     await panel.locator('#pick').click();
     await page.locator('#card-title').click();

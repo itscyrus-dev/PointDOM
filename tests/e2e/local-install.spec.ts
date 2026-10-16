@@ -1,3 +1,4 @@
+import { fixtureCli } from '../fixtures/cli.js';
 import { test, expect, chromium } from '@playwright/test';
 import { serve } from '@hono/node-server';
 import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
@@ -25,7 +26,7 @@ for (const platform of ['mac', 'win'] as const) {
     const address = server.address();
     if (!address || typeof address === 'string') throw new Error('No fixture port');
     const origin = `http://127.0.0.1:${address.port}`;
-    app = createApp(store, new Queue(store), address.port);
+    app = createApp(store, new Queue(store, fixtureCli(directory)), address.port);
     for (const name of ['manifest.json', 'panel.js', 'background.js']) {
       const file = join(extension, name);
       writeFileSync(file, readFileSync(file, 'utf8').replaceAll('http://127.0.0.1:4318', origin));
@@ -98,7 +99,7 @@ for (const platform of ['mac', 'win'] as const) {
       });
       expect(response.status).toBe(200);
       await expect(panel.locator('#connection')).toHaveText('已连接', { timeout: 15000 });
-      await expect(panel.locator('#copy-agent-setup')).toBeVisible();
+      await expect(panel.locator('.agent-setup-settings')).toHaveCount(0);
       expect(store.config.projects).toHaveLength(0);
       expect(store.jobs).toHaveLength(0);
       await panel.reload();

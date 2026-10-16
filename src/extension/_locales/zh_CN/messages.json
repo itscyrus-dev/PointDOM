@@ -3,7 +3,7 @@
     "message": "PointDOM"
   },
   "extensionDescription": {
-    "message": "网页批注，通过 MCP 交给你选择的编程 Agent，使用宿主中的任意模型。"
+    "message": "选取网页元素，直接交给本机编程 CLI 修改源码。"
   },
   "openPanel": {
     "message": "打开 PointDOM"

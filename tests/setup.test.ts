@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {
   guidedSetup,
   chooseProjectDirectory,
-  clientConfig,
   agentPayload,
   type SetupActions,
 } from '../src/bridge/setup.js';
@@ -133,7 +132,7 @@ test('installation-only setup never requests or links a project and defers proje
     assert.match(output, /Browser/);
     assert.doesNotMatch(output, /Choose your agent/);
     assert.match(output, /pdo link --origin/);
-    assert.match(output, /pdo connect --json/);
+    assert.doesNotMatch(output, /pdo connect --json/);
     assert.match(output, /Setup steps finished/);
     assert.doesNotMatch(
       output,
@@ -150,8 +149,7 @@ test('guided setup prints the pairing code at completion while keeping exported 
   assert.deepEqual(f.bound, ['http://localhost:5173']);
   assert.equal(f.extensionCalls(), 1);
   assert.equal(f.copied[0], 'fixture-pairing-secret');
-  assert.deepEqual(JSON.parse(f.copied[1]!), config);
-  assert.equal(f.copied.length, 2);
+  assert.equal(f.copied.length, 1);
   assert.doesNotMatch(f.printed.join(''), /\x1b\[/);
   assert.equal(f.printed.filter((line) => line === 'fixture-pairing-secret').length, 1);
   assert.ok(
@@ -169,20 +167,12 @@ test('guided setup prints the pairing code at completion while keeping exported 
   assert.match(output, /Updates: pdo upgrade/);
 });
 
-test('setup always exports MCP even if an agent executable is available', async () => {
-  const f = fixture(['yes', '']);
-  Reflect.set(f.actions, 'cliAvailable', () => true);
-  await guidedSetup(f.actions, {
-    origin: 'http://localhost:5173',
-    app: 'opencode',
-    agent: 'opencode',
-  });
-  assert.ok(f.copied.some((text) => text.includes('mcp')));
-  assert.match(f.printed.join('\n'), /MCP configuration copied/);
-  assert.doesNotMatch(
-    f.printed.join('\n'),
-    /CLI detected|local CLI defaults|Agent instruction copied/,
-  );
+test('setup explains automatic CLI execution without exporting MCP or changing CLI settings', async () => {
+  const f = fixture(['yes']);
+  await guidedSetup(f.actions, { origin: 'http://localhost:5173', app: 'opencode' });
+  assert.deepEqual(f.copied, []);
+  assert.match(f.printed.join('\n'), /Submissions run automatically/);
+  assert.doesNotMatch(f.printed.join('\n'), /MCP|pointdom_bind_project/);
 });
 
 test('setup opens only the linked project origin and reports the requested browser action honestly', async () => {
@@ -207,11 +197,8 @@ test('guided setup skips existing browser pairing, supports native OpenCode and 
     assert.equal(f.extensionCalls(), 0);
     assert.equal(f.copied.includes('fixture-pairing-secret'), false);
     assert.equal(f.printed.filter((line) => line === 'fixture-pairing-secret').length, 1);
-    if (client === 'cc-switch') {
-      const link = new URL(f.opened[0]!);
-      assert.equal(link.searchParams.get('apps'), 'claude');
-      assert.equal(f.printed.join('\n').includes('import requested'), false); // Opening failed; no false success.
-    } else assert.deepEqual(JSON.parse(f.copied[0]!), clientConfig(config, client));
+    assert.deepEqual(f.copied, []);
+    assert.deepEqual(f.opened, ['http://localhost:3000']);
   }
 });
 test('clipboard failure shows the pairing code directly and invalid origins never reveal it', async () => {
@@ -243,8 +230,8 @@ test('each agent uses a credential-free payload while local completion displays 
     });
     assert.match(f.printed.join(''), /\x1b\[32m/);
     const payload = agentPayload(config, agent);
-    assert.equal(f.copied[0], payload.text);
-    assert.equal(f.copied[0]!.includes('fixture-pairing-secret'), false);
+    assert.deepEqual(f.copied, []);
+    assert.equal(payload.text.includes('fixture-pairing-secret'), false);
     if (agent === 'codex' || agent === 'claude') assert.deepEqual(JSON.parse(payload.text), config);
     else assert.ok(JSON.parse(payload.text));
   }

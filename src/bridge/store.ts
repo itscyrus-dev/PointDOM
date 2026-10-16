@@ -10,7 +10,7 @@ export const configSchema = z.object({
   clients: z.array(z.string()),
   projects: z.array(projectSchema),
   threads: z.record(z.string(), z.string()),
-  defaultExecutor: executorSchema.default('mcp'),
+  defaultExecutor: executorSchema.default('codex'),
   traeAutoSend: z.boolean().optional(),
 });
 export class Store {
@@ -27,9 +27,9 @@ export class Store {
           clients: [],
           projects: [],
           threads: {},
-          defaultExecutor: 'mcp',
+          defaultExecutor: 'codex',
         };
-    this.config.defaultExecutor = 'mcp';
+    if (this.config.defaultExecutor === 'mcp') this.config.defaultExecutor = 'codex';
     this.jobs = existsSync(this.path('jobs.json'))
       ? z.array(jobSchema).parse(JSON.parse(readFileSync(this.path('jobs.json'), 'utf8')))
       : [];

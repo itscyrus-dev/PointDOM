@@ -24,6 +24,7 @@ try {
     'docs/README.md',
     'docs/INSTALL_AGENT.md',
     'docs/MCP.md',
+    'docs/CLI.md',
     'docs/agents/CODEX.md',
     'docs/agents/CLAUDE_CODE.md',
     'docs/agents/OPENCODE.md',
@@ -37,8 +38,8 @@ try {
   }
   const englishReadme = await readFile(join(app, 'README.md'), 'utf8');
   const chineseReadme = await readFile(join(app, 'README.zh-CN.md'), 'utf8');
-  assert.match(chineseReadme, /所有支持本地 stdio MCP/);
-  assert.match(englishReadme, /OpenCode is not required/);
+  assert.match(chineseReadme, /选择执行工具/);
+  assert.match(englishReadme, /## Supported tools/);
   assert.match(englishReadme, /href="README\.zh-CN\.md"/);
   assert.match(chineseReadme, /href="README\.md"/);
   for (const readme of [englishReadme, chineseReadme]) {
@@ -101,7 +102,7 @@ try {
   const exported = connect('--json');
   assert.ok(!exported.includes('fixture-do-not-export'));
   const connection = Object.values(JSON.parse(exported).mcpServers)[0];
-  assert.deepEqual(connection.args, [`${app}/dist/bridge/mcp.js`, '--project', directory]);
+  assert.deepEqual(connection.args, [`${app}/dist/bridge/mcp.js`]);
   const standard = execFileSync(process.execPath, [`${app}/dist/bridge/main.js`, 'connect'], {
     cwd: directory,
     env: { ...process.env, PAGEPATCH_HOME: state },

@@ -423,23 +423,6 @@ button.send svg {
   grid-column: 1 / -1;
 }
 
-#execution-help {
-  display: block;
-  border-top: 1px solid var(--border);
-  padding-top: 9px;
-}
-#delivery-guide {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 0 1px;
-}
-#delivery-description {
-  color: var(--muted);
-  font-size: 11px;
-  margin: 0;
-}
 #notice {
   color: var(--muted);
   background: transparent;
@@ -802,11 +785,6 @@ kbd {
   }
   #page-origin {
     display: none;
-  }
-  #delivery-guide {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0;
   }
   .compose-tools {
     gap: 4px;
@@ -1257,7 +1235,7 @@ button[data-pending='true'] {
   position: relative;
   inset: auto;
   z-index: 20;
-  width: min(320px, calc(100vw - 24px));
+  width: min(260px, calc(100vw - 24px));
   padding: 0;
   background: var(--surface);
   color: var(--ink);
@@ -1276,9 +1254,6 @@ button[data-pending='true'] {
   font-size: 14px;
   font-weight: 650;
 }
-#execution-help {
-  font-size: 11px;
-}
 .client-setup-hint {
   margin: 0 0 8px;
   color: var(--muted);
@@ -1288,42 +1263,59 @@ button[data-pending='true'] {
 .client-directory {
   list-style: none;
   padding: 0;
-  margin: 0 0 12px;
+  margin: 0;
 }
 .client-entry {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: 8px;
-  min-height: 56px;
-  padding-block: 8px;
+  min-height: 44px;
+  padding-block: 4px;
   border-bottom: 1px solid var(--border);
 }
-.client-identity {
+.button.client-select {
+  --button-bg: transparent;
+  --button-fg: var(--ink);
+  --button-bg-hover: var(--control-hover);
+  --button-bg-pressed: var(--control-pressed);
+  width: 100%;
   min-width: 0;
-  display: grid;
-  gap: 3px;
-  overflow-wrap: anywhere;
+  height: auto;
+  min-height: 44px;
+  padding: 10px;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  white-space: normal;
 }
-.client-identity strong {
+.client-select:not(:disabled) {
+  grid-column: 1 / -1;
+}
+.button.client-select[aria-pressed='true'] {
+  --button-bg: var(--control-hover);
+}
+.client-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.client-select svg {
+  flex-shrink: 0;
+}
+.client-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 13px;
   font-weight: 550;
 }
 .client-status {
+  flex-shrink: 0;
   color: var(--muted);
   font-size: 11px;
-}
-.client-status[data-available='true'] {
-  color: var(--success);
-}
-.client-identity [role='alert'] {
-  color: var(--error);
-  font-size: 11px;
-}
-.client-action {
-  width: auto;
-  padding-inline: 8px;
-  font-size: 12px;
   white-space: nowrap;
 }
 .pd-fold {
@@ -1432,6 +1424,7 @@ button[data-pending='true'] {
   background: var(--surface);
 }
 .pairing-actions {
+  margin-top: 10px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -2096,4 +2089,81 @@ button[data-pending='true'] {
 .application-settings-scope {
   color: var(--muted);
   font-size: 11px;
+}
+
+.client-group {
+  border-bottom: 1px solid var(--border);
+  padding-block: 4px;
+}
+.client-group .pd-fold {
+  width: 100%;
+}
+.client-sessions {
+  list-style: none;
+  padding: 0 0 0 12px;
+  margin: 0;
+}
+.client-sessions .client-entry:last-child {
+  border-bottom: 0;
+}
+.client-group .disclosure__trigger {
+  min-height: 44px;
+  padding: 10px;
+  border-radius: 10px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 550;
+}
+.client-group .disclosure__indicator {
+  order: 3;
+  margin-left: auto;
+}
+.client-group .disclosure__body {
+  padding: 0 0 4px;
+}
+@media (hover: hover) {
+  .client-group .disclosure__trigger:hover {
+    background: var(--control-hover);
+  }
+}
+
+/* Compact CLI menu: one selection entry point, detected tools only. */
+.execution-popover .popover__dialog {
+  padding: 10px;
+}
+.execution-popover .popover__heading {
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.execution-popover .client-directory {
+  display: grid;
+  gap: 2px;
+}
+.execution-popover .client-entry {
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+}
+.execution-popover .client-select {
+  min-height: 36px;
+  padding: 6px 10px;
+  gap: 8px;
+}
+.execution-popover .cli-detect {
+  margin-top: 4px;
+  min-height: 32px;
+  width: 100%;
+  justify-content: flex-start;
+  font-size: 11px;
+}
+.execution-popover .cli-empty {
+  margin: 8px 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (pointer: coarse) {
+  .execution-popover .client-select,
+  .execution-popover .cli-detect {
+    min-height: 44px;
+  }
 }

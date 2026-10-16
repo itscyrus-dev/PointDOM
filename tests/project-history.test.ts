@@ -125,12 +125,13 @@ async function controllerFixture() {
       if (url.pathname === '/api/pair') return Response.json({ defaultExecutor: 'mcp' });
       if (url.pathname === '/api/projects')
         return Response.json({
+          agentSettings: { defaultExecutor: 'codex' },
           projects: [
             { id: projectA, name: 'A', cwd: '/fixture/a', origins: [originA] },
             { id: projectB, name: 'B', cwd: '/fixture/b', origins: [originB] },
           ],
         });
-      if (url.pathname === '/api/agents') return Response.json({ agents: [] });
+      if (url.pathname === '/api/clis') return Response.json({ clis: [] });
       requests.push(url.search);
       if (hold) {
         hold = false;

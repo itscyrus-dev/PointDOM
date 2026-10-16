@@ -127,7 +127,7 @@ for (const mode of ['install-home', 'install-project', 'install-zip', 'link-proj
           /Project directory:|Development site URL|MCP configuration copied/,
         );
         assert.match(result.stdout, /pdo link --origin/);
-        assert.match(result.stdout, /pdo connect --json/);
+        assert.match(result.stdout, /Submissions run automatically/);
       }
       if (mode === 'install-zip') {
         assert.match(result.stdout, /Extension ZIP: .*pointdom-extension.zip/);

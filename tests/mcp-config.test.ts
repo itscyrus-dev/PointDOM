@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-test('MCP config selects one registered project and exports CC Switch and OpenCode without credentials', () => {
+test('MCP config is reusable across registered projects and exports CC Switch and OpenCode without credentials', () => {
   const home = realpathSync(mkdtempSync(join(tmpdir(), 'pagepatch-mcp-config-')));
   try {
     const script = join(home, 'scripts/mcp-config.mjs');
@@ -29,11 +29,11 @@ test('MCP config selects one registered project and exports CC Switch and OpenCo
       });
     const raw = run([]);
     assert.equal(raw.includes(config.token), false);
-    const server = JSON.parse(raw).mcpServers.pagepatch;
+    const server = JSON.parse(raw).mcpServers.pointdom;
     assert.equal(server.command, process.execPath);
-    assert.deepEqual(server.args, [entry, '--project', project]);
+    assert.deepEqual(server.args, [entry]);
     assert.equal(server.env.PAGEPATCH_HOME, home);
-    const native = JSON.parse(run(['--client', 'opencode'])).mcp.pagepatch;
+    const native = JSON.parse(run(['--client', 'opencode'])).mcp.pointdom;
     assert.equal(native.type, 'local');
     assert.equal(native.enabled, true);
     assert.deepEqual(native.command, [server.command, ...server.args]);
@@ -49,16 +49,16 @@ test('MCP config selects one registered project and exports CC Switch and OpenCo
     };
     failure(['--project'], 'Missing value');
     failure(['--client', 'unknown'], 'must be');
-    failure(['--project', home], 'Project not registered');
+    assert.deepEqual(JSON.parse(run(['--project', home])), JSON.parse(raw));
     config.projects.push({ cwd: home });
     save();
-    failure([], '--project');
-    assert.equal(JSON.parse(run(['--project', project])).mcpServers.pagepatch.args[2], project);
-    rmSync(entry);
-    failure(['--project', project], 'pnpm build');
+    assert.deepEqual(JSON.parse(run([])), JSON.parse(raw));
+    assert.deepEqual(JSON.parse(run(['--project', project])), JSON.parse(raw));
     config.projects = [];
     save();
-    failure([], '--project');
+    assert.deepEqual(JSON.parse(run([])), JSON.parse(raw));
+    rmSync(entry);
+    failure([], 'pnpm build');
     assert.equal(JSON.parse(readFileSync(join(home, 'config.json'), 'utf8')).token, config.token);
   } finally {
     rmSync(home, { recursive: true, force: true });

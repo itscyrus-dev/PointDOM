@@ -1,7 +1,12 @@
 import type { AgentConnection } from './contracts.js';
 export type ClientId = 'codex' | 'trae' | 'claude' | 'zcode' | 'opencode' | 'other';
 type Preset = { id: ClientId; name: string; guide: string; aliases: readonly string[] };
-export type ClientEntry = { preset: Preset; label: string; connection?: AgentConnection };
+export type ClientEntry = {
+  preset: Preset;
+  label: string;
+  connection?: AgentConnection;
+  sessions?: AgentConnection[];
+};
 const presets: readonly Preset[] = [
   {
     id: 'codex',
@@ -23,10 +28,17 @@ const presetId = (name: string) =>
 export function clientEntries(connections: readonly AgentConnection[]): ClientEntry[] {
   return presets.flatMap((preset) => {
     const matches = connections.filter((connection) => presetId(connection.name) === preset.id);
-    const live = matches.map((connection) => ({
+    const groups = new Map<string, AgentConnection[]>();
+    for (const connection of matches) {
+      const label = preset.id === 'other' ? connection.name : preset.name;
+      const sessions = groups.get(label) || [];
+      sessions.push(connection);
+      groups.set(label, sessions);
+    }
+    const live = [...groups].map(([label, sessions]) => ({
       preset,
-      connection,
-      label: `${preset.id === 'other' ? connection.name : preset.name}${matches.filter((other) => preset.id !== 'other' || other.name === connection.name).length > 1 ? ` · ${connection.id.slice(0, 6)}` : ''}`,
+      label,
+      ...(sessions.length === 1 ? { connection: sessions[0] } : { sessions }),
     }));
     return !matches.length || preset.id === 'other'
       ? [...live, { preset, label: preset.name }]
@@ -38,7 +50,15 @@ export function clientEntries(connections: readonly AgentConnection[]): ClientEn
 export function clientSetupInstruction(language: 'zh-CN' | 'en', id: ClientId): string {
   const preset = presets.find((preset) => preset.id === id)!;
   const guide = `https://github.com/itscyrus-dev/PointDOM/blob/main/docs/agents/${preset.guide}.md`;
+  const command = id === 'opencode' ? 'pdo connect --client opencode --json' : 'pdo connect --json';
   return language === 'zh-CN'
-    ? `请在当前项目中接入 ${id === 'other' ? '本客户端的' : preset.name} PointDOM MCP，遵循项目规则及指南：${guide}\n\n复用本机 pdo，确认当前源码目录和实际开发网址；按需执行 pdo link --path <项目目录> --origin <开发网址>，用 pdo connect --path <项目目录> --json 导出并合并 MCP 配置，保留已有设置。先确认没有执行中的批注，再重启或重连该 MCP 服务（已有配置也需要），旧进程不会随文件更新。在当前对话原生调用 pointdom_list_tasks，返回正确项目及 connection.id 才算接通；tasks: [] 单独不算，不能用临时 SDK 进程代替验证。不能自行重连时，只给出当前窗口的具体重连步骤。\n\n用中文报告结果。不领取任务、不修改业务代码或全局权限、不重复配对或重装，不提交或推送。`
-    : `Connect PointDOM MCP in this project's ${id === 'other' ? 'coding client' : preset.name}. Follow project rules and ${guide}\n\nReuse local pdo. Resolve the real source directory and development URL; use pdo link --path <project-directory> --origin <development-url> as needed, then pdo connect --path <project-directory> --json. Merge its MCP configuration, preserving existing settings. Finish any claimed work first. Even with existing config, restart or reconnect the MCP server to load updated code. Use this conversation’s native pointdom_list_tasks read-only; require the correct project and connection.id before reporting connected. tasks: [] alone is not proof. Do not substitute a temporary SDK process. If host reconnection requires me, give exact steps in this window.\n\nReport results in English. Do not claim tasks, edit application code or global permissions, pair again, reinstall, commit or push.`;
+    ? `请接入当前项目的 PointDOM，遵循项目规则和 ${guide}\n复用本机 pdo，按实际源码目录和网址执行 pdo link --path <项目目录> --origin <开发网址>。用 ${command} 导出通用 pointdom 配置，在本客户端全局 MCP 中合并一次，保留其他设置。先确认没有执行中的批注，再重启或重连；旧项目专用条目确认不用后再移除，避免重复连接。\n在当前对话原生调用 pointdom_bind_project(path=真实源码目录)，之后所有任务调用带返回的 projectId；调用 pointdom_list_tasks 验证项目和 connection.id，tasks: [] 单独不算，不用临时 SDK 进程验证。不能自动接通时给出本窗口具体操作。用中文报告；不领取任务、不改业务代码或全局权限、不重装、提交或推送。`
+    : `Connect PointDOM for this project, following project rules and ${guide}\nReuse local pdo; register the real workspace and URL with pdo link --path <source-directory> --origin <development-url>. Export ${command}; merge the universal pointdom entry once into this client's global MCP settings, preserving other settings. Finish claimed work before you restart or reconnect. Remove obsolete project-specific entries only after confirming they are unused.\nUse native pointdom_bind_project with the actual workspace path, then pass its projectId on every task call. Call pointdom_list_tasks and verify project and connection.id; tasks: [] alone is not proof. Never substitute an SDK process. If blocked, give exact host steps. Report in English. Do not claim tasks, change application code or global permissions, reinstall, commit or push.`;
+}
+
+/** Explicit user opt-in to an agent turn; copying is not evidence of an active wait. */
+export function monitoringInstruction(language: 'zh-CN' | 'en'): string {
+  return language === 'zh-CN'
+    ? '先用 pointdom_bind_project 绑定真实源码目录，后续每次调用都带返回的 projectId。持续处理当前项目分配给你的 PointDOM 批注：调用 pointdom_wait_for_task 等待任务；收到 taskId 后读取并领取，按项目规则修改和验证，用 pointdom_progress_task 回报进度、pointdom_report_task 回报结果，然后继续等待。等待超时则再次等待；我要求停止、工具报错或连接断开时停止并说明原因。不要自行提交、推送或修改全局权限。'
+    : 'Bind the actual workspace with pointdom_bind_project and pass its projectId on every call. Watch assigned annotations using pointdom_wait_for_task. When taskId arrives, get and claim it, edit and verify following project rules, send progress with pointdom_progress_task and results with pointdom_report_task, then wait again. Continue after wait timeouts. Stop and explain on user stop, tool errors or disconnect. Do not commit, push or change global permissions.';
 }

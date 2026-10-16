@@ -117,8 +117,8 @@ test('only the selected MCP connection can see and claim a task; queued reassign
       };
     };
     const codex = await register('Codex'),
-      trae = await register('Trae'),
-      foreign = await register('Trae', otherProjectId);
+      trae = await register('Trae');
+    await register('Trae', otherProjectId);
     const connections = await (
       await call(`agents?projectId=${projectId}`, undefined, undefined, true)
     ).json();
@@ -143,17 +143,9 @@ test('only the selected MCP connection can see and claim a task; queued reassign
         styles: {},
       },
     };
-    assert.equal(
-      (await call('jobs', { ...input, recipientId: foreign.connection.id }, undefined, true))
-        .status,
-      409,
-    );
-    assert.equal(
-      (await call('jobs', { ...input, recipientId: undefined }, undefined, true)).status,
-      409,
-    );
-    assert.equal((await call('jobs', input, undefined, true)).status, 202);
-    assert.equal((await call('jobs', input, undefined, true)).status, 202);
+    assert.equal((await call('jobs', input, undefined, true)).status, 410);
+    // Pre-upgrade records still obey exact session ownership.
+    queue.submit(input);
     assert.equal(store.jobs.length, 1);
     const list = async (claim: string) =>
       (await (await call(`mcp/tasks?projectId=${projectId}`, undefined, claim)).json()).tasks;
@@ -238,7 +230,7 @@ test('only the selected MCP connection can see and claim a task; queued reassign
     );
     assert.equal(new Store(directory).jobs[0]!.recipient?.id, trae.connection.id);
     // A retry of the original submission must not undo an explicit reassignment.
-    assert.equal((await call('jobs', input, undefined, true)).status, 202);
+    assert.equal((await call('jobs', input, undefined, true)).status, 410);
     assert.equal(store.jobs[0]!.recipient?.id, trae.connection.id);
     queue.agents.register({
       projectId,
