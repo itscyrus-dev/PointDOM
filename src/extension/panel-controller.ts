@@ -1,4 +1,5 @@
-import { cliStatusSchema, cliIdSchema, type CliStatus, type CliId } from '../shared/cli.js';
+import { watchInstruction } from '../shared/mcp-watch.js';
+import { cliStatusSchema, type CliStatus } from '../shared/cli.js';
 import {
   newConnectionNonce,
   connectionChallenge,
@@ -9,6 +10,9 @@ import { z } from 'zod';
 import { agentContext } from '../shared/agent-context.js';
 import {
   executorSchema,
+  agentConnectionSchema,
+  type AgentConnection,
+  type Executor,
   jobSchema,
   projectSchema,
   readSelections,
@@ -46,7 +50,9 @@ export type PanelState = {
   projectId: string;
   jobs: Job[];
   clis: CliStatus[];
-  cliExecutor: CliId;
+  cliExecutor: Executor;
+  agents: AgentConnection[];
+  recipientId: string;
   selections: Selection[];
   pickerActive: boolean;
   draft: string;
@@ -73,6 +79,8 @@ export class PanelController {
     jobs: [],
     clis: [],
     cliExecutor: 'codex',
+    agents: [],
+    recipientId: '',
     selections: [],
     pickerActive: false,
     draft: '',
@@ -87,6 +95,7 @@ export class PanelController {
   private nonce = '';
   private discovering = false;
   private explicitProject = { origin: '', id: '' };
+  private recipients = new Map<string, string>();
   private retry: Submission | null = null;
   private syncVersion = 0;
   private pickerVersion = 0;
@@ -156,7 +165,9 @@ export class PanelController {
     this.patch({
       projects,
       projectId,
-      ...(projectChanged ? { jobs: [] } : {}),
+      ...(projectChanged
+        ? { jobs: [], agents: [], recipientId: this.recipients.get(projectId) || '' }
+        : {}),
       ...(matches.length > 1 && !projectId && this.state.connection === 'connected'
         ? { settings: true }
         : {}),
@@ -196,10 +207,39 @@ export class PanelController {
       .parse(await this.api('/api/clis?refresh=1'));
     this.patch({ clis });
   }
-  async setCli(id: CliId) {
-    if (this.retry || !this.state.clis.some((cli) => cli.id === id && cli.available)) return;
+  async setCli(id: Executor) {
+    if (
+      this.retry ||
+      (id !== 'mcp' && !this.state.clis.some((cli) => cli.id === id && cli.available))
+    )
+      return;
     await this.api('/api/settings', { executor: id });
     this.patch({ cliExecutor: id });
+  }
+  setRecipient(id: string) {
+    if (this.retry || !this.state.agents.some((a) => a.id === id)) return;
+    this.recipients.set(this.state.projectId, id);
+    this.patch({ recipientId: id });
+    void chrome.storage.local
+      .set({ pointdomRecipients: Object.fromEntries(this.recipients) })
+      .catch(this.fail);
+  }
+  async copyMcpConfig() {
+    const config = await this.api('/api/mcp-config');
+    await navigator.clipboard.writeText(JSON.stringify(config, null, 2));
+    this.notify('已复制 MCP 配置。', 'MCP configuration copied.');
+  }
+  get hasPendingSubmission() {
+    return this.retry !== null;
+  }
+  async copyWatchInstruction() {
+    const project = this.state.projects.find((p) => p.id === this.state.projectId);
+    if (!project) return;
+    const recipient = this.state.agents.find((a) => a.id === this.state.recipientId);
+    await navigator.clipboard.writeText(
+      watchInstruction(this.state.preferences.language, project, recipient?.id || ''),
+    );
+    this.notify('在客户端项目对话中发送一次。', 'Send once in your client project conversation.');
   }
   setPreferences(value: Partial<Preferences>) {
     const preferences = readPreferences({ ...this.state.preferences, ...value });
@@ -333,12 +373,12 @@ export class PanelController {
     while (this.running && this.state.connection === 'connected') {
       const projectId = this.state.projectId;
       try {
-        const [projectResponse, incoming, clis] = await Promise.all([
+        const [projectResponse, incoming, clis, agents] = await Promise.all([
           this.api('/api/projects').then((value) =>
             z
               .object({
                 projects: z.array(projectSchema),
-                agentSettings: z.object({ defaultExecutor: cliIdSchema }),
+                agentSettings: z.object({ defaultExecutor: executorSchema }),
               })
               .parse(value),
           ),
@@ -350,6 +390,11 @@ export class PanelController {
           this.api('/api/clis').then(
             (value) => z.object({ clis: z.array(cliStatusSchema) }).parse(value).clis,
           ),
+          projectId
+            ? this.api(`/api/agents?projectId=${encodeURIComponent(projectId)}`).then(
+                (value) => z.object({ agents: z.array(agentConnectionSchema) }).parse(value).agents,
+              )
+            : Promise.resolve([]),
         ]);
         if (!this.running) return;
         const { projects } = projectResponse;
@@ -360,7 +405,11 @@ export class PanelController {
         // Older bridges may ignore the query. Never expose their foreign-project records.
         const jobs = incoming.filter((job) => job.projectId === projectId);
         if (JSON.stringify(jobs) !== JSON.stringify(this.state.jobs)) this.patch({ jobs });
-        this.patch({ clis, cliExecutor: projectResponse.agentSettings.defaultExecutor });
+        this.patch({
+          clis,
+          agents: agents.filter((a) => a.projectId === projectId),
+          cliExecutor: projectResponse.agentSettings.defaultExecutor,
+        });
         return;
       } catch (error) {
         if (!this.running) return;
@@ -522,7 +571,14 @@ export class PanelController {
         'bridgeToken',
         'pointdomPreferences',
         'pointdomConnectionNonce',
+        'pointdomRecipients',
       ]);
+      const savedRecipients = z
+        .record(z.string().uuid(), z.string().uuid())
+        .safeParse(data.pointdomRecipients);
+      this.recipients = new Map(
+        Object.entries(savedRecipients.success ? savedRecipients.data : {}),
+      );
       // Persist one pending capability across panel/tab reopening. No page content is involved.
       this.nonce =
         typeof data.pointdomConnectionNonce === 'string' &&
@@ -776,7 +832,10 @@ export class PanelController {
       state.submitting ||
       state.connection !== 'connected' ||
       !state.projectId ||
-      (!this.retry && !state.clis.some((cli) => cli.id === state.cliExecutor && cli.available)) ||
+      (!this.retry &&
+        !(state.cliExecutor === 'mcp'
+          ? canReceiveMcp(state)
+          : state.clis.some((cli) => cli.id === state.cliExecutor && cli.available))) ||
       !(state.draft.trim() || state.selections.some((s) => s.description?.trim()))
     )
       return;
@@ -787,6 +846,7 @@ export class PanelController {
     }
     const data: Submission = this.retry || {
       executor: state.cliExecutor,
+      ...(state.cliExecutor === 'mcp' ? { recipientId: state.recipientId } : {}),
       id: crypto.randomUUID(),
       projectId: state.projectId,
       instruction:
@@ -809,7 +869,9 @@ export class PanelController {
           tabId: state.tabId,
         });
       if (this.state.tabId === state.tabId) this.patch({ selections: [], draft: '' });
-      this.notify('已提交，自动执行。', 'Submitted. Execution starts automatically.');
+      if (state.cliExecutor === 'mcp')
+        this.notify('已提交，等待领取。', 'Submitted. Awaiting claim.');
+      else this.notify('已提交，自动执行。', 'Submitted. Execution starts automatically.');
       await this.refresh();
     } catch (error) {
       this.notify(
@@ -867,3 +929,17 @@ export class PanelController {
   }
 }
 export const controller = new PanelController();
+
+export function canReceiveMcp(state: PanelState) {
+  return (
+    state.connection === 'connected' &&
+    state.agents.some(
+      (a) =>
+        a.id === state.recipientId &&
+        (a.listening ||
+          state.jobs.some(
+            (j) => j.executor === 'mcp' && j.recipient?.id === a.id && j.status === 'running',
+          )),
+    )
+  );
+}

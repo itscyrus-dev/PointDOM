@@ -4,6 +4,18 @@ Notable changes to PointDOM. Release archives and installers are available from 
 
 ## [Unreleased]
 
+### Added
+
+- MCP listening alongside the existing CLI executors. Export one installation-scoped MCP configuration in settings, bind registered workspaces, and use one localized instruction to wait, claim, edit, report and wait again in an active agent session.
+- Per-project recipient selection with real listening/running/disconnected states. New MCP submissions require an actual waiting or running recipient; no broadcast, silent reassignment or CLI fallback.
+
+### Fixed
+
+- Keep MCP preferences across service/panel restarts without treating saved recipients as online. Invalidate waits on shutdown or disconnect/re-registration without clearing a newer wait.
+- Disconnect MCP presence on stdin EOF and termination signals instead of relying on heartbeat expiry after normal client shutdown.
+- Export built MCP entry paths from source-mode service runs and report the selected transport accurately.
+- Allow an unchanged, unconfirmed submission to retry its original ID after listening ends, without creating duplicate work.
+
 ## [0.5.0] - 2026-10-16
 
 ### Added

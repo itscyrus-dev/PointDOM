@@ -230,3 +230,9 @@ for (const prefix of ['pointdom', 'pagepatch']) {
   );
 }
 await server.connect(new StdioServerTransport());
+// The stdio transport does not forward stdin EOF to onclose. Close explicitly so
+// the bridge drops presence instead of waiting for its heartbeat lease to expire.
+const closeTransport = () => void server.close().catch(() => {});
+process.stdin.once('end', closeTransport);
+process.once('SIGTERM', closeTransport);
+process.once('SIGINT', closeTransport);

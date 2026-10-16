@@ -25,7 +25,7 @@ pnpm release:pack
 pnpm release:verify
 ```
 
-These commands package and verify locally; they do not publish. Tests never call paid models. CLI workflows use isolated executable fixtures and temporary projects. Production execution uses the selected locally installed CLI.
+These commands package and verify locally; they do not publish. Tests never call paid models. CLI workflows use isolated executable fixtures and temporary projects. Production execution uses the selected local CLI or an explicitly assigned MCP listening client.
 
 ## Repository layout
 
@@ -44,7 +44,7 @@ These commands package and verify locally; they do not publish. Tests never call
 | `src/bridge/main.ts`                                            | CLI and foreground service entry point.                                                           |
 | `src/bridge/server.ts`                                          | Authenticated Hono HTTP routes.                                                                   |
 | `src/bridge/queue.ts`, `store.ts`                               | Durable MCP inbox, cancellation and local records.                                                |
-| `src/bridge/mcp.ts`                                             | Project-bound stdio MCP entry point.                                                              |
+| `src/bridge/mcp.ts`                                             | Universal stdio MCP entry with explicit project binding.                                          |
 | `src/bridge/setup.ts`, `connection.ts`                          | Interactive setup and credential-free host configuration exports.                                 |
 | `src/shared`                                                    | Validated contracts, context separation and release-note data.                                    |
 | `scripts`                                                       | Build, installation helpers, packaging and verification.                                          |
@@ -70,7 +70,7 @@ Browser tests use a shared Chromium argument list in `tests/e2e/browser-args.ts`
 
 React 19 and HeroUI 3 are pinned. Build copies precompiled HeroUI CSS locally; no remote CDN or runtime Tailwind compiler is involved. HeroUI owns dropdown, popover, disclosure and checkbox behavior. Keep CSS tokens consistent across light/dark surfaces and portals. See [Design](../DESIGN.md) for focus, compact layout, picking, access and running-task borders.
 
-The CLI picker and settings share a global executor preference. Detection belongs to the authenticated bridge, never browser-supplied commands. Keep bilingual UI, stable hover geometry and visible keyboard focus. Historical MCP exports and tool aliases remain compatibility modules only; no new browser submission uses them.
+The CLI picker and settings share a global executor preference. Detection belongs to the authenticated bridge, never browser-supplied commands. Keep bilingual UI, stable hover geometry and visible keyboard focus. MCP configuration is installation-scoped. A real pending wait marks listening; saved selection or heartbeat presence alone cannot accept new MCP work. Keep exact per-project recipients and claims.
 
 `brand.ts` defines the logo. Run `pnpm icons` after geometry changes. Chrome `_locales` controls native labels independently of the panel language. Original notes/page text retain their language.
 
@@ -80,7 +80,7 @@ The CLI picker and settings share a global executor preference. Detection belong
 
 ## Execution, permissions and storage
 
-`Queue` persists tasks before running `CliRunner` and serializes each registered project. New HTTP submissions require a supported CLI ID, validated project origin and bounded context. Legacy MCP records remain readable and their owner checks stay covered by compatibility tests; the panel does not create new ones.
+`Queue` persists tasks before running `CliRunner` and serializes each registered project. New HTTP submissions require a supported CLI ID or a live MCP recipient that is waiting/already executing, a validated project origin and bounded context. CLI and MCP share per-project serialization. MCP waiting never claims work; only the atomic claim route does. Disconnect/re-registration invalidates older waits without clearing new ones.
 
 The runner sends structured context over stdin with `shell: false`, parses JSONL protocol events and drains stderr without persisting it. Bounded redacted tool records and sanitized final reports reach task storage. Success needs both a protocol terminal result and exit code zero. Cancellation/shutdown terminates the process tree; restart interrupts without replay. No permission-bypass flags, command approvals or Git commits are implemented by PointDOM.
 

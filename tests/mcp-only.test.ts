@@ -67,10 +67,10 @@ function fixture() {
   };
 }
 
-test('new browser submissions reject MCP and legacy execution overrides', async () => {
+test('new browser submissions reject inactive MCP recipients and legacy execution overrides', async () => {
   const f = fixture();
   try {
-    assert.equal((await f.call('/api/jobs', { ...f.input, executor: 'mcp' })).status, 410);
+    assert.equal((await f.call('/api/jobs', { ...f.input, executor: 'mcp' })).status, 409);
     for (const executor of ['codex', 'claude', 'opencode', 'trae'])
       assert.equal(
         (

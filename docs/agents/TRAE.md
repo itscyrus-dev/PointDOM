@@ -1,5 +1,7 @@
 # Trae CLI
 
+Prefer an existing client conversation? Use [MCP listening](../MCP.md) with one universal configuration and an active watch loop. The instructions below describe the independent CLI mode.
+
 Follow the [installation runbook](../INSTALL_AGENT.md). PointDOM's new workflow starts the local `traecli` process directly, with no PointDOM MCP server or repeated chat handoff.
 
 1. Install and sign in to Trae CLI using its [official documentation](https://docs.trae.cn/cli_command-line-parameters). Keep your account, model and permissions configured there.

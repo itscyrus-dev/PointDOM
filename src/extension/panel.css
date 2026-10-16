@@ -893,6 +893,7 @@ kbd {
     .shortcut-settings,
     .pairing-settings,
     .agent-setup-settings,
+    .mcp-settings,
     .site-access-settings
   ) {
   border: 1px solid var(--border);
@@ -928,6 +929,7 @@ kbd {
 .shortcut-settings,
 .pairing-settings,
 .agent-setup-settings,
+.mcp-settings,
 .site-access-settings {
   border-radius: var(--card-radius);
 }
@@ -1417,6 +1419,7 @@ button[data-pending='true'] {
 }
 .pairing-settings,
 .agent-setup-settings,
+.mcp-settings,
 .site-access-settings {
   border: 1px solid var(--border);
   padding: 12px;
@@ -2166,4 +2169,23 @@ button[data-pending='true'] {
   .execution-popover .cli-detect {
     min-height: 44px;
   }
+}
+
+.mcp-listening {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+}
+.mcp-listening .button {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+.mcp-settings {
+  display: grid;
+  gap: 8px;
+}
+.mcp-settings .button {
+  justify-self: start;
 }

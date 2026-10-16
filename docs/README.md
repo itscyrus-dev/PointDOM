@@ -2,7 +2,7 @@
 
 Start with the [English README](../README.md) or [Simplified Chinese README](../README.zh-CN.md). The English README is the default repository entry point. Detailed installation and contributor guides are maintained in English.
 
-PointDOM submits browser annotations directly to a locally installed coding CLI. Select one global executor; link each project's source directory and development URL. No MCP configuration or repeated chat message is needed.
+PointDOM submits browser annotations to a local coding CLI or a selected MCP listening connection. Link each project's source directory and development URL. CLI starts locally; MCP needs one universal host configuration and an active agent monitoring loop.
 
 ## Install and use
 
@@ -10,7 +10,7 @@ PointDOM submits browser annotations directly to a locally installed coding CLI.
 - [CLI execution and limitations](CLI.md)
 - [Verification](VERIFICATION.md)
 - Agent guides: [Codex](agents/CODEX.md), [Claude Code](agents/CLAUDE_CODE.md), [OpenCode](agents/OPENCODE.md), [Trae](agents/TRAE.md)
-- [Legacy MCP reference](MCP.md), retained only for existing installations/history.
+- [MCP listening and universal configuration](MCP.md), including host limits and truthful states.
 
 ## Contribute and maintain
 

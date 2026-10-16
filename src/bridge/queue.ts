@@ -152,6 +152,7 @@ export class Queue {
   }
   stop() {
     this.stopping = true;
+    this.agents.clear();
     for (const [id, controller] of this.active) {
       const job = this.store.jobs.find((job) => job.id === id);
       if (job && !terminal(job.status)) {

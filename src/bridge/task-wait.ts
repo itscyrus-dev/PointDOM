@@ -19,7 +19,8 @@ export async function waitForTask(
   try {
     while (true) {
       signal.throwIfAborted();
-      if (!agents.session(projectId, claim)?.listening) throw new Error('MCP_SESSION_CLOSED');
+      if (agents.session(projectId, claim) !== session || !session.listening)
+        throw new Error('MCP_SESSION_CLOSED');
       const busy = store.jobs.some(
         (job) => job.projectId === projectId && ['running', 'waiting'].includes(job.status),
       );
