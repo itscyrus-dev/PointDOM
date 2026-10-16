@@ -1,6 +1,6 @@
 # CLI execution
 
-PointDOM's current browser workflow submits directly to a local CLI runner. The Chrome extension does not execute OS programs itself: it sends authenticated task requests to the loopback service, which starts the selected CLI in the registered canonical project directory. No PointDOM MCP configuration, listening loop, chat paste or desktop automation is required.
+PointDOM's CLI mode submits directly to a local CLI runner. The Chrome extension does not execute OS programs itself: it sends authenticated task requests to the loopback service, which starts the selected CLI in the registered canonical project directory. No PointDOM MCP configuration, listening loop, chat paste or desktop automation is required.
 
 ## Supported invocations
 
@@ -35,7 +35,7 @@ Completed means the CLI returned a successful report. It is not independent cert
 
 ## Migration
 
-The panel no longer exposes MCP configuration, session selection, watch instructions or reassign controls for new tasks. `/api/jobs` rejects MCP submissions and legacy execution overrides. Historical MCP records and compatibility APIs/exports remain readable during migration; they do not route new browser submissions. Existing MCP configurations in other apps are not automatically edited or deleted.
+CLI remains available alongside [MCP listening](MCP.md). The executor preference is shared globally; each task retains its original executor and, for MCP, its exact recipient. Switching modes does not transfer existing work. MCP setup is installation-scoped and does not change CLI accounts, models or permissions. Legacy execution overrides remain rejected.
 
 Windows path/process code is included but needs native Windows validation. Automated tests use executable fixtures and temporary projects, not paid models or real user sessions.
 

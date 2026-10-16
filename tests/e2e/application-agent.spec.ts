@@ -8,7 +8,7 @@ import { Queue } from '../../src/bridge/queue.js';
 import { createApp } from '../../src/bridge/server.js';
 import { fixtureCli } from '../fixtures/cli.js';
 import { cliIds } from '../../src/shared/cli.js';
-test('four CLI adapters execute only in the registered project and reject MCP/command overrides', async () => {
+test('four CLI adapters execute only in the registered project and reject inactive MCP recipients and command overrides', async () => {
   const directory = realpathSync(mkdtempSync(join(tmpdir(), 'pointdom-cli-api-')));
   const store = new Store(join(directory, 'state'));
   for (const name of ['a', 'b']) {
@@ -66,7 +66,7 @@ test('four CLI adapters execute only in the registered project and reject MCP/co
     expect(store.jobs).toHaveLength(4);
     expect(readFileSync(join(a.cwd, 'button.css'), 'utf8')).toContain('40px');
     expect(readFileSync(join(b.cwd, 'button.css'), 'utf8')).toContain('32px');
-    expect((await call('/api/jobs', { ...input(), executor: 'mcp' })).status).toBe(410);
+    expect((await call('/api/jobs', { ...input(), executor: 'mcp' })).status).toBe(409);
     expect((await call('/api/jobs', { ...input(), executor: 'codex', cwd: b.cwd })).status).toBe(
       400,
     );

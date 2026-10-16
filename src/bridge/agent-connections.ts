@@ -34,7 +34,7 @@ export class AgentConnections {
     if (!existing && this.records.size >= 256) throw new Error('Too many active MCP connections.');
     const at = new Date(this.now()).toISOString();
     const connection: AgentConnection = existing
-      ? { ...existing, lastSeenAt: at }
+      ? Object.assign(existing, { lastSeenAt: at })
       : { id, projectId: input.projectId, ...input.client, connectedAt: at, lastSeenAt: at };
     this.records.set(id, connection);
     return connection;
@@ -45,8 +45,11 @@ export class AgentConnections {
     record.listening = true;
     return () => {
       const current = this.records.get(id);
-      if (current) current.listening = false;
+      if (current === record) current.listening = false;
     };
+  }
+  clear() {
+    this.records.clear();
   }
   disconnect(projectId: string, claim: string) {
     this.records.delete(this.id(projectId, claim));

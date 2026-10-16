@@ -1,6 +1,6 @@
 # PointDOM installation runbook
 
-Install PointDOM as an independent local tool. Do not add it to the application's dependencies or change the development command. The current workflow uses local agent CLIs; do not configure PointDOM MCP servers for new installations.
+Install PointDOM as an independent local tool. Do not add it to the application's dependencies or change the development command. Choose direct local CLI execution or MCP listening in an existing coding client. Preserve the user's chosen mode.
 
 ## 1. Inspect and reuse
 
@@ -19,7 +19,7 @@ pdo link --path /absolute/path/to/app --origin http://localhost:3000
 pdo projects
 ```
 
-Replace both placeholders with verified values. Preserve other registered projects. Enable access to that exact origin in PointDOM. A new project needs linking and browser access only; the global CLI selection is reused.
+Replace both placeholders with verified values. Preserve other registered projects. Enable access to that exact origin in PointDOM. CLI selection is reused globally. MCP configuration is also reusable; bind each registered workspace and start its listening session.
 
 ## 4. Select a CLI
 
@@ -27,9 +27,13 @@ Install and sign in to Codex, Claude Code, OpenCode or Trae CLI according to its
 
 The bridge checks executable capabilities without calling a paid model. Detected is not proof of authentication or successful edits. Trae desktop installation does not prove Trae CLI eligibility. See [CLI integration](CLI.md) and the [agent guides](README.md).
 
-## 5. Verify
+## 5. Or use MCP listening
 
-Check service readiness, registered directory/origin, browser pairing/page access and CLI detection. Do not submit a paid or real-code test without the user's task authorization. For development verification use the repository's isolated fixture suite. Report what was tested and what still depends on the user's CLI login, model access or permissions.
+Copy the universal MCP configuration from extension settings or run `pdo connect --json`. Merge it into the client's supported user-level MCP configuration, preserving unrelated entries; use `pdo connect --client opencode --json` for OpenCode's format. Enable it in the actual agent session and verify native tool discovery. Bind the registered workspace, choose MCP listening in PointDOM, send the one-time watch instruction in the client and select that exact connection. Do not submit work until it is listening. See [MCP listening](MCP.md) for the continuous loop and host limits.
+
+## 6. Verify
+
+Check service readiness, registered directory/origin, browser pairing/page access and the chosen execution mode. For CLI, check detection. For MCP, require a native list call with the correct project and connection ID, then a real pending wait before claiming listening. Do not submit a paid or real-code test without the user's task authorization. For development verification use the repository's isolated fixture suite. Report what was tested and what still depends on the user's CLI login, model access or permissions.
 
 ## Manual source installation
 

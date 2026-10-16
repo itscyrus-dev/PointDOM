@@ -29,7 +29,6 @@ export class Store {
           threads: {},
           defaultExecutor: 'codex',
         };
-    if (this.config.defaultExecutor === 'mcp') this.config.defaultExecutor = 'codex';
     this.jobs = existsSync(this.path('jobs.json'))
       ? z.array(jobSchema).parse(JSON.parse(readFileSync(this.path('jobs.json'), 'utf8')))
       : [];

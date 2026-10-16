@@ -2,6 +2,16 @@
 
 These are local working-tree checks, not a published release or proof of all provider/model combinations.
 
+## CLI + MCP listening revision — 2026-10-16
+
+- TDD regressions first failed on MCP preference rejection, missing configuration export, idle-submission gating, disconnect/re-registration waits, shutdown cleanup, missing tool names in instructions, source-entry export, transport reporting and stale saved-recipient instructions. Each was reproduced before its implementation change.
+- Native stdio browser testing additionally reproduced a normal client close leaving stale presence. Explicit stdin EOF/termination handling now disconnects the session; abrupt process loss still relies on heartbeat expiry.
+- `pnpm check`: strict TypeScript, 125 passing tests and one Windows-native skip, then production build.
+- `pnpm test:e2e`: 15 isolated workflows. The new MCP case runs the packaged extension against the real bridge and an actual SDK stdio client. It binds a registered temporary project, waits, accepts two consecutive browser submissions, claims each task, writes and reads an isolated file, reports progress/results and waits again. It also checks tool cancellation, stopped-listener state, persisted selection after panel reload, clean disconnection, disabled new submission, preserved draft and narrow layout. A lost POST response regression first disabled the retry button after the wait returned; the browser now retries the original ID successfully without duplicating a task.
+- The existing universal stdio test binds two workspaces in one process and rejects missing, unknown and cross-project scopes. Routing tests preserve exact recipient ownership and idempotent retries after explicit reassignment. CLI browser workflows remain enabled and passing.
+- Screenshots inspect the compact MCP settings card, live recipient menu and disconnected narrow panel. Formatting and whitespace checks accompany delivery.
+- No real user's agent session, model account or business repository is used. The SDK client is a deterministic agent fixture: it proves transport, queue, state and report handling, not that every Codex/Trae/OpenCode version or model will maintain an endless monitoring turn. Native host enablement, approvals and turn limits remain host responsibilities.
+
 ## CLI execution revision — 2026-10-16
 
 - Node.js 24.13.0; pnpm 10.34.7.
@@ -12,11 +22,11 @@ These are local working-tree checks, not a published release or proof of all pro
 - Account/provider requests are not made. Successful fixtures do not prove login, quota, production model edits or interactive approval behavior.
 - Windows path resolution and process-tree termination require native Windows validation. Browser OS-detection fixtures are not equivalent to a Windows process test.
 
-New submissions reject MCP and legacy execution overrides. Legacy MCP tests remain for history/compatibility only; their success is not required to execute CLI tasks. CLI results are reports from the selected tool, not independent verification of requested code changes.
+That CLI-only revision rejected MCP submissions. The listening-mode revision restores directed MCP submissions; legacy execution overrides remain rejected. CLI results are reports from the selected tool, not independent verification of requested code changes.
 
 ## Browser context and isolation
 
-Selection workflows cover nested text/SVG, explicit parent/child levels, pointer-events-none descendants, open shadow roots, duplicate IDs, unique selectors, sanitized DOM snapshots and prevention of website click actions. The same context and source-location guidance reach CLI tasks, legacy MCP tasks and optional DOM export. Inspectors group captured styles, locate only exact matching elements, preserve drafts and handle missing/changed/ambiguous targets. Closed shadow roots, iframe interiors and canvas internals remain outside precise selection support.
+Selection workflows cover nested text/SVG, explicit parent/child levels, pointer-events-none descendants, open shadow roots, duplicate IDs, unique selectors, sanitized DOM snapshots and prevention of website click actions. The same context and source-location guidance reach CLI tasks, MCP tasks and optional DOM export. Inspectors group captured styles, locate only exact matching elements, preserve drafts and handle missing/changed/ambiguous targets. Closed shadow roots, iframe interiors and canvas internals remain outside precise selection support.
 
 History/counts follow the selected project, filter before the latest-100 limit and reject stale/foreign responses. Shared origins require an explicit project choice. Element descriptions, pairing, appearance and per-tab drafts survive reopening. Native Chrome access is checked again after requests; denied, changed-tab and changed-origin cases do not inject.
 
@@ -33,18 +43,18 @@ Packaging/update checks cover checksums, failures, spaces in paths, repeated set
 - CLI runs use the locally installed tool's account, model and permissions. Real provider requests, quota and code-change quality are not established by fixture tests. Completion reports are not independent validation of every edit.
 - A read-only local preflight found the installed Trae CLI unauthenticated and returning a headless Codebase Git authentication error. No login, network/proxy or credential configuration was changed; successful authenticated Trae execution remains unverified.
 - Windows installation/startup is a candidate with native verification still required; the Windows-only integration test is not treated as passing on macOS.
-- Idle MCP-client activation and native desktop sending are not included. New browser tasks execute through CLI, rather than an existing desktop conversation.
+- Idle MCP-client activation and native desktop sending are not included. MCP listening requires the host to keep an active wait/process/report loop. It is not a background daemon guaranteed to survive host turn limits. CLI execution remains available independently.
 - Chrome Web Store distribution and automatic reload of arbitrary ZIP-installed copies are not implemented.
 
-## Legacy MCP compatibility
+## MCP routing and compatibility
 
-The checks below apply to retained compatibility APIs and task history. They do not describe the current browser UI or imply that new submissions use MCP.
+The checks below cover the underlying MCP protocol and retained compatibility. The current listening UI uses exact live connections; older catalog/grouping tests are historical helper coverage, not the current presentation.
 
 ### Explicit recipient routing
 
 The routing regression first failed on the missing connection-registration endpoint; the browser regression first failed on the missing recipient picker. Tests now cover actual MCP client-info registration via the stdio fixture, same-name distinct identities, heartbeat expiry/re-registration, private capability versus public ID, cross-project rejection, assigned list/get/claim visibility, spoofed model agent labels, explicit queued reassignment, stale assignment rejection, original submission idempotency after transfer, per-project execution serialization and reporting by the original owner after presence disappears. Unassigned old records cannot be claimed until explicitly assigned.
 
-Server regressions retain explicit recipient ownership and queued reassignment checks for legacy MCP tasks. Current browser tests select CLI executors and check global preference persistence and project isolation. Fixture names do not establish live account compatibility or automatic idle-host activation.
+Server regressions retain explicit recipient ownership and queued reassignment checks for MCP tasks. Browser tests cover both CLI executors and the MCP listener, with global mode preference and project-specific recipient selection. Fixture names do not establish live account compatibility or automatic idle-host activation.
 
 ### Client setup directory
 
@@ -60,6 +70,6 @@ Both generic and per-client setup copies now require host restart/reconnect, nat
 
 TDD regressions first failed because export still included `--project`, universal stdio startup rejected missing project arguments, and the client directory emitted separate same-name top-level rows. A later negative test caught relative workspace paths being accepted; bind now requires an absolute source directory.
 
-The real stdio fixture initializes without a project, binds two registered workspaces in the same process, requires explicit project IDs, verifies idempotent binding, rejects unknown/unregistered scopes and cross-project reads/claims, and waits/claims/progresses/reports both tasks independently. Legacy fixed-project lifecycle tests remain enabled. Unit regressions retain grouping of same-name connections; the current browser UI no longer selects MCP sessions. The browser compatibility test verifies that MCP export omits a fixed project argument. No actual agent account, user project edits or desktop automation are involved.
+The real stdio fixture initializes without a project, binds two registered workspaces in the same process, requires explicit project IDs, verifies idempotent binding, rejects unknown/unregistered scopes and cross-project reads/claims, and waits/claims/progresses/reports both tasks independently. Legacy fixed-project lifecycle tests remain enabled. Unit regressions retain grouping of same-name connections; the current browser UI selects live MCP connections directly and distinguishes same-name connections by short ID. The browser compatibility test verifies that MCP export omits a fixed project argument. No actual agent account, user project edits or desktop automation are involved.
 
 Host configuration migration is documented but not executed against the user's clients. Multiple host processes remain independent recipients; grouping is not evidence that a host has only one process or conversation. Windows-only installation checks remain skipped on macOS.

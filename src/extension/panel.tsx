@@ -3,6 +3,7 @@ import { checkLatestRelease } from './release-check.js';
 import { logoFrame, logoDot } from './brand.js';
 import { formatTaskDuration } from './task-duration.js';
 import { cliIds } from '../shared/cli.js';
+import { canReceiveMcp } from './panel-controller.js';
 import { executorName } from '../shared/contracts.js';
 import {
   createContext,
@@ -304,14 +305,18 @@ function ExecutionSettings({ state }: { state: PanelState }) {
       <Button
         id="execution-settings"
         className="quiet execution-trigger"
-        aria-label={t('选择 CLI', 'Choose CLI')}
+        aria-label={t('选择执行方式', 'Choose execution mode')}
       >
-        <span id="execution-summary">{executorName(state.cliExecutor)}</span>
+        <span id="execution-summary">
+          {state.cliExecutor === 'mcp'
+            ? t('MCP 监听', 'MCP watch')
+            : executorName(state.cliExecutor)}
+        </span>
         <Chevron />
       </Button>
       <Popover.Content className="execution-popover" placement="bottom end">
         <Popover.Dialog>
-          <Popover.Heading>{t('执行工具', 'CLI executor')}</Popover.Heading>
+          <Popover.Heading>{t('执行工具', 'Execution tool')}</Popover.Heading>
           <ul className="client-directory" aria-label={t('CLI 列表', 'CLI executors')}>
             {cliIds
               .filter(
@@ -348,6 +353,51 @@ function ExecutionSettings({ state }: { state: PanelState }) {
                 );
               })}
           </ul>
+          <AsyncButton
+            className="quiet client-select"
+            aria-label={t('使用 MCP 监听', 'Use MCP listening')}
+            aria-pressed={state.cliExecutor === 'mcp'}
+            run={async () => {
+              await controller.setCli('mcp');
+              setOpen(false);
+            }}
+          >
+            MCP {t('监听', 'listening')}
+            {state.cliExecutor === 'mcp' ? <Icon name="check" /> : null}
+          </AsyncButton>
+          {state.cliExecutor === 'mcp' ? (
+            <ul className="client-directory" aria-label={t('MCP 连接', 'MCP connections')}>
+              {state.agents.map((agent) => (
+                <li key={agent.id}>
+                  <Button
+                    className="quiet client-select"
+                    aria-label={t(`选择 ${agent.name}`, `Select ${agent.name}`)}
+                    aria-pressed={state.recipientId === agent.id}
+                    onPress={() => {
+                      controller.setRecipient(agent.id);
+                      setOpen(false);
+                    }}
+                  >
+                    <strong className="client-name">
+                      {agent.name}
+                      {state.agents.filter((a) => a.name === agent.name).length > 1
+                        ? ` · ${agent.id.slice(0, 6)}`
+                        : ''}
+                    </strong>
+                    <small className="client-status">
+                      {state.jobs.some(
+                        (j) => j.recipient?.id === agent.id && j.status === 'running',
+                      )
+                        ? t('执行中', 'Running')
+                        : agent.listening
+                          ? t('监听中', 'Listening')
+                          : t('未监听', 'Not listening')}
+                    </small>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {!state.clis.some((cli) => cli.available) ? (
             <p className="cli-empty">{t('未检测到 CLI', 'No CLI detected')}</p>
           ) : null}
@@ -500,7 +550,10 @@ function Composer({ state }: { state: PanelState }) {
     state.ready &&
     state.connection === 'connected' &&
     !!state.projectId &&
-    state.clis.some((cli) => cli.id === state.cliExecutor && cli.available) &&
+    (controller.hasPendingSubmission ||
+      (state.cliExecutor === 'mcp'
+        ? canReceiveMcp(state)
+        : state.clis.some((cli) => cli.id === state.cliExecutor && cli.available))) &&
     !!(state.draft.trim() || state.selections.some((s) => s.description?.trim())) &&
     !state.submitting;
   const project = state.projects.find((p) => p.id === state.projectId);
@@ -672,6 +725,30 @@ function Composer({ state }: { state: PanelState }) {
           </Button>
         </div>
       </Card>
+      {state.cliExecutor === 'mcp' ? (
+        <div className="mcp-listening">
+          <small id="mcp-state" role="status">
+            {state.connection !== 'connected' ||
+            (state.recipientId && !state.agents.some((a) => a.id === state.recipientId))
+              ? t('已断开', 'Disconnected')
+              : !state.recipientId
+                ? t('选择客户端并开启监听', 'Select a client and start listening')
+                : state.jobs.some(
+                      (j) =>
+                        j.executor === 'mcp' &&
+                        j.recipient?.id === state.recipientId &&
+                        j.status === 'running',
+                    )
+                  ? t('执行中', 'Running')
+                  : state.agents.some((a) => a.id === state.recipientId && a.listening)
+                    ? t('监听中', 'Listening')
+                    : t('已连接，未监听', 'Connected, not listening')}
+          </small>
+          <AsyncButton className="quiet" run={() => controller.copyWatchInstruction()}>
+            {t('复制监听指令', 'Copy watch instruction')}
+          </AsyncButton>
+        </div>
+      ) : null}
       <NoticeBox notice={state.notice} id="notice" />
     </section>
   );
@@ -811,10 +888,7 @@ const JobCard = memo(function JobCard({
       </div>
       {job.executor === 'mcp' && !terminal(job.status) ? (
         <small className="job-agent">
-          {t(
-            '旧版批注。取消后可通过 CLI 重新提交。',
-            'Legacy annotation. Cancel and submit again through CLI.',
-          )}
+          {t('由所选客户端领取并回传结果。', 'The selected client claims and reports this task.')}
         </small>
       ) : null}
       {job.delivery?.detail ? (
@@ -1182,6 +1256,20 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
           )}
         </Fold>
       </Card>
+      {state.connection === 'connected' ? (
+        <Card className="mcp-settings">
+          <h2>{t('MCP 设置', 'MCP settings')}</h2>
+          <small>
+            {t(
+              '配置一次，在客户端开启项目监听。',
+              'Configure once, then start watching in your client.',
+            )}
+          </small>
+          <AsyncButton className="quiet" run={() => controller.copyMcpConfig()}>
+            {t('复制 MCP 配置', 'Copy MCP configuration')}
+          </AsyncButton>
+        </Card>
+      ) : null}
       <div id="project-field" hidden={matching.length <= 1}>
         <FieldSelect
           id="project"

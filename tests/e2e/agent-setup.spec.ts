@@ -10,7 +10,7 @@ import { createApp } from '../../src/bridge/server.js';
 import { randomUUID } from 'node:crypto';
 import { fixtureCli } from '../fixtures/cli.js';
 import { extensionBrowserArgs } from './browser-args.js';
-test('paired settings detect CLI executors without copying MCP config; global preference persists', async () => {
+test('CLI selection works independently of MCP configuration and persists globally', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'pointdom-cli-settings-'));
   const extension = join(directory, 'extension');
   cpSync(resolve('dist/extension'), extension, { recursive: true });

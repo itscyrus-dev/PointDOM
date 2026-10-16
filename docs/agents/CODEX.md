@@ -1,5 +1,7 @@
 # Codex CLI
 
+Prefer an existing client conversation? Use [MCP listening](../MCP.md) with one universal configuration and an active watch loop. The instructions below describe the independent CLI mode.
+
 Follow the [installation runbook](../INSTALL_AGENT.md). PointDOM's new workflow starts the local `codex` process directly, with no PointDOM MCP server or repeated chat handoff.
 
 1. Install and sign in to Codex CLI using its [official documentation](https://developers.openai.com/codex/noninteractive/). Keep your account, model and permissions configured there.

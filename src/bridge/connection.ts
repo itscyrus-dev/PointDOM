@@ -1,10 +1,16 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { stableMcpEntry } from './release-paths.js';
 
 export const connectionApp = z.enum(['opencode', 'codex', 'claude']);
+/** Source development still exports the built stdio entry; never infer it from cwd. */
+export function mcpEntryForService(serviceUrl: string) {
+  return fileURLToPath(
+    new URL(serviceUrl.endsWith('.ts') ? '../../dist/bridge/mcp.js' : './mcp.js', serviceUrl),
+  );
+}
 /** Export only launch metadata. Never serialize the pairing token or model credentials. */
 export function connectionConfig(
   state: string,

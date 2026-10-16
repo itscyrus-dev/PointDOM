@@ -1,5 +1,3 @@
-> Legacy compatibility reference. New browser submissions use CLI execution; do not use this guide to configure a new installation. See [CLI integration](../CLI.md).
-
 # Other local MCP clients
 
 Any client that runs local stdio MCP servers and can edit the workspace can use PointDOM. A model API or ordinary chat page alone does not supply these capabilities. No particular Agent CLI is required.
@@ -28,9 +26,9 @@ New projects reuse the same MCP configuration. A universal connection has no mut
 
 ## Choose a recipient and process work
 
-In the browser, open the registered development page, enable page access and select the connected client. Multiple connections with the same client name appear in one expandable group; use the short connection ID returned by the native tool call to select the intended connection. A connection identifies a stdio process, not necessarily one chat window. PointDOM never silently merges session ownership or broadcasts a task to every matching client.
+In the browser, open the registered development page, enable page access and select the connected client. Choose MCP listening in the executor menu. Multiple connections with the same client name show short IDs; use the connection ID returned by the native tool call to choose the intended one. A connection identifies a stdio process, not necessarily one chat window. PointDOM never silently merges session ownership or broadcasts a task to every matching client.
 
-Ask the agent to watch once. It may repeat `pointdom_wait_for_task`, then read, claim, edit, verify, report and wait again while its host turn remains active. Pass the same `projectId` throughout. MCP alone cannot wake an idle or closed host, and host limits can end watching. Only an outstanding wait is shown as Listening. Models and permissions stay in the host.
+Use Copy watch instruction in the panel and send it to the agent once. It may repeat `pointdom_wait_for_task`, then read, claim, edit, verify, report and wait again while its host turn remains active. Pass the same `projectId` throughout. MCP alone cannot wake an idle or closed host, and host limits can end watching. Only an outstanding wait is shown as Listening. Models and permissions stay in the host.
 
 ## Migrate old configuration
 

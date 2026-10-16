@@ -131,6 +131,7 @@ async function controllerFixture() {
             { id: projectB, name: 'B', cwd: '/fixture/b', origins: [originB] },
           ],
         });
+      if (url.pathname === '/api/agents') return Response.json({ agents: [] });
       if (url.pathname === '/api/clis') return Response.json({ clis: [] });
       requests.push(url.search);
       if (hold) {

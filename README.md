@@ -13,13 +13,13 @@
   <a href="LICENSE">MIT License</a>
 </p>
 
-PointDOM sends browser change requests directly to a local coding CLI. Select an element, describe the change and submit. Follow tool calls, commands, changed files and results in the panel.
+PointDOM sends browser change requests to a local coding CLI or your coding client through MCP listening. Select an element, describe the change and submit. Follow actual execution records and reported results in the panel.
 
 ## Quick start
 
 1. Install `pointdom-extension.zip` from a release: enable Developer mode at `chrome://extensions` and drag in the ZIP.
 2. Open extension settings. Copy the local-service installation command and run it in your terminal; pairing completes automatically.
-3. Install and sign in to a supported CLI.
+3. Install and sign in to a supported CLI, or configure your client using **Settings → Copy MCP configuration**.
 4. In your source directory run `pdo link --origin http://localhost:3000`, replacing the URL with your actual development origin.
 5. Open that page, enable page access in PointDOM, choose an executor, select elements and submit. Execution records and results appear in the annotation card.
 
@@ -28,6 +28,8 @@ PointDOM sends browser change requests directly to a local coding CLI. Select an
 [Codex](docs/agents/CODEX.md) · [Claude Code](docs/agents/CLAUDE_CODE.md) · [OpenCode](docs/agents/OPENCODE.md) · [Trae](docs/agents/TRAE.md)
 
 Install and sign in to a CLI, then select it beside Submit. The menu shows detected tools only; use Check again after installation. Your selection is shared across projects. Configure your account, model and permissions in that CLI.
+
+Prefer an existing client conversation? Choose **MCP listening**, send **Copy watch instruction** to that conversation once, then select its connection. While the agent keeps waiting, browser submissions are claimed, executed and reported without another message per task. New work requires a real pending wait or an already-running assigned task. If the host ends the turn or disconnects, monitoring stops; MCP cannot wake an idle client. See [MCP listening](docs/MCP.md).
 
 Tasks execute in order within each project. You can stop a task; a service restart does not replay unfinished work. Inspect partial changes before resubmitting a failed task.
 
@@ -39,9 +41,9 @@ Release installation requires Chrome 120+ and Node.js 24 (the installer supplies
 
 ## Documentation and contributing
 
-[Installation](docs/INSTALL_AGENT.md) · [CLI integration](docs/CLI.md) · [Verification](docs/VERIFICATION.md) · [Development](docs/DEVELOPMENT.md) · [Design](DESIGN.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+[Installation](docs/INSTALL_AGENT.md) · [CLI integration](docs/CLI.md) · [MCP listening](docs/MCP.md) · [Verification](docs/VERIFICATION.md) · [Development](docs/DEVELOPMENT.md) · [Design](DESIGN.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
-Development requires Node.js 24 and the pnpm version pinned in package.json. Run `pnpm check`, `pnpm test:e2e` and `pnpm format:check`. Tests use isolated CLI fixtures and temporary projects, never paid models or real agent conversations.
+Development requires Node.js 24 and the pnpm version pinned in package.json. Run `pnpm check`, `pnpm test:e2e` and `pnpm format:check`. Tests use isolated CLI fixtures, native stdio MCP clients and temporary projects, never paid models or real agent conversations.
 
 ## License
 
