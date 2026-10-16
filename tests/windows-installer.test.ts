@@ -92,6 +92,19 @@ test(
       const challenge = createHash('sha256').update(nonce).digest('hex');
       // Invoke the same scriptblock form as the copied command, without changing policy.
       const invocation = `& ([scriptblock]::Create([IO.File]::ReadAllText('${path.replaceAll("'", "''")}'))) -ExtensionId ${extensionId} -Challenge ${challenge}`;
+      // A rejected checksum must never create a launcher or start the service.
+      const validSums = files.get('/SHA256SUMS')!;
+      files.set('/SHA256SUMS', Buffer.from(`${'0'.repeat(64)}  pointdom.tar.gz\n`));
+      const rejected = await run('powershell.exe', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        invocation,
+      ]);
+      assert.notEqual(rejected.code, 0);
+      assert.match(rejected.stderr, /Checksum mismatch/);
+      assert.equal(existsSync(join(home, '.local/bin/pdo.cmd')), false);
+      files.set('/SHA256SUMS', validSums);
       const first = await run('powershell.exe', [
         '-NoProfile',
         '-NonInteractive',

@@ -5,7 +5,7 @@ The workflows run on GitHub-hosted Ubuntu with Node.js 24 and the pnpm version p
 ## Before publishing
 
 1. Enable GitHub Actions and private vulnerability reporting in repository settings. The repository and Release assets must be public for anonymous `curl` installation; adding a license does not change GitHub visibility.
-2. Update `package.json`, the Chrome manifest version and `CHANGELOG.md`. The bridge and ACP client read the package version; release verification requires the Chrome and CLI versions to match. Keep the lockfile committed. Do not tag unfinished or unreviewed work.
+2. Update `package.json`, the Chrome manifest version and `CHANGELOG.md`. The bridge and MCP server read the package version; release verification requires the Chrome and CLI versions to match. Keep the lockfile committed. Do not tag unfinished or unreviewed work.
 3. Run:
 
    ```sh
@@ -44,7 +44,7 @@ The tag workflow checks the version, installs frozen dependencies, runs formatti
 - `pointdom-extension.zip`: browser-only package for manual loading.
 - `install.sh`: one-command macOS installer.
 - `install.ps1`: one-command Windows installer candidate; validate on native Windows before general distribution. Both installers accept the extension-generated connection challenge.
-- `SHA256SUMS`: hashes of all three downloadable files.
+- `SHA256SUMS`: hashes of all four downloadable files.
 
 Tags containing a prerelease suffix create prereleases and do not become the normal latest installer target. Stable releases are available through:
 

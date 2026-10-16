@@ -33,7 +33,11 @@ function Get-Download([string]$url, [string]$destination) {
 }
 function Test-Checksum([string]$path, [string]$name, [string]$sums) {
   $match = [regex]::Match((Get-Content -Raw $sums), '(?m)^([a-fA-F0-9]{64})\s+' + [regex]::Escape($name) + '\r?$')
-  if (!$match.Success -or (Get-FileHash -Algorithm SHA256 $path).Hash -ine $match.Groups[1].Value) { throw 'Checksum mismatch. Nothing was installed.' }
+  $stream = [IO.File]::OpenRead($path)
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try { $actual = [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '') }
+  finally { $stream.Dispose(); $sha.Dispose() }
+  if (!$match.Success -or $actual -ine $match.Groups[1].Value) { throw 'Checksum mismatch. Nothing was installed.' }
 }
 if (Test-Path -LiteralPath $launcher) {
   Connect-Browser
