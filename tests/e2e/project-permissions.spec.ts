@@ -9,9 +9,8 @@ import { randomUUID } from 'node:crypto';
 import { Store } from '../../src/bridge/store.js';
 import { Queue } from '../../src/bridge/queue.js';
 import { createApp } from '../../src/bridge/server.js';
-import { fixtureDelivery } from '../delivery-fixture.js';
 
-test('project permission saves close the popover only on success and preserve failures for retry', async () => {
+test('project page access keeps compact grant, denial and reopening states without host permission controls', async () => {
   test.setTimeout(90000);
   const directory = mkdtempSync(join(tmpdir(), 'pointdom-permissions-ui-'));
   const extension = join(directory, 'extension');
@@ -19,20 +18,7 @@ test('project permission saves close the popover only on success and preserve fa
   const store = new Store(join(directory, 'state'));
   store.config.defaultExecutor = 'codex';
   const app = new Hono();
-  let failSave = false;
-  let holdSave = false;
-  let releaseSave: (() => void) | undefined;
-  app.get('/fixture', (c) => c.html('<!doctype html><title>权限测试</title><p>Fixture</p>'));
-  app.use('/api/projects/*/permissions', async (c, next) => {
-    if (holdSave && c.req.method === 'POST') {
-      await new Promise<void>((done) => {
-        releaseSave = done;
-      });
-    }
-    if (failSave && c.req.method === 'POST')
-      return c.json({ error: '测试：保存失败，请重试' }, 503);
-    await next();
-  });
+  app.get('/fixture', (c) => c.html('<!doctype html><title>访问测试</title><p>Fixture</p>'));
   const server = serve({ hostname: '127.0.0.1', port: 0, fetch: app.fetch });
   if (!server.listening) await new Promise<void>((done) => server.once('listening', done));
   const address = server.address();
@@ -44,7 +30,7 @@ test('project permission saves close the popover only on success and preserve fa
     name: '权限测试',
     origins: [origin],
   });
-  app.route('/', createApp(store, new Queue(store), address.port, fixtureDelivery));
+  app.route('/', createApp(store, new Queue(store), address.port));
   for (const name of ['manifest.json', 'panel.js', 'background.js']) {
     const file = join(extension, name);
     writeFileSync(file, readFileSync(file, 'utf8').replaceAll('http://127.0.0.1:4318', origin));
@@ -62,66 +48,21 @@ test('project permission saves close the popover only on success and preserve fa
     panel.setDefaultTimeout(5000);
     await panel.setViewportSize({ width: 390, height: 780 });
     await panel.goto(`chrome-extension://${new URL(worker.url()).host}/panel.html`);
-    const form = panel.getByRole('region', { name: '项目权限' });
-    const network = form.getByRole('checkbox', { name: '允许 Codex 任务联网' });
-    const control = form.locator('.checkbox__control');
-    await test.step('Pair and open project permissions', async () => {
-      await panel.locator('#token').fill(store.config.token);
-      await panel.locator('#connect').click();
-      await page.bringToFront();
-      await expect(panel.locator('#connection')).toHaveText('已连接');
-      await panel.locator('#instruction').fill('保留这份批注草稿');
-      await panel.locator('#execution-settings').click();
-    });
-    await test.step('Save a pending request and restore focus', async () => {
-      await control.click();
-      await expect(network).toBeChecked();
-      await expect.soft(control.locator('svg')).toHaveCSS('width', '10px');
-      await panel.getByText('允许 Codex 任务联网', { exact: true }).click();
-      await expect(network).not.toBeChecked();
-      await control.click();
-      await expect(network).toBeChecked();
-      const save = form.getByRole('button', { name: '保存', exact: true });
-      holdSave = true;
-      await save.click();
-      await expect(form.getByRole('button', { name: '保存中…', exact: true })).toBeDisabled();
-      await expect(network).toBeDisabled();
-      await expect(form.locator('#project-confirmation')).toBeDisabled();
-      await expect.poll(() => Boolean(releaseSave)).toBe(true);
-      holdSave = false;
-      releaseSave!();
-      await expect.poll(() => store.config.projects[0]?.permissions?.codexNetwork).toBe(true);
-      await expect(form).toBeHidden();
-      await expect(panel.locator('#execution-settings')).toBeFocused();
-      await expect(panel.locator('#instruction')).toHaveValue('保留这份批注草稿');
-      await expect(panel.locator('#notice')).toContainText('项目权限已保存');
-    });
-    await test.step('Preserve failed edits and retry without losing the draft', async () => {
-      await panel.locator('#execution-settings').click();
-      await expect(network).toBeChecked();
-      await expect(form.getByRole('button', { name: '保存', exact: true })).toBeDisabled();
-      await control.click();
-      failSave = true;
-      await form.getByRole('button', { name: '保存', exact: true }).click();
-      await expect(form.getByRole('alert')).toContainText('保存失败');
-      await expect(network).not.toBeChecked();
-      expect(store.config.projects[0]?.permissions?.codexNetwork).toBe(true);
-      failSave = false;
-      await form.getByRole('button', { name: '保存', exact: true }).click();
-      await expect(form).toBeHidden();
-      await expect.poll(() => store.config.projects[0]?.permissions?.codexNetwork).toBe(false);
-      await panel.locator('#execution-settings').click();
-      await expect(network).not.toBeChecked();
-      await control.click();
-      await form.getByRole('button', { name: '保存', exact: true }).click();
-      await expect(form).toBeHidden();
-      await expect.poll(() => store.config.projects[0]?.permissions?.codexNetwork).toBe(true);
-      await expect(panel.locator('#instruction')).toHaveValue('保留这份批注草稿');
-      await panel.screenshot({
-        path: test.info().outputPath('pointdom-permissions-save-closed.png'),
-        animations: 'disabled',
-      });
-    });
+    await panel.getByRole('button', { name: '高级：手动配对', exact: true }).click();
+    await panel.locator('#token').fill(store.config.token);
+    await panel.locator('#connect').click();
+    await page.bringToFront();
+    await expect(panel.locator('#connection')).toHaveText('已连接');
+    await panel.locator('#execution-settings').click();
+    await expect(panel.locator('#executor, #project-confirmation')).toHaveCount(0);
+    await expect(panel.getByRole('checkbox', { name: /Codex/ })).toHaveCount(0);
+    await expect(
+      panel.getByRole('dialog', { name: '接收客户端', exact: true }).locator('.client-status'),
+    ).toHaveText(Array(6).fill('未连接'));
+    await panel.getByRole('dialog', { name: '接收客户端', exact: true }).press('Escape');
+    await panel.locator('#instruction').fill('Do not submit without a recipient');
+    await expect(panel.locator('#submit')).toBeDisabled();
+    expect(store.jobs).toHaveLength(0);
     const accessCard = panel.locator('.site-access-settings');
     const enable = panel.locator('#enable-page');
     await test.step('Inspect compact access states in both themes', async () => {
@@ -200,7 +141,6 @@ test('project permission saves close the popover only on success and preserve fa
       await expect(enable).toBeDisabled();
     });
   } finally {
-    releaseSave?.();
     const closed = new Promise<void>((done, reject) =>
       server.close((error) => (error ? reject(error) : done())),
     );

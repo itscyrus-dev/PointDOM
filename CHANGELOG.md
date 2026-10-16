@@ -2,6 +2,31 @@
 
 Notable changes to PointDOM. Release archives and installers are available from [GitHub Releases](https://github.com/itscyrus-dev/PointDOM/releases).
 
+## [0.4.0] - 2026-10-16
+
+### Added
+
+- A localized client directory for Codex, Trae, Claude Code, Zcode, OpenCode and other MCP hosts. Copy setup instructions into the selected host; availability requires a live project-bound MCP connection.
+- Session registration, heartbeat expiry and explicit task recipients. Only the selected session can list, read and claim its tasks. Queued tasks can be reassigned explicitly; running tasks remain with their owner.
+- Session-owned progress summaries and explicit completion reports, preserving project-isolated history.
+- Extension-first service discovery, OS detection, one-command installation and extension-bound automatic pairing. Manual pairing remains an advanced fallback.
+- A Windows PowerShell installer and isolated Windows CI coverage, alongside the macOS installer.
+
+### Changed
+
+- All new annotations use generic local stdio MCP in the user's own agent client. Removed agent CLI/ACP runners, desktop chat automation, client input filling and model/permission controls. Legacy history remains readable.
+- Browser submission queues work for the chosen client; connecting MCP does not start an idle agent conversation. Agent CLI execution is deferred.
+- Keep pdo for installation, updates, pairing, project registration and MCP configuration export. First-time setup no longer requires choosing a project; add projects later with pdo link.
+- Simplify setup steps, highlight terminal actions and provide an extension ZIP for manual browser installation.
+- Synchronize English and Chinese READMEs and host guides with the MCP workflow and native connection verification.
+
+### Fixed
+
+- Return MCP_RECONNECT_REQUIRED for unregistered old MCP processes instead of a misleading successful empty inbox. Setup verification requires the correct project and connection.id from a native tool call in the actual host conversation.
+- Localize copied setup instructions to the extension language, preserve unrelated host configuration and distinguish configured services from connected sessions.
+- Validate project directories with concise English CLI errors and preserve existing installation data during setup and upgrades.
+- Compute Windows download checksums through .NET without depending on Get-FileHash module availability.
+
 ## [0.3.0] - 2026-10-15
 
 ### Added
@@ -44,4 +69,5 @@ Notable changes to PointDOM. Release archives and installers are available from 
 - [0.2.0](https://github.com/itscyrus-dev/PointDOM/releases/tag/v0.2.0): simplified setup and `pdo upgrade`.
 - [0.1.0](https://github.com/itscyrus-dev/PointDOM/releases/tag/v0.1.0): initial release.
 
+[0.3.1]: https://github.com/itscyrus-dev/PointDOM/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/itscyrus-dev/PointDOM/compare/v0.2.1...v0.3.0

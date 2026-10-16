@@ -27,7 +27,7 @@ pnpm release:pack
 pnpm release:verify
 ```
 
-`pnpm test:opencode` is an optional local check using the real OpenCode CLI with a local mock model and no paid model calls. CI does not install or authenticate user model accounts. Tests that call paid models are not part of default CI.
+All new tasks are MCP-only. Tests use disposable projects and injected native-delivery fixtures, never paid model calls, the user's agent configuration or real browser profiles. Removed CLI runners and their paid smoke scripts must not be restored as hidden fallbacks.
 
 ## Community and Releases
 

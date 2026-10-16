@@ -1,5 +1,4 @@
 import { extensionBrowserArgs } from './browser-args.js';
-import { fixtureDelivery } from '../delivery-fixture.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { test, expect, chromium } from '@playwright/test';
@@ -59,40 +58,7 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
     origins: ['http://127.0.0.1:5175', 'http://localhost:5175'],
   });
   store.saveConfig();
-  const queue = new Queue(store, (_project, job, _thread, hooks) => {
-    let finish = () => {};
-    let cancel = () => {};
-    const done = new Promise<void>((resolve) => {
-      finish = () => {
-        writeFileSync(join(projectDirectory, 'button.css'), 'button { height: 40px; }');
-        hooks.event('已更新 button.css');
-        hooks.result('已将发送按钮高度改为 40px');
-        resolve();
-      };
-      const timer = setTimeout(() => {
-        if (job.instruction === '请求一次命令确认')
-          hooks.approval({
-            id: randomUUID(),
-            kind: 'command',
-            title: '测试命令确认',
-            details: 'node --version',
-          });
-        else finish();
-      }, 150);
-      cancel = () => {
-        clearTimeout(timer);
-        resolve();
-      };
-    });
-    return {
-      done,
-      cancel,
-      reply() {
-        hooks.approved();
-        finish();
-      },
-    };
-  });
+  const queue = new Queue(store);
   const reservation = createServer();
   await new Promise<void>((resolve) => reservation.listen(0, '127.0.0.1', resolve));
   const address = reservation.address();
@@ -117,34 +83,7 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
     codexCalls++;
     await next();
   });
-  // Avoid consuming real model usage during automated UI tests.
-  app.get('/api/models', (c) =>
-    c.json({
-      models: [
-        {
-          model: 'test-model',
-          name: '测试模型',
-          isDefault: true,
-          efforts: ['low', 'high'],
-          defaultEffort: 'low',
-          tiers: [{ id: 'fast', name: '快速' }],
-        },
-      ],
-    }),
-  );
-  app.get('/api/status', (c) => c.json({ codex: true, authenticated: true }));
-  let cliAvailable = true;
-  let clientReady = false;
-  app.route(
-    '/',
-    createApp(store, queue, bridgePort, {
-      hasCli: (target) => cliAvailable && fixtureDelivery.hasCli(target),
-      paste: async (target) =>
-        target !== 'mcp' && clientReady
-          ? { state: 'pasted', detail: 'Fixture client received the instruction.' }
-          : { state: 'copied', detail: 'Fixture clipboard ready; waiting for the client input.' },
-    }),
-  );
+  app.route('/', createApp(store, queue, bridgePort));
   const bridge = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: bridgePort });
   const site = serve({
     hostname: '127.0.0.1',
@@ -160,8 +99,16 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
     headless: true,
     args: extensionBrowserArgs(extension),
   });
+  const mcpClient = new Client({ name: 'isolated-agent-fixture', version: '1.0.0' });
   context.setDefaultTimeout(7000);
   try {
+    await mcpClient.connect(
+      new StdioClientTransport({
+        command: process.execPath,
+        args: [mcpEntry, '--project', projectDirectory],
+        env: { ...process.env, PAGEPATCH_HOME: store.directory },
+      }),
+    );
     console.log('Extension test browser launched');
     const worker =
       context.serviceWorkers()[0] ||
@@ -194,6 +141,7 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
       }),
     );
     await panel.reload();
+    await panel.getByRole('button', { name: '高级：手动配对', exact: true }).click();
     await expect(panel.locator('#token')).toBeVisible();
     await panel.locator('#token').fill('invalid-pairing-code');
     await panel.locator('#connect').click();
@@ -299,12 +247,12 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
     await page.bringToFront();
     await expect(panel.locator('#connection')).toHaveText('已连接');
     await panel.setViewportSize({ width: 390, height: 850 });
-    const choose = async (id: string, name: string) => {
-      await panel.locator(`#${id}`).click();
-      await panel.getByRole('option', { name, exact: true }).click();
-      await expect(panel.getByRole('listbox')).toBeHidden();
-    };
-    const executionDialog = panel.getByRole('dialog', { name: '交给谁处理' });
+    await panel.locator('#execution-settings').click();
+    await panel
+      .getByRole('dialog', { name: '接收客户端', exact: true })
+      .getByRole('button', { name: '使用 isolated-agent-fixture', exact: true })
+      .click();
+    const executionDialog = panel.getByRole('dialog', { name: '接收客户端', exact: true });
     const openExecution = async () => {
       if (!(await executionDialog.isVisible())) await panel.locator('#execution-settings').click();
     };
@@ -314,7 +262,7 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
         await expect(executionDialog).toBeHidden();
       }
     };
-    await expect(panel.locator('#execution-summary')).toHaveText('Agent · MCP');
+    await expect(panel.locator('#execution-summary')).toHaveText('isolated-agent-fixture');
     await panel.locator('#execution-settings').hover();
     await panel.screenshot({
       path: test.info().outputPath('pointdom-compact-executor-hover.png'),
@@ -447,49 +395,13 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
       path: test.info().outputPath('pointdom-mcp-settings.png'),
       animations: 'disabled',
     });
-    await panel.locator('#executor').click();
-    await panel.screenshot({
-      path: test.info().outputPath('pointdom-all-direct-agents.png'),
-      animations: 'disabled',
-    });
-    await panel.getByRole('listbox').press('Escape');
-    await expect(panel.getByRole('listbox')).toBeHidden();
-    for (const name of ['Claude Code', 'Trae', 'OpenCode']) {
-      await choose('executor', name);
-      await expect(panel.locator('#model')).toHaveCount(0);
-      await expect(panel.locator('#execution-help')).not.toContainText('1.x');
-    }
-    await choose('executor', 'Codex');
     await expect(
-      panel.locator('#model, #speed, #effort, #approval, #auto-commit-field'),
+      panel.locator(
+        '#executor, #model, #speed, #effort, #approval, #auto-commit-field, #project-confirmation',
+      ),
     ).toHaveCount(0);
-    await choose('project-confirmation', '减少确认');
-    const networking = panel.getByRole('checkbox', { name: /允许 Codex 任务联网/ });
-    await panel.getByText('允许 Codex 任务联网', { exact: true }).click();
-    await expect(networking).toBeChecked();
-    await networking.press('Space');
-    await expect(networking).not.toBeChecked();
-    await networking.press('Space');
-    await expect(networking).toBeChecked();
-    await executionDialog.getByRole('button', { name: '保存', exact: true }).click();
-    await expect
-      .poll(() => store.config.projects[0]?.permissions)
-      .toEqual({ confirmation: 'reduced', codexNetwork: true });
-    await expect(executionDialog).toBeHidden();
-    await expect(panel.locator('#execution-settings')).toBeFocused();
-    await chooseMode('浅色');
-    await openExecution();
-    await executionDialog.screenshot({
-      path: test.info().outputPath('pointdom-project-permissions-light.png'),
-      animations: 'disabled',
-    });
-    await closeExecution();
-    await chooseMode('深色');
-    await openExecution();
-    await executionDialog.screenshot({
-      path: test.info().outputPath('pointdom-project-permissions-dark.png'),
-      animations: 'disabled',
-    });
+    await expect(panel.getByRole('checkbox', { name: /Codex/ })).toHaveCount(0);
+    await expect(panel.locator('#execution-help')).toContainText('客户端管理');
     expect(codexCalls).toBe(0);
     await closeExecution();
     await panel.locator('#connection-settings').click();
@@ -884,8 +796,63 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
       .dispatchEvent('keydown', { key: 'Enter', isComposing: true });
     expect(store.jobs).toHaveLength(0);
     await panel.locator('#instruction').press('Enter');
-    await expect(panel.locator('#jobs')).toContainText('已完成');
-    expect(store.jobs[0]?.permissions).toEqual({ confirmation: 'reduced', codexNetwork: true });
+    await expect.poll(() => store.jobs[0]?.status).toBe('queued');
+    expect(store.jobs[0]?.startedAt).toBeUndefined();
+    expect(store.jobs[0]?.result).toBe('');
+    {
+      const tools = (await mcpClient.listTools()).tools.map((tool) => tool.name);
+      expect(tools).toContain('pointdom_progress_task');
+      const taskId = store.jobs[0]!.id;
+      expect(
+        (await mcpClient.callTool({ name: 'pointdom_get_task', arguments: { taskId } })).isError,
+      ).not.toBe(true);
+      expect(
+        (
+          await mcpClient.callTool({
+            name: 'pointdom_claim_task',
+            arguments: { taskId, agent: 'Fixture Agent' },
+          })
+        ).isError,
+      ).not.toBe(true);
+      await expect(panel.locator('#jobs')).toContainText('Agent 处理中');
+      await expect(panel.locator('.delivery-status')).toHaveCount(0);
+      for (const [stepId, message] of [
+        ['read', '已定位 button.css'],
+        ['edit', '已更新 button.css'],
+        ['check', '已检查按钮高度'],
+      ] as const) {
+        const arguments_ = { taskId, stepId, message };
+        expect(
+          (await mcpClient.callTool({ name: 'pointdom_progress_task', arguments: arguments_ }))
+            .isError,
+        ).not.toBe(true);
+        expect(
+          (await mcpClient.callTool({ name: 'pointdom_progress_task', arguments: arguments_ }))
+            .isError,
+        ).not.toBe(true);
+      }
+      await panel.getByRole('button', { name: /^执行记录/ }).click();
+      await expect(panel.locator('.job-details pre')).toContainText('已检查按钮高度');
+      expect(store.jobs[0]!.events.filter((event) => event.progressId)).toHaveLength(3);
+      // The external fixture client performs the edit; PointDOM only receives the report.
+      writeFileSync(join(projectDirectory, 'button.css'), 'button { height: 40px; }');
+      expect(
+        (
+          await mcpClient.callTool({
+            name: 'pointdom_report_task',
+            arguments: {
+              taskId,
+              outcome: 'completed',
+              summary: '已将发送按钮高度改为 40px',
+              files: ['button.css'],
+              verification: '已检查临时项目中的 CSS 文件',
+            },
+          })
+        ).isError,
+      ).not.toBe(true);
+    }
+    await expect(panel.locator('#jobs')).toContainText('Agent 已回报');
+    expect(store.jobs[0]?.permissions).toBeUndefined();
     expect(store.jobs[0]?.execution).toBeUndefined();
     expect(store.jobs[0]?.selections?.map((s) => s.description)).toEqual([
       '发送按钮高度改为40px',
@@ -983,6 +950,12 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
     expect(scroll.moved).toBeGreaterThan(0);
     expect(scroll.overflow).toBe(false);
     expect(await panel.locator('#instruction').boundingBox()).toEqual(before);
+    // An external agent has not claimed this second annotation; cancellation,
+    // not a local runner, removes it from the active inbox.
+    await panel
+      .locator('.job[data-status="queued"]')
+      .getByRole('button', { name: '取消批注', exact: true })
+      .click();
     await panel.locator('#tab-active').click();
     await expect(panel.locator('#jobs')).toContainText('暂无进行中的修改');
     await panel.locator('#tab-all').click();
@@ -1073,173 +1046,17 @@ test('packaged React + HeroUI extension preserves drafts, preferences and the re
     await panel.locator('#refresh').click();
     await expect(panel.locator('#tab-active')).not.toHaveClass(/has-active-jobs/);
     await expect(panel.locator('.job[data-status="running"]')).toHaveCount(0);
-    await openExecution();
-    await choose('executor', 'OpenCode');
-    await expect(panel.locator('#model')).toBeHidden();
-    await expect(panel.locator('#execution-help')).toContainText('CLI 默认配置');
-    await closeExecution();
-    await panel.locator('#instruction').fill('直接通过 OpenCode CLI 修改高度');
+    await panel.locator('#instruction').fill('取消这条 MCP 批注');
     await panel.locator('#submit').click();
-    await expect
-      .poll(() => store.jobs.find((j) => j.executor === 'opencode')?.status)
-      .toBe('completed');
-    await expect(panel.locator('#notice')).toContainText('OpenCode');
-    await expect(panel.locator('#notice')).not.toContainText('Codex');
-    const direct = store.jobs.find((j) => j.executor === 'opencode')!;
-    expect(direct.execution).toBeUndefined();
-    direct.status = 'failed';
-    direct.error = 'OpenCode CLI 已退出 (1)';
-    direct.result = '';
-    await panel.locator('#refresh').click();
-    const failed = panel.locator('.job[data-executor="opencode"][data-status="failed"]');
-    await expect(failed.locator('.job-error pre')).toHaveText('OpenCode CLI 已退出 (1)');
-    await panel.screenshot({ path: test.info().outputPath('pointdom-direct-failure.png') });
-    const count = store.jobs.length;
-    await failed.getByRole('button', { name: '改用 Agent（MCP）', exact: true }).click();
-    await expect(panel.locator('#execution-summary')).toHaveText('Agent · MCP');
-    await expect(panel.locator('#instruction')).toHaveValue(direct.instruction);
-    expect(store.jobs.length).toBe(count);
-    expect(direct.executor).toBe('opencode');
-    await expect(panel.locator('#notice')).toContainText('请确认后提交');
-    store.config.projects.push({
-      id: randomUUID(),
-      name: '同地址另一个项目',
-      cwd: directory,
-      origins: ['http://127.0.0.1:5175'],
-    });
-    await expect(panel.locator('#connection-view')).toBeVisible();
-    await expect(panel.locator('#submit')).toBeDisabled();
-    await choose('project', '测试项目');
-    await panel.locator('#close-connection').click();
-    store.config.projects.pop();
-    await panel.locator('#refresh').click();
-    await panel.locator('#instruction').fill('通过其他 Agent 修改 DOM 元素');
-    await panel.locator('#submit').click();
-    await expect(panel.locator('#notice')).toContainText('等待 Agent 领取');
-    const external = store.jobs.find((j) => j.executor === 'mcp')!;
-    expect(external.status).toBe('queued');
-    expect(external.execution).toBeUndefined();
-    await expect(panel.locator('.job[data-executor="mcp"]')).toContainText('待领取');
-    await panel.screenshot({ path: test.info().outputPath('pointdom-mcp-pending.png') });
-    const client = new Client({ name: 'integration-test', version: '1.0.0' });
-    try {
-      await client.connect(
-        new StdioClientTransport({
-          command: process.execPath,
-          args: [mcpEntry, '--project', projectDirectory],
-          env: {
-            ...Object.fromEntries(
-              Object.entries(process.env).filter(
-                (entry): entry is [string, string] => typeof entry[1] === 'string',
-              ),
-            ),
-            PAGEPATCH_HOME: store.directory,
-          },
-        }),
-      );
-      expect((await client.listTools()).tools).toHaveLength(8);
-      const compatibility = await client.callTool({ name: 'pagepatch_list_tasks', arguments: {} });
-      expect(JSON.stringify(compatibility)).toContain(external.id);
-      const list = await client.callTool({ name: 'pointdom_list_tasks', arguments: {} });
-      expect(JSON.stringify(list)).toContain(external.id);
-      const data = await client.callTool({
-        name: 'pointdom_get_task',
-        arguments: { taskId: external.id },
-      });
-      expect(JSON.stringify(data)).toContain('untrustedPageContext');
-      const claimed = await client.callTool({
-        name: 'pointdom_claim_task',
-        arguments: { taskId: external.id, agent: '测试 Agent' },
-      });
-      expect(claimed.isError).not.toBe(true);
-      expect(external.status).toBe('running');
-      await panel.locator('#refresh').click();
-      await expect(panel.locator('.job[data-executor="mcp"]')).toContainText('Agent 处理中');
-      const result = await client.callTool({
-        name: 'pointdom_report_task',
-        arguments: {
-          taskId: external.id,
-          outcome: 'completed',
-          summary: '已处理测试批注',
-          files: [],
-          verification: '测试协议链路，未修改业务文件',
-        },
-      });
-      expect(result.isError).not.toBe(true);
-      await panel.locator('#refresh').click();
-      await expect(panel.locator('#jobs')).toContainText('Agent 已回报');
-      await expect(
-        panel.locator('.job[data-executor="mcp"] .job-result .fold-detail'),
-      ).toContainText('总耗时');
-      await panel.screenshot({ path: test.info().outputPath('mcp-agent-test.png') });
-    } finally {
-      await client.close();
-    }
-    // The React approval UI still requires one explicit decision and the
-    // external cancellation UI changes the actual bridge state.
-    await panel.locator('#instruction').fill('取消这条待领取批注');
-    await panel.locator('#submit').click();
-    await expect(panel.locator('.job[data-executor="mcp"][data-status="queued"]')).toBeVisible();
-    await panel
-      .locator('.job[data-executor="mcp"][data-status="queued"]')
-      .getByRole('button', { name: '取消批注', exact: true })
-      .click();
+    await expect.poll(() => store.jobs.at(-1)?.status).toBe('queued');
+    const pendingCard = panel.locator('.job').filter({ hasText: '取消这条 MCP 批注' });
+    await expect(pendingCard.getByRole('button', { name: /复制/ })).toHaveCount(0);
+    await pendingCard.getByRole('button', { name: '取消批注', exact: true }).click();
     await expect.poll(() => store.jobs.at(-1)?.status).toBe('cancelled');
-    await openExecution();
-    await choose('executor', 'Codex');
-    await closeExecution();
-    await panel.locator('#instruction').fill('请求一次命令确认');
-    await panel.locator('#submit').click();
-    await expect.poll(() => store.jobs.at(-1)?.status).toBe('waiting');
-    await panel.locator('#refresh').click();
-    const approval = panel.locator('.approval');
-    await expect(approval).toContainText('node --version');
-    await expect(approval.getByRole('button', { name: '拒绝', exact: true })).toBeVisible();
-    await approval.getByRole('button', { name: '允许本次', exact: true }).click();
-    await expect.poll(() => store.jobs.at(-1)?.status).toBe('completed');
-    for (const [executor, name] of [
-      ['claude', 'Claude Code'],
-      ['trae', 'Trae'],
-    ] as const) {
-      await openExecution();
-      await choose('executor', name);
-      await closeExecution();
-      await panel.locator('#instruction').fill(`通过 ${name} 修改高度`);
-      await panel.locator('#submit').click();
-      await expect.poll(() => store.jobs.at(-1)?.status).toBe('completed');
-      expect(store.jobs.at(-1)?.executor).toBe(executor);
-      expect(store.jobs.at(-1)?.execution).toBeUndefined();
-      await expect(panel.locator('#notice')).toContainText(name);
-      await panel.locator('#refresh').click();
-      await expect(panel.locator(`.job[data-executor="${executor}"] .executor-badge`)).toHaveText(
-        name,
-      );
-      await panel.reload();
-      await expect(panel.locator('#execution-summary')).toHaveText(name);
-    }
-    cliAvailable = false;
-    await openExecution();
-    await choose('executor', 'OpenCode');
-    await closeExecution();
-    await panel.locator('#instruction').fill('客户端自动交付');
-    await panel.locator('#submit').click();
-    await expect.poll(() => store.jobs.at(-1)?.delivery?.state).toBe('copied');
-    await panel.locator('#refresh').click();
-    const clientJob = panel.locator('.job').filter({ hasText: '客户端自动交付' });
-    await expect(clientJob).toContainText('已自动复制处理指令');
-    clientReady = true;
-    await clientJob.getByRole('button', { name: '重新填入客户端' }).click();
-    await expect.poll(() => store.jobs.at(-1)?.delivery?.state).toBe('pasted');
-    await panel.locator('#refresh').click();
-    await expect(clientJob).toContainText('已填入客户端 · 等待发送与领取');
-    expect(store.jobs.at(-1)?.status).toBe('queued');
-    expect(store.jobs.at(-1)?.result).toBe('');
-    await panel.screenshot({
-      path: test.info().outputPath('pointdom-client-handoff.png'),
-      animations: 'disabled',
-    });
+    await expect(panel.locator('#execution-summary')).toHaveText('isolated-agent-fixture');
     expect(runtimeErrors).toEqual([]);
   } finally {
+    await mcpClient.close();
     console.log('Closing browser');
     await context.close();
     bridge.close();

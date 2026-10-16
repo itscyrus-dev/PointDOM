@@ -1,31 +1,24 @@
+import { BootstrapGrants, bootstrapGrantSchema, bootstrapPollSchema } from './bootstrap.js';
 import { version } from './version.js';
 import { bindingSchema, bindProject } from './projects.js';
 import { installAgentRoutes } from './agent-api.js';
 import { timingSafeEqual } from 'node:crypto';
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
-import { replySchema, submissionSchema, terminal } from '../shared/contracts.js';
+import { submissionSchema, terminal } from '../shared/contracts.js';
 import { Store } from './store.js';
 import { Queue } from './queue.js';
-import { Rpc, record, catalog } from './codex.js';
-import { DeliveryRouter, type DeliveryActions } from './delivery.js';
 import { executorSchema } from '../shared/contracts.js';
 import { z } from 'zod';
-import { projectPermissionsSchema } from '../shared/contracts.js';
 const extensionOrigin = /^chrome-extension:\/\/[a-p]{32}$/;
 function matchesToken(actual: string, expected: string) {
   const a = Buffer.from(actual),
     b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
 }
-export function createApp(
-  store: Store,
-  queue: Queue,
-  port = 4318,
-  deliveryActions?: DeliveryActions,
-) {
+export function createApp(store: Store, queue: Queue, port = 4318) {
   const app = new Hono();
-  const delivery = new DeliveryRouter(store, queue, deliveryActions);
+  const bootstrap = new BootstrapGrants();
   app.use(
     '*',
     bodyLimit({ maxSize: 256 * 1024, onError: (c) => c.json({ error: '请求过大' }, 413) }),
@@ -55,11 +48,31 @@ export function createApp(
     c.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     c.header('Cache-Control', 'no-store');
     if (c.req.method === 'OPTIONS') return c.body(null, 204);
+    if (c.req.path === '/api/bootstrap') {
+      if (!extensionOrigin.test(c.req.header('origin') || ''))
+        return c.json({ error: 'Extension Origin required.' }, 403);
+      await next();
+      return;
+    }
     if (!matchesToken(c.req.header('authorization') ?? '', `Bearer ${store.config.token}`))
       return c.json({ error: '配对码不正确，请重新连接' }, 401);
     if (c.req.path !== '/api/pair' && !store.config.clients.includes(origin))
       return c.json({ error: '扩展尚未配对' }, 403);
     await next();
+  });
+  app.post('/api/local/bootstrap', async (c) => {
+    const parsed = bootstrapGrantSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: 'Invalid browser authorization.' }, 400);
+    bootstrap.authorize(parsed.data);
+    return c.json({ authorized: true });
+  });
+  app.post('/api/bootstrap', async (c) => {
+    const parsed = bootstrapPollSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: 'Invalid connection challenge.' }, 400);
+    if (!bootstrap.allows(c.req.header('origin')!, parsed.data.nonce))
+      return c.json({ available: true, authorized: false }, 202);
+    // Safe retries for lost responses, bound to this origin/challenge for 15 minutes.
+    return c.json({ available: true, authorized: true, token: store.config.token });
   });
   let upgradeUntil = 0;
   app.use('*', async (c, next) => {
@@ -91,7 +104,33 @@ export function createApp(
     upgradeUntil = 0;
     return c.json({ ok: true });
   });
-  installAgentRoutes(app, store, () => queue.wake());
+  installAgentRoutes(app, store, () => queue.wake(), queue.agents);
+  app.get('/api/agents', (c) => {
+    const projectId = c.req.query('projectId') || '';
+    if (!store.project(projectId)) return c.json({ error: 'Project not registered.' }, 404);
+    return c.json({ agents: queue.agents.list(projectId) });
+  });
+  app.post('/api/jobs/:id/recipient', async (c) => {
+    const input = z
+      .object({ recipientId: z.string().uuid(), expectedRecipientId: z.string().uuid().nullable() })
+      .strict()
+      .parse(await c.req.json());
+    const job = store.jobs.find((job) => job.id === c.req.param('id') && job.executor === 'mcp');
+    if (!job) return c.json({ error: 'Task not found.' }, 404);
+    if (job.status !== 'queued')
+      return c.json({ error: 'Only unclaimed tasks can be reassigned.' }, 409);
+    const recipient = queue.agents.get(input.recipientId, job.projectId);
+    if (!recipient)
+      return c.json({ error: 'MCP recipient is not connected to this project.' }, 409);
+    if (job.recipient?.id === recipient.id) return c.json({ job });
+    if ((job.recipient?.id || null) !== input.expectedRecipientId)
+      return c.json({ error: 'Task recipient changed. Check the current assignment.' }, 409);
+    job.recipient = { id: recipient.id, name: recipient.name };
+    job.updatedAt = new Date().toISOString();
+    job.events.push({ at: job.updatedAt, text: `MCP → ${recipient.name}` });
+    store.saveJobs();
+    return c.json({ job });
+  });
   // Local CLI only: extension/web requests cannot provide filesystem directories.
   app.post('/api/local/projects', async (c) => {
     const input = bindingSchema.parse(await c.req.json());
@@ -103,7 +142,7 @@ export function createApp(
       .strict()
       .parse(await c.req.json());
     if (input.executor) {
-      store.config.defaultExecutor = input.executor;
+      store.config.defaultExecutor = 'mcp';
       store.saveConfig();
     }
     return c.json({ ok: true });
@@ -111,9 +150,11 @@ export function createApp(
   app.get('/api/local/status', (c) =>
     c.json({
       connected: true,
-      defaultExecutor: store.config.defaultExecutor,
-      automaticDelivery: true,
-      cliDefaults: true,
+      pid: process.pid,
+      bootstrap: true,
+      defaultExecutor: 'mcp',
+      automaticDelivery: false,
+      transport: 'mcp',
       automaticCommits: false,
     }),
   );
@@ -128,23 +169,50 @@ export function createApp(
     return c.json({
       connected: true,
       version,
-      defaultExecutor: store.config.defaultExecutor,
+      defaultExecutor: 'mcp',
     });
   });
-  app.get('/api/projects', (c) => c.json({ projects: store.config.projects }));
-  app.post('/api/projects/:id/permissions', async (c) => {
-    const parsed = z
-      .object({ origin: z.string().url(), permissions: projectPermissionsSchema })
-      .strict()
-      .safeParse(await c.req.json());
-    if (!parsed.success) return c.json({ error: '项目权限设置格式不正确' }, 400);
-    const project = store.project(c.req.param('id'));
-    if (!project || !project.origins.includes(parsed.data.origin))
-      return c.json({ error: '当前网页未绑定该项目' }, 404);
-    project.permissions = parsed.data.permissions;
-    store.saveConfig();
-    return c.json({ project });
+  const agentSettings = () => ({
+    defaultExecutor: 'mcp',
+    traeAutoSend: false, // Compatibility only: native client automation is retired.
   });
+  app.get('/api/settings', (c) => c.json(agentSettings()));
+  app.post('/api/settings', async (c) => {
+    const parsed = z
+      .object({ executor: executorSchema.optional(), traeAutoSend: z.boolean().optional() })
+      .strict()
+      .safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: 'Agent 设置格式不正确' }, 400);
+    if (parsed.data.traeAutoSend !== undefined)
+      return c.json(
+        { error: 'Desktop auto-send is retired. Use PointDOM tools in your MCP client.' },
+        410,
+      );
+    store.config.defaultExecutor = 'mcp';
+    store.saveConfig();
+    return c.json(agentSettings());
+  });
+  app.get('/api/projects', (c) =>
+    c.json({ projects: store.config.projects, agentSettings: agentSettings() }),
+  );
+  const retiredExecution = (c: Context) =>
+    c.json(
+      {
+        error:
+          'PointDOM uses MCP only. Configure models, permissions and Git actions in your agent client.',
+      },
+      410,
+    );
+  app.post('/api/projects/:id/permissions', retiredExecution);
+  const retiredDelivery = (c: Context) =>
+    c.json(
+      {
+        error: 'Desktop auto-send is retired. Use PointDOM tools in your MCP client.',
+      },
+      410,
+    );
+  app.post('/api/projects/:id/trae-handoff', retiredDelivery);
+  app.post('/api/local/projects/:id/trae-handoff', retiredDelivery);
   app.get('/api/jobs', (c) => {
     const projectId = c.req.query('projectId');
     if (projectId !== undefined) {
@@ -166,51 +234,28 @@ export function createApp(
   app.post('/api/jobs', async (c) => {
     const result = submissionSchema.safeParse(await c.req.json());
     if (!result.success) return c.json({ error: '任务格式不正确' }, 400);
-    const job = delivery.submit(result.data);
+    const existing = store.jobs.find((job) => job.id === result.data.id);
+    if (
+      !existing &&
+      (!result.data.recipientId ||
+        !queue.agents.get(result.data.recipientId, result.data.projectId))
+    )
+      return c.json(
+        { error: '请先选择已连接的 MCP 客户端 / Choose a connected MCP client first.' },
+        409,
+      );
+    const job = queue.submit(result.data);
     return c.json({ job }, 202);
   });
-  app.post('/api/jobs/:id/commit', (c) => c.json({ job: queue.commit(c.req.param('id')) }));
+  app.post('/api/jobs/:id/commit', retiredExecution);
   app.post('/api/jobs/:id/cancel', (c) => {
-    delivery.cancel(c.req.param('id'));
     queue.cancel(c.req.param('id'));
     return c.json({ ok: true });
   });
-  app.post('/api/jobs/:id/handoff', (c) => c.json({ job: delivery.retry(c.req.param('id')) }, 202));
-  app.post('/api/jobs/:id/approvals/:approvalId', async (c) => {
-    const result = replySchema.safeParse(await c.req.json());
-    if (!result.success) return c.json({ error: '回答格式不正确' }, 400);
-    queue.reply(c.req.param('id'), c.req.param('approvalId'), result.data);
-    return c.json({ ok: true });
-  });
-  app.get('/api/models', async (c) => {
-    const rpc = new Rpc(process.cwd());
-    try {
-      await rpc.initialize();
-      return c.json({ models: catalog(await rpc.request('model/list', {})) });
-    } finally {
-      rpc.close();
-    }
-  });
-  app.get('/api/status', async (c) => {
-    const rpc = new Rpc(process.cwd());
-    try {
-      await rpc.initialize();
-      const result = record(await rpc.request('account/read', { refreshToken: false }));
-      return c.json({
-        connected: true,
-        codex: true,
-        authenticated: !!result.account || result.requiresOpenaiAuth === false,
-      });
-    } catch (e) {
-      return c.json({
-        connected: true,
-        codex: false,
-        error: e instanceof Error ? e.message : 'Codex 不可用',
-      });
-    } finally {
-      rpc.close();
-    }
-  });
+  app.post('/api/jobs/:id/handoff', retiredDelivery);
+  app.post('/api/jobs/:id/approvals/:approvalId', retiredExecution);
+  app.get('/api/models', retiredExecution);
+  app.get('/api/status', retiredExecution);
   app.onError((error, c) => c.json({ error: error.message.slice(0, 600) }, 400));
   return app;
 }

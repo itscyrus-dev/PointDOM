@@ -8,7 +8,6 @@ import { createApp } from '../src/bridge/server.js';
 import { Store } from '../src/bridge/store.js';
 import { Queue } from '../src/bridge/queue.js';
 import { PanelController } from '../src/extension/panel-controller.js';
-import { fixtureDelivery } from './delivery-fixture.js';
 import type { Job } from '../src/shared/contracts.js';
 
 const projectA = randomUUID();
@@ -54,7 +53,7 @@ test('project history filters before the latest-100 limit and preserves all pers
     store.jobs.push(job(projectA, 'A-only request'));
     for (let i = 0; i < 105; i++) store.jobs.push(job(projectB, `B request ${i}`));
     store.saveJobs();
-    const app = createApp(store, new Queue(store), 4318, fixtureDelivery);
+    const app = createApp(store, new Queue(store), 4318);
     const read = (query: string, authenticated = true) =>
       app.request(`http://127.0.0.1:4318/api/jobs${query}`, {
         headers: {
@@ -131,6 +130,7 @@ async function controllerFixture() {
             { id: projectB, name: 'B', cwd: '/fixture/b', origins: [originB] },
           ],
         });
+      if (url.pathname === '/api/agents') return Response.json({ agents: [] });
       requests.push(url.search);
       if (hold) {
         hold = false;

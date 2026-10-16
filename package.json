@@ -1,6 +1,6 @@
 {
   "name": "pagepatch",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Browser annotations for coding agents through local MCP, independent of model provider",
@@ -17,17 +17,14 @@
     "test": "tsx --test tests/*.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "test:e2e": "pnpm build && playwright test",
-    "test:codex": "tsx scripts/smoke-codex.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "mcp:config": "node scripts/mcp-config.mjs",
-    "test:opencode": "tsx scripts/smoke-opencode.ts",
     "release:pack": "node scripts/release.mjs",
     "release:verify": "node scripts/verify-release.mjs",
     "icons": "tsx scripts/generate-icons.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.300",
     "@heroui/react": "3.2.6",
     "@heroui/styles": "3.2.6",
     "@hono/node-server": "2.1.5",

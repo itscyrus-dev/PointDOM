@@ -10,9 +10,7 @@ import { Store } from '../../src/bridge/store.js';
 import { Queue } from '../../src/bridge/queue.js';
 import { createApp } from '../../src/bridge/server.js';
 import { agentContext } from '../../src/shared/agent-context.js';
-import { buildPrompt } from '../../src/bridge/codex.js';
 import { readSelections } from '../../src/shared/contracts.js';
-import { fixtureDelivery } from '../delivery-fixture.js';
 
 test('nested card children are picked independently with accurate DOM context', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'pointdom-element-ui-'));
@@ -48,7 +46,13 @@ test('nested card children are picked independently with accurate DOM context', 
     cwd: directory,
     origins: [origin],
   });
-  app.route('/', createApp(store, new Queue(store), address.port, fixtureDelivery));
+  const queue = new Queue(store);
+  queue.agents.register({
+    projectId: store.config.projects[0]!.id,
+    claim: randomUUID(),
+    client: { name: 'Selection fixture', version: '1' },
+  });
+  app.route('/', createApp(store, queue, address.port));
   for (const name of ['manifest.json', 'panel.js', 'background.js']) {
     const path = join(extension, name);
     writeFileSync(path, readFileSync(path, 'utf8').replaceAll('http://127.0.0.1:4318', origin));
@@ -66,9 +70,15 @@ test('nested card children are picked independently with accurate DOM context', 
     await panel.setViewportSize({ width: 390, height: 850 });
     panel.setDefaultTimeout(5000);
     await panel.goto(`chrome-extension://${new URL(worker.url()).host}/panel.html`);
+    await panel.getByRole('button', { name: '高级：手动配对', exact: true }).click();
     await panel.locator('#token').fill(store.config.token);
     await panel.locator('#connect').click();
     await page.bringToFront();
+    await panel.locator('#execution-settings').click();
+    await panel
+      .getByRole('dialog', { name: '接收客户端', exact: true })
+      .getByRole('button', { name: '使用 Selection fixture', exact: true })
+      .click();
     await panel.locator('#pick').click();
     await page.locator('#card-title').click();
     await expect(panel.locator('#selected strong')).toHaveText(['皮包光影']);
@@ -152,8 +162,8 @@ test('nested card children are picked independently with accurate DOM context', 
     expect(job.selections).toHaveLength(8);
     expect(job.selections![0]!.dom).toEqual(selected[0]!.dom);
     expect(agentContext(job).untrustedPageContext[0]!.dom!.html).toContain('card-title');
-    expect(buildPrompt(job)).toContain('sanitized DOM excerpt');
-    expect(buildPrompt(job)).toContain('仅修改左侧标题');
+    expect(JSON.stringify(agentContext(job))).toContain('sanitized DOM excerpt');
+    expect(JSON.stringify(agentContext(job))).toContain('仅修改左侧标题');
     expect(new Store(store.directory).jobs[0]!.selections![5]!.selectorPath).toEqual(
       shadowSelection.selectorPath,
     );

@@ -1,4 +1,3 @@
-import { fixtureDelivery } from './delivery-fixture.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -9,7 +8,6 @@ import { randomUUID } from 'node:crypto';
 import { Store } from '../src/bridge/store.js';
 import { Queue } from '../src/bridge/queue.js';
 import { createApp } from '../src/bridge/server.js';
-import type { Runner, RunnerHooks } from '../src/bridge/codex.js';
 import type { Submission } from '../src/shared/contracts.js';
 const origin = `chrome-extension://${'a'.repeat(32)}`;
 const page = {
@@ -50,8 +48,13 @@ function fixture() {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 test('HTTP pairing rejects hostile origins, wrong tokens, unpaired clients and arbitrary workspaces', async () => {
   const f = fixture();
-  const queue = new Queue(f.store, () => ({ done: Promise.resolve(), cancel() {}, reply() {} }));
-  const app = createApp(f.store, queue, 4318, fixtureDelivery);
+  const queue = new Queue(f.store);
+  const recipient = queue.agents.register({
+    projectId: f.store.config.projects[0]!.id,
+    claim: randomUUID(),
+    client: { name: 'Fixture', version: '1' },
+  });
+  const app = createApp(f.store, queue, 4318);
   const request = (path: string, body?: unknown, extra: Record<string, string> = {}) =>
     app.request(`http://127.0.0.1:4318${path}`, {
       method: body === undefined ? 'GET' : 'POST',
@@ -85,70 +88,48 @@ test('HTTP pairing rejects hostile origins, wrong tokens, unpaired clients and a
       (
         await request('/api/jobs', {
           ...f.input(),
+          recipientId: recipient.id,
           selection: { ...page, url: 'https://unbound.test' },
         })
       ).status,
       400,
     );
-    assert.equal((await request('/api/jobs', f.input())).status, 202);
+    assert.equal(
+      (await request('/api/jobs', { ...f.input(), recipientId: recipient.id })).status,
+      202,
+    );
     await tick();
   } finally {
     f.cleanup();
   }
 });
-test('queue deduplicates retries, serializes jobs, surfaces approvals, cancels and persists results', async () => {
+test('MCP inbox deduplicates, validates project origins, preserves cancellation and never starts execution', async () => {
   const f = fixture();
-  const runs: { hooks: RunnerHooks; resolve: () => void }[] = [];
-  const runner: Runner = (_p, _j, _t, hooks) => {
-    let finish!: () => void;
-    const done = new Promise<void>((resolve) => {
-      finish = resolve;
-    });
-    runs.push({ hooks, resolve: finish });
-    return { done, cancel: finish, reply: () => hooks.approved() };
-  };
-  const q = new Queue(f.store, runner);
   try {
-    const input = f.input();
-    q.submit(input);
-    q.submit(input);
-    assert.equal(f.store.jobs.length, 1);
-    assert.throws(() => q.submit({ ...input, instruction: '其他修改' }));
+    const q = new Queue(f.store);
+    const request = f.input();
+    const first = q.submit(request);
+    assert.equal(q.submit(request), first);
+    assert.throws(() => q.submit({ ...request, instruction: 'Changed' }), /任务 ID/);
+    assert.throws(
+      () => q.submit({ ...f.input(), selection: { ...page, url: 'https://unregistered.test' } }),
+      /未绑定/,
+    );
     const second = q.submit(f.input());
-    assert.equal(second.startedAt, undefined);
-    assert.equal(second.finishedAt, undefined);
+    q.wake();
     await tick();
-    assert.equal(runs.length, 1);
-    const first = f.store.jobs[0]!;
-    assert.ok(first.startedAt);
-    const startedAt = first.startedAt;
-    runs[0]!.hooks.approval({
-      id: 'approval',
-      kind: 'command',
-      title: '执行命令',
-      details: 'check',
-    });
-    assert.equal(first.status, 'waiting');
-    assert.throws(() => q.reply(first.id, 'stale', { decision: 'accept' }));
-    q.reply(first.id, 'approval', { decision: 'decline' });
-    assert.equal(first.status, 'running');
-    assert.equal(first.startedAt, startedAt);
-    runs[0]!.hooks.result('已修改并检查');
-    runs[0]!.resolve();
-    await tick();
-    assert.equal(first.status, 'completed');
-    assert.ok(first.finishedAt);
-    assert.ok(Date.parse(first.finishedAt) >= Date.parse(startedAt));
-    assert.equal(runs.length, 2);
+    for (const job of [first, second]) {
+      assert.equal(job.executor, 'mcp');
+      assert.equal(job.status, 'queued');
+      assert.equal(job.startedAt, undefined);
+      assert.equal(job.result, '');
+    }
     q.cancel(second.id);
-    await tick();
-    assert.equal(second.status, 'cancelled');
-    assert.ok(second.startedAt);
-    assert.ok(second.finishedAt);
-    const reloaded = new Store(f.directory);
-    assert.equal(reloaded.jobs[0]!.result, '已修改并检查');
-    assert.equal(reloaded.jobs[0]!.startedAt, first.startedAt);
-    assert.equal(reloaded.jobs[0]!.finishedAt, first.finishedAt);
+    q.cancel(second.id);
+    assert.equal(new Store(f.directory).jobs[1]?.status, 'cancelled');
+    q.stop();
+    assert.throws(() => q.submit(f.input()), /stopping/);
+    assert.equal(first.status, 'queued');
   } finally {
     f.cleanup();
   }

@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import {
   extensionDirectory,
+  extensionArchive,
   extensionSetupDirectory,
   openExtensionSetup,
   extensionSetupInstructions,
@@ -162,4 +163,71 @@ test('upgrade reload opens Chrome without replacing the clipboard or opening Fin
   });
   assert.match(linux.join('\n'), /Select the whole extension folder/);
   assert.doesNotMatch(linux.join('\n'), /Cmd|Finder/);
+});
+
+test('manual ZIP exports contain the manifest at root and exclude installer markers', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'pointdom-zip-fixture-')));
+  let archive: string | undefined;
+  try {
+    const dist = join(root, 'dist');
+    mkdirSync(join(dist, 'bridge'), { recursive: true });
+    mkdirSync(join(dist, 'extension'));
+    writeFileSync(join(dist, 'extension/manifest.json'), '{"manifest_version":3}');
+    writeFileSync(join(dist, 'extension/.pointdom-managed.json'), 'private install path');
+    writeFileSync(join(dist, 'extension/.DS_Store'), 'finder metadata');
+    archive = extensionArchive(pathToFileURL(join(dist, 'bridge/main.js')).href);
+    const files = execFileSync('unzip', ['-Z1', archive], { encoding: 'utf8' }).trim().split('\n');
+    assert.deepEqual(files, ['manifest.json']);
+    assert.match(
+      execFileSync('unzip', ['-p', archive, 'manifest.json'], { encoding: 'utf8' }),
+      /manifest_version/,
+    );
+    assert.ok(readFileSync(join(dist, 'extension/.pointdom-managed.json'), 'utf8'));
+  } finally {
+    if (archive) rmSync(resolve(archive, '..'), { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('first-install instructions identify the selected folder and the chooser context explicitly', () => {
+  const lines = extensionSetupInstructions({
+    path: '/fixture/PointDOM Extension',
+    platform: 'darwin',
+    pathCopied: true,
+    folderOpened: true,
+    chromeOpened: true,
+  }).join('\n');
+  assert.match(lines, /Drag the selected extension folder onto the Chrome extensions page/);
+  assert.match(lines, /folder chooser, not the Chrome address bar/);
+  assert.match(lines, /manifest.json directly/);
+  assert.match(lines, /PointDOM card to appear/);
+  assert.match(lines, /pdo extension --zip/);
+  assert.ok(lines.indexOf('Drag the selected') < lines.indexOf('Click Load unpacked'));
+});
+
+test('ZIP setup opens Chrome then selects the archive in Finder without changing the clipboard', () => {
+  const calls: string[][] = [];
+  const zip = '/fixture/pointdom-extension.zip';
+  const result = openExtensionSetup(
+    zip,
+    'darwin',
+    (command, args) => {
+      calls.push([command, ...args]);
+    },
+    'zip',
+  );
+  assert.deepEqual(calls, [
+    ['/usr/bin/open', '-a', 'Google Chrome', 'chrome://extensions/'],
+    ['/usr/bin/open', '-R', zip],
+  ]);
+  assert.deepEqual(result, { chromeOpened: true, folderOpened: true, pathCopied: false });
+  const output = extensionSetupInstructions({
+    path: zip,
+    format: 'zip',
+    platform: 'darwin',
+    ...result,
+  }).join('\n');
+  assert.match(output, /Drag pointdom-extension.zip from Finder/);
+  assert.match(output, /Do not unzip it or click Load unpacked/);
+  assert.doesNotMatch(output, /Cmd\+Shift\+G|Extension folder:|folder chooser/);
 });

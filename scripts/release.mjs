@@ -96,7 +96,14 @@ execFileSync('tar', [
 execFileSync('zip', ['-qr', `${output}/pointdom-extension.zip`, '.'], {
   cwd: resolve('dist/extension'),
 });
-const assets = ['pointdom.tar.gz', 'pointdom-extension.zip', 'install.sh'];
+await writeFile(
+  `${output}/install.ps1`,
+  (await readFile('install.ps1', 'utf8')).replace(
+    'https://github.com/itscyrus-dev/PointDOM/releases/latest/download',
+    `https://github.com/itscyrus-dev/PointDOM/releases/download/v${pkg.version}`,
+  ),
+);
+const assets = ['pointdom.tar.gz', 'pointdom-extension.zip', 'install.sh', 'install.ps1'];
 const hashes = await Promise.all(
   assets.map(
     async (name) =>

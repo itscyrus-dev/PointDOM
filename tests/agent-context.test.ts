@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { agentContext } from '../src/shared/agent-context.js';
 import { selectionSchema } from '../src/shared/contracts.js';
-import { buildPrompt } from '../src/bridge/codex.js';
 import type { Submission } from '../src/shared/contracts.js';
 
 const task: Submission = {
@@ -53,7 +52,7 @@ test('context keeps per-element instructions separate from untrusted page data w
   assert.deepEqual(input, before);
 });
 
-test('DOM snapshots remain untrusted context in MCP and every direct CLI prompt', () => {
+test('DOM snapshots remain untrusted context in MCP and optional context export', () => {
   const dom = {
     capturedAt: '2026-10-15T08:00:00.000Z',
     html: '<span class="product-title">皮包光影</span>',
@@ -79,7 +78,7 @@ test('DOM snapshots remain untrusted context in MCP and every direct CLI prompt'
   };
   assert.deepEqual(agentContext(job).untrustedPageContext[0]?.dom, dom);
   assert.equal('dom' in agentContext(job).elementInstructions[0]!, false);
-  const prompt = buildPrompt(job);
+  const prompt = JSON.stringify(agentContext(job));
   assert.match(prompt, /product-title/);
   assert.match(prompt, /not its clickable parent/);
   assert.match(prompt, /component and instance/);

@@ -36,7 +36,8 @@ type Paths = NonNullable<ReturnType<typeof releasePaths>>;
 const markerName = '.pointdom-managed.json';
 const markerSchema = z.object({ format: z.literal(1), source: z.string() }).strict();
 const isExtension = (target: string, paths: Paths) =>
-  dirname(resolve(target, '../..')) === paths.versions && target.endsWith('/dist/extension');
+  dirname(resolve(target, '../..')) === paths.versions &&
+  target.endsWith(join('dist', 'extension'));
 function stat(path: string) {
   try {
     return lstatSync(path);
@@ -143,7 +144,11 @@ export function activateRelease(entryUrl: string) {
   let extension: ReturnType<typeof stageExtension> | undefined;
   try {
     extension = stageExtension(paths, source);
-    symlinkSync(paths.release, join(temp, 'current'), 'dir');
+    symlinkSync(
+      paths.release,
+      join(temp, 'current'),
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
     renameSync(join(temp, 'current'), paths.current);
   } catch (error) {
     extension?.rollback();

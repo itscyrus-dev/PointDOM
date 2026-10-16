@@ -15,48 +15,57 @@
 
 PointDOM connects Chrome annotations to coding agents working on your local project. Select page elements, describe the changes, and submit. The agent receives DOM context, locates the source, edits it through its own tools, and reports the result. Your application's existing development server displays changes through its normal hot reload.
 
-**Any coding agent client that supports local stdio MCP and can edit your project can use PointDOM. OpenCode is not required.** Codex, Claude Code, OpenCode and Trae also have named CLI integrations. Model accounts and configuration stay in the agent you choose.
+**Any coding agent client that supports local stdio MCP and can edit your project can use PointDOM. OpenCode is not required.** All tasks use MCP in your own agent session. PointDOM captures DOM context, exposes a project-scoped MCP inbox and receives progress/results. Models, accounts, permissions and code execution stay in your agent client.
 
 ## Features
 
 - Select up to ten individual DOM elements, including text and SVG inside clickable cards. Use **Alt/Option + Up/Down** to switch parent/child levels.
 - Give each element its own instructions. Inspect its selector, dimensions, grouped styles and sanitized DOM structure in a separate detail view.
 - Send DOM excerpts, attributes, ancestor/sibling context and geometry to help the agent identify the correct component and instance. DOM context is a source-location clue, not a guaranteed source-file mapping.
-- Use any compatible MCP client, or run a supported CLI with its existing local defaults. No model, speed or reasoning setup in the extension.
-- Link multiple local projects, isolate their task history, review real task states, and save project-scoped permission preferences.
+- Use your existing MCP agent session. PointDOM does not launch agent CLIs or configure models, accounts or approval policies.
+- Link multiple local projects, isolate their task history, review reported progress and results.
 
 ## Requirements
 
-| Component              | Requirement                                                                                                                        |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Release installer      | macOS on Apple Silicon or Intel. It supplies Node.js 24 when needed; a source build and pnpm are not required.                     |
-| Browser                | Chrome 120+. The extension is currently loaded unpacked; Chrome Web Store distribution is planned.                                 |
-| MCP workflow           | A client that supports **local stdio MCP**, with tools to edit and verify the linked project. No particular agent CLI is required. |
-| Automatic CLI workflow | The selected CLI must be installed, authenticated and configured. This is optional.                                                |
-| Application            | A local source directory and its actual development URL. PointDOM does not start or replace your development server.               |
+| Component         | Requirement                                                                                                                        |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Release installer | macOS arm64/x64; Windows x64/ARM64 installer candidate (native verification pending). Supplies Node.js 24 when needed.             |
+| Browser           | Chrome 120+. The extension is currently loaded unpacked; Chrome Web Store distribution is planned.                                 |
+| MCP workflow      | A client that supports **local stdio MCP**, with tools to edit and verify the linked project. No particular agent CLI is required. |
+| Application       | A local source directory and its actual development URL. PointDOM does not start or replace your development server.               |
 
 Source installation on other platforms is a manual workflow with limitations; see the [installation runbook](docs/INSTALL_AGENT.md#manual-source-installation). A model API or ordinary chat website alone does not provide local MCP and file-editing capabilities.
 
 ## Quick start
 
-On macOS:
+1. Download **pointdom-extension.zip** from [GitHub Releases](https://github.com/itscyrus-dev/PointDOM/releases/latest), or use the ZIP supplied by your teammate. In `chrome://extensions`, enable **Developer mode** and drag the ZIP onto the page.
+2. Open PointDOM settings. If the local service is disconnected, click **Copy install command** and run it in **Terminal** on macOS or **PowerShell** on Windows. The command installs the CLI, a private Node runtime if needed, and per-user login startup. It also authorizes this extension; return to PointDOM and it connects automatically. No installer application or manual pairing code is needed.
+3. Click **Copy setup instruction**, then paste and send it in your coding agent's project conversation to link the project and configure MCP. Enable the generated MCP server and grant project-page access when prompted.
+
+The extension detects a reachable local service, not the presence of a CLI executable. The copied command is specific to the extension and release version. Existing installations are reused without clearing data, stopping active work or silently upgrading. Older services without automatic-pairing support require an explicit update or **Advanced: manual pairing**. Keep the extension open or reopen it after installation; local authorization expires after 15 minutes.
+
+Windows installation and startup code is included in this revision; native Windows installation still needs validation on Windows before general distribution. Current macOS checks do not establish Windows compatibility. Until this revision is published, its version-specific copied installer URLs are not available from GitHub Releases.
+
+For the existing CLI-first workflow on macOS, `install.sh` followed by `~/.local/bin/pdo setup` remains available. Setup loads/pairs the extension and does not require a project directory.
+
+When you start developing a project:
 
 ```sh
-curl -fsSL https://github.com/itscyrus-dev/PointDOM/releases/latest/download/install.sh | sh
 cd /absolute/path/to/your/app
-~/.local/bin/pdo setup --origin http://localhost:3000
+pdo link --origin http://localhost:3000
 ```
 
-Replace the directory and URL with your project. Use `pdo setup` for the first installation; it links the project and guides browser pairing and agent setup.
+Replace the directory and URL with your project. Run `pdo connect --json` in that directory and add the exported configuration to your agent. Open the linked development URL, enable page access in PointDOM, select elements and submit. Repeat the project commands for each additional project; setup is only needed once.
 
-1. Setup opens Chrome and selects **PointDOM Extension** in Finder, with its path copied. At `chrome://extensions`, enable **Developer mode** and click **Load unpacked**. In the folder chooser, press **Cmd+Shift+G**, paste, press Return and click **Select**. If needed, run `pdo extension` to reopen these steps.
-2. Paste the local pairing code into PointDOM and connect. Keep this code on your computer.
-3. Open the linked development URL and enable its page access in PointDOM.
-4. Select elements, add descriptions, choose your agent and submit. Review the actual task result and source changes.
+To set up the browser and a project together, use `pdo setup --origin http://localhost:3000`. This optional mode confirms a valid source directory before linking. `--path /absolute/path/to/your/app` supplies the directory explicitly; root/home directories, files and unavailable folders are rejected.
 
 The installer downloads the latest **published stable GitHub Release**, including a built extension. Repository pushes alone do not update installed copies. This README describes the checked-out revision; unreleased features require a new release before `pdo upgrade` can obtain them.
 
+Run `pdo extension --zip` to prepare the ZIP again, or download `pointdom-extension.zip` from [GitHub Releases](https://github.com/itscyrus-dev/PointDOM/releases/latest). Chrome extracts its own copy, so the managed-folder `pdo upgrade`/Reload workflow does not update a ZIP-installed copy. ZIP installations require manual extension updates. For the managed-folder workflow, run `pdo extension` instead and follow its folder-loading instructions.
+
 ## Install with your agent
+
+Already paired the browser extension? In PointDOM settings, click **Copy setup instruction**, then paste and send it in the project's Trae or other coding-agent chat. The copied instruction follows the panel language. In Trae, enable project MCP and the generated PointDOM server in **Settings → MCP**. If the separate Agent window has not loaded the entry, import the same project-bound configuration in that window's **Settings → MCP → Local** and restart the service; verify the tools in the same conversation. The agent can reuse the installed service, link the project, merge its MCP configuration and verify the tools. Host project-MCP enablement/trust and Chrome page-access confirmations may still require your action; a saved config is not proof of a live connection.
 
 Give your coding agent the repository URL and this request:
 
@@ -77,12 +86,12 @@ Chrome loading, initial pairing, page-access grants and host trust/enablement re
 
 MCP support is not limited to the clients listed below. Use the generic guide for any client that can launch a local stdio MCP server and edit the linked project.
 
-| Agent or client                    | Optional automatic execution           | Installation guide                        |
+| Agent or client                    | Task transport                         | Installation guide                        |
 | ---------------------------------- | -------------------------------------- | ----------------------------------------- |
-| Codex                              | `codex` via app-server                 | [Codex](docs/agents/CODEX.md)             |
-| Claude Code                        | `claude` via the official Agent SDK    | [Claude Code](docs/agents/CLAUDE_CODE.md) |
-| OpenCode                           | `opencode`: 1.x local API or 2.x ACP   | [OpenCode](docs/agents/OPENCODE.md)       |
-| Trae                               | `traecli` via ACP                      | [Trae IDE and CLI](docs/agents/TRAE.md)   |
+| Codex                              | Local stdio MCP                        | [Codex](docs/agents/CODEX.md)             |
+| Claude Code                        | Local stdio MCP                        | [Claude Code](docs/agents/CLAUDE_CODE.md) |
+| OpenCode                           | Local stdio MCP                        | [OpenCode](docs/agents/OPENCODE.md)       |
+| Trae                               | Current Agent conversation via MCP     | [Trae Agent](docs/agents/TRAE.md)         |
 | Any other compatible coding client | Local stdio MCP; no named CLI required | [Generic MCP](docs/agents/GENERIC_MCP.md) |
 
 Export MCP configuration from the project's directory:
@@ -93,11 +102,17 @@ pdo connect --json
 
 Merge the generated entry into your client's existing local MCP configuration, enable/trust it, and verify `pointdom_list_tasks`. Keep the generated absolute paths. Host-specific configuration formats are covered in the guides above.
 
-- **Agent (MCP):** submit an annotation, then send the copied processing instruction in your connected client. The agent reads and claims the task before editing, then reports its files and checks. MCP does not wake an idle or closed session by itself.
-- **Named agent with a CLI:** PointDOM executes through that CLI using its local model and account defaults. Configure these in the agent, not PointDOM.
-- **Named agent without a CLI:** PointDOM queues the task for MCP, copies an instruction and attempts to fill a supported macOS client's empty chat input. You press Send. If filling is unavailable, paste the instruction yourself. Existing drafts are preserved.
+Open the recipient control beside Submit. The client list includes Codex, Trae, Claude Code, Zcode, OpenCode and other MCP clients. A disconnected row offers **Copy setup**: paste that instruction into the corresponding client's project chat to configure MCP. Copying does not mark a client available. The instruction requires restarting/reconnecting an old MCP process and a native `pointdom_list_tasks` response containing the correct project and `connection.id`; `tasks: []` alone is insufficient. A real MCP connection for this project changes its row to **Available**, with a **Use** action. Other compatible hosts appear under their reported names. Choose an available connection before submitting. Only that connection can list, read and claim its assigned tasks. Client preference is remembered; ambiguous same-name sessions require an explicit choice.
 
-A CLI failure after execution starts does not automatically reroute the task. Protocol tests do not establish compatibility with every host version, model account or desktop UI; see [verification and limits](docs/VERIFICATION.md).
+To switch from Codex to Trae, connect this project's MCP in Trae and select it for future submissions. Use **Reassign** on existing unclaimed annotations if they should move too. Running tasks stay with their original session through the final report. A disconnected recipient does not send work to another agent automatically. See [routing details](docs/MCP.md#client-presence-and-task-routing).
+
+Every annotation enters the project’s MCP inbox. Your agent reads and claims it before editing, reports concise read/edit/check summaries with `pointdom_progress_task`, then returns files and verification with `pointdom_report_task`. PointDOM displays those reports; it does not execute code, inspect model accounts, approve host commands or commit files. A submitted annotation remains queued until the client actually claims it.
+
+MCP is the only task transport. Legacy agent-choice fields are accepted for compatibility but normalized to MCP; execution overrides and old project permission preferences do not authorize new work. Historical records remain readable.
+
+Submitting saves an annotation as **Awaiting claim**. In your connected coding-agent conversation, ask the agent to process the current project's PointDOM annotations. It reads the DOM context through MCP, claims before editing, and reports progress/results through the same connection. PointDOM does not paste into chat inputs, click Send or wake an idle client. No task-processing clipboard fallback is used.
+
+Agent CLI execution is a separate planned feature and is not included in this MCP implementation. Host-side automation can invoke the same tools if the client supports it, but MCP configuration alone is not proof that an idle agent will start.
 
 ## Multiple projects
 
@@ -142,9 +157,9 @@ Settings shows the running extension version. The compact **Check for updates** 
 - Generated context fields and guidance are English. User instructions are separate from `untrustedPageContext`; page content is untrusted location data, never instructions to execute.
 - Task content is passed to your chosen agent and is subject to that agent/provider's data handling. An explicit update check contacts the public GitHub API without sending pairing codes, project paths, tasks or page content.
 - The bridge listens on loopback, with pairing, Host/origin checks and project scoping. Browser access is requested for a linked origin after your action.
-- Project confirmation/network preferences apply to new tasks in that project. They do not rewrite global CLI settings. PointDOM does not automatically commit, push or deploy.
+- All model, account, confirmation and network settings belong to your agent client. PointDOM does not commit, push or deploy.
 
-**Copy DOM and change descriptions** copies structured context without creating a task. **Copy agent instruction** copies a short processing instruction. See the [MCP reference](docs/MCP.md#clipboard-content) for task lifecycle, copied fields and cancellation behavior.
+**Copy DOM and change descriptions** copies structured context without creating a task. Routine MCP task submission no longer offers a processing-copy action. See the [MCP reference](docs/MCP.md#clipboard-content) for task lifecycle, copied fields and cancellation behavior.
 
 ## CLI reference
 
@@ -152,7 +167,7 @@ If `pdo` is not on PATH, use `~/.local/bin/pdo` or add `$HOME/.local/bin` to PAT
 
 | Command                                | Purpose                                                                 |
 | -------------------------------------- | ----------------------------------------------------------------------- |
-| `pdo setup --origin URL`               | Initial interactive project, browser and agent setup.                   |
+| `pdo setup`                            | Initial extension loading and browser pairing; add projects later.      |
 | `pdo link --origin URL`                | Link the current project; accepts `--path` and `--name`.                |
 | `pdo projects`                         | List registered projects, directories and origins.                      |
 | `pdo connect --json`                   | Export project-scoped local stdio MCP configuration.                    |
@@ -161,6 +176,7 @@ If `pdo` is not on PATH, use `~/.local/bin/pdo` or add `$HOME/.local/bin` to PAT
 | `pdo extension`                        | Locate/open unpacked extension setup.                                   |
 | `pdo extension --reload`               | Open update reload instructions without replacing the clipboard.        |
 | `pdo extension --path`                 | Print the extension directory without opening apps.                     |
+| `pdo extension --zip`                  | Export a standalone ZIP; manual extension updates.                      |
 | `pdo pair --copy`                      | Copy the local pairing code without printing it.                        |
 | `pdo status`                           | Check local service readiness.                                          |
 | `pdo version`                          | Print the CLI version.                                                  |
@@ -177,7 +193,7 @@ If `pdo` is not on PATH, use `~/.local/bin/pdo` or add `$HOME/.local/bin` to PAT
 | No matching project              | Link the exact URL shown in Chrome, including hostname and port.                                                  |
 | Access remains unavailable       | Connect the bridge, choose a linked project URL and review site permissions.                                      |
 | Task waits for an agent          | Verify MCP tools and ask the host to claim it; an idle client is not awakened by MCP.                             |
-| CLI/model error                  | Check the selected agent's executable, authentication and configuration.                                          |
+| Client/model error               | Check the receiving client’s MCP connection, account and model configuration.                                     |
 | Client input was not filled      | Use an empty supported chat input, check macOS permissions, or paste the copied instruction.                      |
 | Extension still shows the old UI | Run `pdo extension --reload`, reload PointDOM and refresh the page. For legacy paths, load the fixed folder once. |
 

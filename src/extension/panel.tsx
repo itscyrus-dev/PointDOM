@@ -2,7 +2,13 @@ import { elementType, shortLabel, styleGroups } from './element-info.js';
 import { checkLatestRelease } from './release-check.js';
 import { logoFrame, logoDot } from './brand.js';
 import { formatTaskDuration } from './task-duration.js';
-import { executorName, executorSchema } from '../shared/contracts.js';
+import { agentSetupInstruction } from '../shared/agent-setup.js';
+import {
+  clientEntries,
+  clientSetupInstruction,
+  type ClientEntry,
+} from '../shared/agent-clients.js';
+import { executorName } from '../shared/contracts.js';
 import {
   createContext,
   memo,
@@ -28,25 +34,12 @@ import { TextArea } from '@heroui/react/textarea';
 import { Input } from '@heroui/react/input';
 import { Disclosure } from '@heroui/react/disclosure';
 import { Popover } from '@heroui/react/popover';
-import { terminal, type Job, type Reply, type Selection } from '../shared/contracts.js';
-import {
-  controller,
-  linkedSites,
-  type Executor,
-  type Notice,
-  type PanelState,
-} from './panel-controller.js';
+import { terminal, type Job, type Selection } from '../shared/contracts.js';
+import { controller, linkedSites, type Notice, type PanelState } from './panel-controller.js';
 import type { Preferences } from './ui-preferences.js';
 import { ToggleButtonGroup } from '@heroui/react/toggle-button-group';
 import { ToggleButton } from '@heroui/react/toggle-button';
 import { Dropdown } from '@heroui/react/dropdown';
-import { Checkbox } from '@heroui/react/checkbox';
-import { Description } from '@heroui/react/description';
-import {
-  defaultProjectPermissions,
-  type Project,
-  type ProjectPermissions,
-} from '../shared/contracts.js';
 
 type Translator = (zh: string, en: string) => string;
 const translators: Record<Preferences['language'], Translator> = {
@@ -308,202 +301,144 @@ function HeaderPreferences({ preferences }: { preferences: Preferences }) {
     </>
   );
 }
-function ProjectPermissionSettings({
-  project,
-  origin,
-  executor,
-  onSaved,
+function RecipientSelect({
+  id,
+  agents,
+  value,
+  onChange,
 }: {
-  project: Project;
-  origin: string;
-  executor: Executor;
-  onSaved: () => void;
+  id: string;
+  agents: PanelState['agents'];
+  value: string;
+  onChange: (id: string) => void;
 }) {
   const t = useContext(Locale);
-  const saved = project.permissions || defaultProjectPermissions;
-  const [draft, setDraft] = useState<ProjectPermissions>(saved);
-  const [saving, setSaving] = useState(false);
-  const [feedback, setFeedback] = useState<Notice | null>(null);
-  useEffect(() => {
-    setDraft({ confirmation: saved.confirmation, codexNetwork: saved.codexNetwork });
-  }, [saved.confirmation, saved.codexNetwork]);
-  const changed =
-    draft.confirmation !== saved.confirmation || draft.codexNetwork !== saved.codexNetwork;
   return (
-    <section className="project-permissions" aria-label={t('项目权限', 'Project permissions')}>
-      <div className="project-permissions-heading">
-        <strong>{t('项目权限', 'Project permissions')}</strong>
-        <small>{project.name}</small>
-      </div>
-      <FieldSelect
-        id="project-confirmation"
-        label={t('操作确认', 'Confirmations')}
-        value={draft.confirmation}
-        isDisabled={saving}
-        items={[
-          { id: 'default', name: t('默认确认', 'Default confirmations') },
-          { id: 'reduced', name: t('减少确认', 'Fewer confirmations') },
-        ]}
-        onChange={(value) => {
-          if (value === 'default' || value === 'reduced')
-            setDraft((previous) => ({ ...previous, confirmation: value }));
-          setFeedback(null);
-        }}
-      />
-      <p className="permission-help">
-        {draft.confirmation === 'default'
-          ? t(
-              '保持当前确认流程，需要额外权限时仍会询问。',
-              'Keep the current approval flow and ask when additional permission is needed.',
-            )
-          : executor === 'codex'
-            ? t(
-                '项目内常规修改与检查使用按需确认，超出沙箱范围仍需授权。',
-                'Routine project edits and checks use on-request approval. Sandbox exceptions still need approval.',
-              )
-            : executor === 'claude'
-              ? t(
-                  '减少项目内编辑和沙箱命令确认，仍遵守 CLI 拒绝规则。',
-                  'Reduce project edit and sandboxed command prompts while keeping CLI deny rules.',
-                )
-              : executor === 'trae'
-                ? t(
-                    '使用 Trae 自动权限判断，仍保留沙箱与必要确认。',
-                    'Use Trae automatic permission review, keeping its sandbox and required approvals.',
-                  )
-                : t(
-                    '减少项目内文件修改确认，命令执行和无法核对路径的请求仍需确认。',
-                    'Reduce in-project file edit prompts. Commands and requests without verified paths still ask.',
-                  )}
-      </p>
-      {executor === 'codex' ? (
-        <Checkbox
-          className="project-network"
-          isSelected={draft.codexNetwork}
-          isDisabled={saving}
-          onChange={(codexNetwork: boolean) => {
-            setDraft((previous) => ({ ...previous, codexNetwork }));
-            setFeedback(null);
-          }}
-        >
-          <Checkbox.Content>
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            <Label>{t('允许 Codex 任务联网', 'Allow Codex task networking')}</Label>
-          </Checkbox.Content>
-          <Description>
-            {t(
-              '用于依赖下载、服务连接与网页测试；不扩大可写目录。',
-              'For downloads, services and browser tests; writable directories stay scoped.',
-            )}
-          </Description>
-        </Checkbox>
-      ) : null}
-      <div className="project-permissions-footer">
-        <small>
-          {t('仅此项目 · 保存后对新任务生效', 'This project only · applies to new tasks')}
+    <FieldSelect
+      id={id}
+      label={t('MCP 客户端', 'MCP client')}
+      value={value}
+      items={[
+        { id: '', name: t('选择客户端', 'Choose a client') },
+        ...agents.map((agent) => ({
+          id: agent.id,
+          name:
+            agents.filter((other) => other.name === agent.name).length > 1
+              ? `${agent.name} · ${agent.id.slice(0, 6)}`
+              : agent.name,
+        })),
+      ]}
+      onChange={onChange}
+      isDisabled={!agents.length}
+    />
+  );
+}
+function ClientSetupRow({
+  entry,
+  selected,
+  language,
+  onSelect,
+}: {
+  entry: ClientEntry;
+  selected: boolean;
+  language: Preferences['language'];
+  onSelect: (id: string) => void;
+}) {
+  const t = useContext(Locale);
+  const [copy, setCopy] = useState<'idle' | 'copied' | 'error'>('idle');
+  const name =
+    entry.preset.id === 'other' && !entry.connection
+      ? t('其他 MCP 客户端', 'Other MCP client')
+      : entry.label;
+  return (
+    <li className="client-entry" data-client={entry.preset.id}>
+      <div className="client-identity">
+        <strong title={entry.connection?.name}>{name}</strong>
+        <small className="client-status" data-available={!!entry.connection}>
+          {entry.connection ? t('可用', 'Available') : t('未连接', 'Not connected')}
         </small>
+        {copy === 'error' && !entry.connection ? (
+          <small role="alert">{t('复制失败，请重试。', 'Copy failed. Try again.')}</small>
+        ) : null}
+      </div>
+      {entry.connection ? (
+        <Button
+          className="quiet client-action"
+          isDisabled={selected}
+          aria-pressed={selected}
+          aria-label={t(`使用 ${name}`, `Use ${name}`)}
+          onPress={() => onSelect(entry.connection!.id)}
+        >
+          {selected ? t('已选择', 'Selected') : t('使用', 'Use')}
+        </Button>
+      ) : (
         <AsyncButton
-          className="primary"
-          isDisabled={!changed || saving}
+          className="quiet client-action"
+          aria-label={t(`复制 ${name} 接入指令`, `Copy ${name} setup instruction`)}
           run={async () => {
-            setSaving(true);
-            setFeedback(null);
+            setCopy('idle');
             try {
-              await controller.saveProjectPermissions(project.id, origin, draft);
-              onSaved();
-            } catch (error) {
-              const message =
-                error instanceof Error ? error.message : t('请重试', 'Please try again');
-              setFeedback({
-                zh: `保存失败：${message}`,
-                en: `Could not save: ${message}`,
-                error: true,
-              });
-              throw error;
-            } finally {
-              setSaving(false);
+              await navigator.clipboard.writeText(
+                clientSetupInstruction(language, entry.preset.id),
+              );
+              setCopy('copied');
+            } catch {
+              setCopy('error');
             }
           }}
         >
-          {saving ? t('保存中…', 'Saving…') : t('保存', 'Save')}
+          <span role="status" aria-live="polite">
+            {copy === 'copied' ? t('已复制', 'Copied') : t('复制指令', 'Copy setup')}
+          </span>
         </AsyncButton>
-      </div>
-      <p
-        className={`project-permission-feedback${feedback?.error ? ' error' : ''}`}
-        role={feedback?.error ? 'alert' : 'status'}
-      >
-        {saving
-          ? t('正在保存项目权限…', 'Saving project permissions…')
-          : feedback
-            ? t(feedback.zh, feedback.en)
-            : null}
-      </p>
-    </section>
+      )}
+    </li>
   );
 }
 function ExecutionSettings({ state }: { state: PanelState }) {
   const t = useContext(Locale);
-  const { executor } = state;
   const [open, setOpen] = useState(false);
-  const summary = executor === 'mcp' ? 'Agent · MCP' : executorName(executor);
-  const project = state.projects.find((item) => item.id === state.projectId);
+  const entries = clientEntries(state.connection === 'connected' ? state.agents : []);
+  const recipient = entries.find((entry) => entry.connection?.id === state.recipientId);
   return (
     <Popover isOpen={open} onOpenChange={setOpen}>
       <Button
         id="execution-settings"
         className="quiet execution-trigger"
-        aria-label={t('执行设置', 'Execution settings')}
+        aria-label={t('选择 MCP 客户端', 'Choose MCP client')}
       >
-        <span id="execution-summary">{summary}</span>
-        <Chevron data-open={open || undefined} />
+        <span id="execution-summary">{recipient?.label || t('选择客户端', 'Choose a client')}</span>
+        <Chevron />
       </Button>
       <Popover.Content className="execution-popover" placement="bottom end">
         <Popover.Dialog>
-          <Popover.Heading>{t('交给谁处理', 'Who handles this?')}</Popover.Heading>
-          <div className="settings-grid">
-            <FieldSelect
-              id="executor"
-              className="agent-destination"
-              label="Agent"
-              value={executor}
-              items={[
-                { id: 'mcp', name: t('Agent（MCP，通用）', 'Agent (MCP, universal)') },
-                {
-                  id: 'opencode',
-                  name: 'OpenCode',
-                },
-                { id: 'codex', name: 'Codex' },
-                { id: 'claude', name: 'Claude Code' },
-                { id: 'trae', name: 'Trae' },
-              ]}
-              onChange={(value) => {
-                const parsed = executorSchema.safeParse(value);
-                if (parsed.success) controller.setExecutor(parsed.data);
-              }}
-            />
-          </div>
+          <Popover.Heading>{t('接收客户端', 'Recipient')}</Popover.Heading>
+          <p className="client-setup-hint">
+            {t(
+              '复制到对应客户端的项目对话，接通后即可选择。',
+              'Paste into that client’s project chat. Select it once connected.',
+            )}
+          </p>
+          <ul className="client-directory" aria-label={t('MCP 客户端', 'MCP clients')}>
+            {entries.map((entry) => (
+              <ClientSetupRow
+                key={`${state.preferences.language}:${entry.connection?.id || entry.preset.id}`}
+                entry={entry}
+                selected={!!entry.connection && entry.connection.id === state.recipientId}
+                language={state.preferences.language}
+                onSelect={(id) => {
+                  controller.setRecipient(id);
+                  if (controller.snapshot().recipientId === id) setOpen(false);
+                }}
+              />
+            ))}
+          </ul>
           <small id="execution-help">
-            {executor === 'mcp'
-              ? t(
-                  '提交后由 Agent 通过 MCP 领取，沿用客户端配置。',
-                  'Your agent claims annotations through MCP using its own settings.',
-                )
-              : t(
-                  '使用 CLI 默认配置，无 CLI 时转客户端。',
-                  'Uses CLI defaults; otherwise uses the client.',
-                )}
+            {t(
+              '仅影响新批注；模型与权限由客户端管理。',
+              'For new annotations only. Your client manages models and permissions.',
+            )}
           </small>
-          {project && executor !== 'mcp' ? (
-            <ProjectPermissionSettings
-              key={project.id}
-              project={project}
-              origin={state.origin}
-              executor={executor}
-              onSaved={() => setOpen(false)}
-            />
-          ) : null}
         </Popover.Dialog>
       </Popover.Content>
     </Popover>
@@ -650,6 +585,7 @@ function Composer({ state }: { state: PanelState }) {
     state.ready &&
     state.connection === 'connected' &&
     !!state.projectId &&
+    !!state.recipientId &&
     !!(state.draft.trim() || state.selections.some((s) => s.description?.trim())) &&
     !state.submitting;
   const project = state.projects.find((p) => p.id === state.projectId);
@@ -823,83 +759,61 @@ function Composer({ state }: { state: PanelState }) {
       </Card>
       <div id="delivery-guide">
         <p id="delivery-description">
-          {state.executor === 'mcp'
-            ? t('在 MCP 客户端发送处理指令。', 'Send the instruction in your MCP client.')
-            : t('CLI 自动执行，未安装时转客户端。', 'Runs via CLI; otherwise uses the client.')}
+          {t(
+            state.agents.length
+              ? '等待所选客户端领取；连接不会自动启动对话。'
+              : '请先在客户端连接当前项目的 PointDOM MCP。',
+            state.agents.length
+              ? 'Waiting for the selected client to claim. Connection does not start a chat.'
+              : 'Connect this project’s PointDOM MCP in your client first.',
+          )}
         </p>
-        {state.executor === 'mcp' ? (
-          <AsyncButton
-            id="copy-agent-instruction"
-            className="quiet"
-            run={() => controller.copyInstruction()}
-          >
-            {t('复制处理指令', 'Copy instruction')}
-          </AsyncButton>
-        ) : null}
       </div>
       <NoticeBox notice={state.notice} id="notice" />
     </section>
   );
 }
-function Approval({ job }: { job: Job }) {
+function ReassignTask({ job, agents }: { job: Job; agents: PanelState['agents'] }) {
   const t = useContext(Locale);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const approval = job.approval;
-  if (!approval) return null;
-  const send = (reply: Reply) => controller.reply(job, reply);
+  const [open, setOpen] = useState(false);
+  const [recipientId, setRecipientId] = useState('');
   return (
-    <div className="approval">
-      <strong>{approval.title}</strong>
-      <pre>{approval.details}</pre>
-      {approval.kind === 'questions' ? (
-        <>
-          {(approval.questions || []).map((q) => (
-            <div className="answer-field" key={q.id}>
-              <Label htmlFor={`question-${q.id}`}>{q.question}</Label>
-              {q.options.length ? <small>{q.options.join(' / ')}</small> : null}
-              <TextArea
-                id={`question-${q.id}`}
-                rows={2}
-                value={answers[q.id] || ''}
-                onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-                  setAnswers((prev) => ({ ...prev, [q.id]: event.target.value }))
-                }
-                maxLength={4000}
-              />
-            </div>
-          ))}
+    <Popover isOpen={open} onOpenChange={setOpen}>
+      <Button className="quiet" onPress={() => setRecipientId('')}>
+        {t('改派', 'Reassign')}
+      </Button>
+      <Popover.Content className="execution-popover" placement="top start">
+        <Popover.Dialog>
+          <Popover.Heading>{t('改派待领取批注', 'Reassign unclaimed annotation')}</Popover.Heading>
+          <RecipientSelect
+            id={`reassign-${job.id}`}
+            agents={agents}
+            value={recipientId}
+            onChange={setRecipientId}
+          />
           <AsyncButton
             className="primary"
-            run={() =>
-              send({
-                answers: Object.fromEntries(
-                  (approval.questions || []).map((q) => [q.id, answers[q.id] || '']),
-                ),
-              })
-            }
+            isDisabled={!recipientId || recipientId === job.recipient?.id}
+            run={async () => {
+              await controller.reassign(job, recipientId);
+              setOpen(false);
+            }}
           >
-            {t('提交回答', 'Send answers')}
+            {t('确认改派', 'Assign')}
           </AsyncButton>
-        </>
-      ) : (
-        <div className="actions">
-          <AsyncButton className="primary" run={() => send({ decision: 'accept' })}>
-            {t('允许本次', 'Allow once')}
-          </AsyncButton>
-          <AsyncButton run={() => send({ decision: 'decline' })}>
-            {t('拒绝', 'Decline')}
-          </AsyncButton>
-        </div>
-      )}
-    </div>
+        </Popover.Dialog>
+      </Popover.Content>
+    </Popover>
   );
 }
 const JobCard = memo(function JobCard({
   job,
+  agents,
   projectName,
   language,
 }: {
   job: Job;
+  agents: PanelState['agents'];
   projectName: string;
   language: Preferences['language'];
 }) {
@@ -941,7 +855,7 @@ const JobCard = memo(function JobCard({
           {job.delivery && job.delivery.target !== 'mcp'
             ? `${executorName(job.delivery.target)}${job.executor === 'mcp' ? ' · MCP' : ''}`
             : job.executor === 'mcp'
-              ? 'MCP'
+              ? `${job.recipient?.name || 'MCP'}${job.recipient ? ' · MCP' : ''}`
               : executorName(job.executor)}
         </span>
         <span>
@@ -954,24 +868,22 @@ const JobCard = memo(function JobCard({
           })}
         </span>
       </div>
-      {job.delivery && job.delivery.state !== 'cli' ? (
-        <div className="delivery-status" role="status">
-          <small>
-            {job.delivery.state === 'pending'
-              ? t('正在准备客户端输入…', 'Preparing client input…')
-              : job.delivery.state === 'pasted'
-                ? t('已填入客户端 · 等待发送与领取', 'Filled in client · awaiting send and claim')
-                : job.delivery.state === 'copied'
-                  ? t('已自动复制处理指令', 'Instruction copied automatically')
-                  : t('需要检查客户端', 'Check the client')}
-          </small>
-          {job.delivery.detail ? <small className="muted">{job.delivery.detail}</small> : null}
+      {job.executor === 'mcp' && job.status === 'queued' ? (
+        <small className="job-agent">
+          {job.recipient
+            ? `${t('接收方', 'Recipient')}：${job.recipient.name} · ${job.recipient.id.slice(0, 6)}${agents.some((agent) => agent.id === job.recipient?.id) ? '' : t(' · 未连接，可改派', ' · Offline; reassign to continue')}`
+            : t('尚未指定客户端，请改派后领取。', 'No recipient. Assign a client before claiming.')}
+        </small>
+      ) : null}
+      {job.delivery?.detail ? (
+        <div className="delivery-status">
+          <small className="muted">{t('历史交付信息', 'Historical delivery information')}</small>
+          <small className="muted">{job.delivery.detail}</small>
         </div>
       ) : null}
-      {job.executor === 'mcp' ? (
+      {job.executor === 'mcp' && job.agent ? (
         <small className="job-agent">
-          {job.agent || t('等待 Agent 领取', 'Waiting for an agent')} ·{' '}
-          {t('结果由外部 Agent 回报', 'Results reported by the external agent')}
+          {job.agent || t('等待 Agent 领取', 'Waiting for an agent')} · {t('通过 MCP', 'via MCP')}
         </small>
       ) : null}
       {job.error ? (
@@ -986,7 +898,6 @@ const JobCard = memo(function JobCard({
           </Fold>
         </div>
       ) : null}
-      <Approval key={job.approval?.id || 'none'} job={job} />
       {described.length || job.events.length || job.result ? (
         <div className="job-details">
           {described.length ? (
@@ -1027,24 +938,14 @@ const JobCard = memo(function JobCard({
         </small>
       ) : null}
       <div className="job-actions">
-        {job.executor === 'mcp' &&
-        job.status === 'queued' &&
-        job.delivery &&
-        ['copied', 'blocked', 'uncertain'].includes(job.delivery.state) ? (
-          <AsyncButton className="quiet" run={() => controller.retryHandoff(job)}>
-            {t('重新填入客户端', 'Fill client again')}
-          </AsyncButton>
+        {job.executor === 'mcp' && job.status === 'queued' ? (
+          <ReassignTask job={job} agents={agents} />
         ) : null}
         {terminal(job.status) ? (
           <>
             <AsyncButton className="quiet" run={() => controller.restore(job)}>
               {t('继续修改', 'Continue editing')}
             </AsyncButton>
-            {job.executor !== 'mcp' && ['failed', 'interrupted'].includes(job.status) ? (
-              <AsyncButton className="quiet" run={() => controller.restore(job, true)}>
-                {t('改用 Agent（MCP）', 'Use Agent (MCP)')}
-              </AsyncButton>
-            ) : null}
           </>
         ) : (
           <AsyncButton className="quiet" run={() => controller.cancel(job)}>
@@ -1114,11 +1015,58 @@ function VersionFooter() {
     </footer>
   );
 }
+function AgentSetupGuide({ language }: { language: Preferences['language'] }) {
+  const t = useContext(Locale);
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+  return (
+    <Card className="agent-setup-settings">
+      <h2>{t('下一步：接入 Agent', 'Next: connect your agent')}</h2>
+      <p className="muted">
+        {t(
+          '复制到当前项目对话，关联项目并配置 MCP。',
+          'Paste into your project chat to link the project and configure MCP.',
+        )}
+      </p>
+      <p className="muted">
+        {t(
+          'Trae：在当前窗口的设置 → MCP 中接入；Agent 窗口未加载项目配置时，可在“本地”导入。',
+          'Trae: connect in the current window’s Settings → MCP; import under Local if the Agent window has not loaded project config.',
+        )}
+      </p>
+      <AsyncButton
+        id="copy-agent-setup"
+        className="primary"
+        run={async () => {
+          setCopyState('idle');
+          try {
+            await navigator.clipboard.writeText(agentSetupInstruction(language));
+            setCopyState('copied');
+          } catch {
+            setCopyState('error');
+          }
+        }}
+      >
+        {copyState === 'copied'
+          ? t('已复制接入指令', 'Setup instruction copied')
+          : t('复制接入指令', 'Copy setup instruction')}
+      </AsyncButton>
+      {copyState === 'copied' ? (
+        <small role="status">
+          {t('在项目对话中粘贴并发送。', 'Paste and send in your project chat.')}
+        </small>
+      ) : copyState === 'error' ? (
+        <small role="alert">{t('复制失败，请重试。', 'Copy failed. Try again.')}</small>
+      ) : null}
+    </Card>
+  );
+}
+
 function ConnectionSettings({ state, locked = false }: { state: PanelState; locked?: boolean }) {
   const t = useContext(Locale);
   const [code, setCode] = useState('');
   const [changingCode, setChangingCode] = useState(false);
   const showPairingForm = !state.pairingSaved || changingCode;
+  const [installCopyError, setInstallCopyError] = useState(false);
   const matching = state.projects.filter((p) => p.origins.includes(state.origin));
   const sites = linkedSites(state.projects);
   const [siteChoice, setSiteChoice] = useState('');
@@ -1144,10 +1092,7 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
         <div>
           <h2>{t('连接与设置', 'Connection settings')}</h2>
           <small>
-            {t(
-              '本地服务连接后，即可提交网页批注。',
-              'Connect the local service to submit annotations.',
-            )}
+            {t('配对、关联项目并接入 Agent。', 'Pair, link a project and connect your agent.')}
           </small>
         </div>
         <Button
@@ -1195,84 +1140,154 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
             </span>
           ) : null}
         </div>
-        {showPairingForm ? (
-          <>
-            <p className="muted">
-              {t(
-                '粘贴 pdo setup 或 pdo pair 显示的配对码。连接后自动保存，无需重复添加。',
-                'Paste the code from pdo setup or pdo pair. It is saved locally after connecting.',
-              )}
+        {state.connection !== 'connected' ? (
+          <div className="local-install-guide">
+            <p id="local-service-status" role="status">
+              {state.bootstrap === 'waiting'
+                ? t(
+                    '等待安装完成，连接后自动继续。',
+                    'Waiting for installation. Connection continues automatically.',
+                  )
+                : state.bootstrap === 'available'
+                  ? t(
+                      '已检测到本地服务，运行命令授权此扩展。',
+                      'Local service detected. Run the command to authorize this extension.',
+                    )
+                  : t('本地服务未连接。', 'Local service not connected.')}
             </p>
-            <Label htmlFor="token">{t('配对码', 'Pairing code')}</Label>
-            <Input
-              id="token"
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder={t('粘贴本机配对码', 'Paste this computer’s pairing code')}
-              value={code}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setCode(event.target.value)}
-            />
-            <div className="pairing-actions">
-              <AsyncButton
-                id="connect"
-                className="primary"
-                isDisabled={!code.trim() || state.connection === 'connecting'}
-                run={async () => {
-                  if (await controller.connect(code)) {
-                    setCode('');
-                    setChangingCode(false);
-                  }
-                }}
-              >
-                {t('连接', 'Connect')}
-              </AsyncButton>
-              {state.pairingSaved ? (
-                <Button
-                  id="cancel-pairing"
-                  className="quiet"
-                  onPress={() => {
-                    setCode('');
-                    setChangingCode(false);
-                    controller.clearNotice();
+            <AsyncButton
+              id="copy-local-install"
+              className="primary"
+              isDisabled={!state.installPlatform}
+              run={async () => {
+                setInstallCopyError(false);
+                try {
+                  await controller.copyInstallCommand();
+                } catch {
+                  setInstallCopyError(true);
+                }
+              }}
+            >
+              {state.bootstrap === 'waiting'
+                ? t('重新复制安装命令', 'Copy install command again')
+                : t('复制安装命令', 'Copy install command')}
+            </AsyncButton>
+            <small>
+              {state.installPlatform === 'win'
+                ? t(
+                    '在 PowerShell 粘贴并运行，完成后返回这里。',
+                    'Paste and run in PowerShell, then return here.',
+                  )
+                : state.installPlatform === 'mac'
+                  ? t(
+                      '在终端粘贴并运行，完成后返回这里。',
+                      'Paste and run in Terminal, then return here.',
+                    )
+                  : state.ready
+                    ? t(
+                        '当前环境暂不支持一键安装，可使用下方手动配对。',
+                        'One-command installation is unavailable here. Use manual pairing below.',
+                      )
+                    : t('正在识别系统…', 'Detecting your system…')}
+            </small>
+            <small className="muted">
+              {t(
+                '已有安装会复用，保留项目与历史记录。',
+                'Existing installations, projects and history are preserved.',
+              )}
+            </small>
+            {installCopyError ? (
+              <small role="alert">{t('复制失败，请重试。', 'Copy failed. Try again.')}</small>
+            ) : null}
+          </div>
+        ) : null}
+        <Fold
+          key={state.pairingSaved ? 'saved' : 'manual'}
+          title={t('高级：手动配对', 'Advanced: manual pairing')}
+          open={state.pairingSaved}
+        >
+          {showPairingForm ? (
+            <>
+              <p className="muted">
+                {t(
+                  '粘贴 pdo setup 或 pdo pair 显示的配对码。连接后自动保存，无需重复添加。',
+                  'Paste the code from pdo setup or pdo pair. It is saved locally after connecting.',
+                )}
+              </p>
+              <Label htmlFor="token">{t('配对码', 'Pairing code')}</Label>
+              <Input
+                id="token"
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={t('粘贴本机配对码', 'Paste this computer’s pairing code')}
+                value={code}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => setCode(event.target.value)}
+              />
+              <div className="pairing-actions">
+                <AsyncButton
+                  id="connect"
+                  className="primary"
+                  isDisabled={!code.trim() || state.connection === 'connecting'}
+                  run={async () => {
+                    if (await controller.connect(code)) {
+                      setCode('');
+                      setChangingCode(false);
+                    }
                   }}
                 >
-                  {t('取消', 'Cancel')}
-                </Button>
-              ) : null}
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="muted">
-              {t(
-                '配对码已保存在本机，无需重复添加。',
-                'The pairing code is saved on this computer. No need to add it again.',
-              )}
-            </p>
-            <small id="pairing-connection">
-              {state.connection === 'connected'
-                ? t('本地服务已连接', 'Local service connected')
-                : state.connection === 'connecting'
-                  ? t('正在连接本地服务…', 'Connecting to the local service…')
-                  : t(
-                      '本地服务未连接，请确认服务已启动。',
-                      'Local service offline. Make sure it is running.',
-                    )}
-            </small>
-            <div className="pairing-actions">
-              <Button id="change-pairing" className="quiet" onPress={() => setChangingCode(true)}>
-                {t('更换配对码', 'Change pairing code')}
-              </Button>
-              {state.connection === 'offline' ? (
-                <AsyncButton id="reconnect" className="quiet" run={() => controller.connect()}>
-                  {t('重新连接', 'Reconnect')}
+                  {t('连接', 'Connect')}
                 </AsyncButton>
-              ) : null}
-            </div>
-          </>
-        )}
+                {state.pairingSaved ? (
+                  <Button
+                    id="cancel-pairing"
+                    className="quiet"
+                    onPress={() => {
+                      setCode('');
+                      setChangingCode(false);
+                      controller.clearNotice();
+                    }}
+                  >
+                    {t('取消', 'Cancel')}
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="muted">
+                {t(
+                  '配对码已保存在本机，无需重复添加。',
+                  'The pairing code is saved on this computer. No need to add it again.',
+                )}
+              </p>
+              <small id="pairing-connection">
+                {state.connection === 'connected'
+                  ? t('本地服务已连接', 'Local service connected')
+                  : state.connection === 'connecting'
+                    ? t('正在连接本地服务…', 'Connecting to the local service…')
+                    : t(
+                        '本地服务未连接，请确认服务已启动。',
+                        'Local service offline. Make sure it is running.',
+                      )}
+              </small>
+              <div className="pairing-actions">
+                <Button id="change-pairing" className="quiet" onPress={() => setChangingCode(true)}>
+                  {t('更换配对码', 'Change pairing code')}
+                </Button>
+                {state.connection === 'offline' ? (
+                  <AsyncButton id="reconnect" className="quiet" run={() => controller.connect()}>
+                    {t('重新连接', 'Reconnect')}
+                  </AsyncButton>
+                ) : null}
+              </div>
+            </>
+          )}
+        </Fold>
       </Card>
+      {state.connection === 'connected' ? (
+        <AgentSetupGuide key={state.preferences.language} language={state.preferences.language} />
+      ) : null}
       <div id="project-field" hidden={matching.length <= 1}>
         <FieldSelect
           id="project"
@@ -1292,18 +1307,24 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
         <h2>{t('项目网页访问', 'Project page access')}</h2>
         {state.connection !== 'connected' ? (
           <p className="muted">
-            {t(
-              '先在上方添加配对码并连接本地服务。',
-              'Add your pairing code above and connect the local service first.',
-            )}
+            {t('先在上方连接本地服务。', 'Connect the local service above first.')}
           </p>
         ) : !sites.length ? (
-          <p className="muted">
-            {t(
-              '尚未关联项目。请在代码项目目录中运行 pdo setup。',
-              'No projects linked yet. Run pdo setup in your source project directory.',
-            )}
-          </p>
+          <div className="project-link-guide">
+            <p className="muted">
+              {t(
+                '尚未关联项目。在代码项目目录中运行：',
+                'No projects linked. Run in your source project directory:',
+              )}
+            </p>
+            <code>pdo link --origin http://localhost:3000</code>
+            <small>
+              {t(
+                '将网址替换为实际开发地址，关联后在此启用访问。',
+                'Use your development URL, then enable access here.',
+              )}
+            </small>
+          </div>
         ) : (
           <>
             {needsSiteChoice ? (
@@ -1324,10 +1345,7 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
                 </strong>
                 <small>
                   {selectedOrigin ||
-                    t(
-                      '在本地项目中运行 pdo setup 关联网址',
-                      'Link a URL with pdo setup in your project',
-                    )}
+                    t('选择上方已关联的项目网址', 'Choose a linked project URL above')}
                 </small>
               </div>
               {!state.origin || matching.length ? (
@@ -1515,6 +1533,7 @@ function Panel() {
                       <JobCard
                         key={job.id}
                         job={job}
+                        agents={state.agents}
                         projectName={
                           state.projects.find((p) => p.id === job.projectId)?.name ||
                           t('项目', 'Project')
