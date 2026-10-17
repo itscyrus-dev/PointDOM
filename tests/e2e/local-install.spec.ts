@@ -71,7 +71,7 @@ test('unbound local page shows a prominent binding action in the panel without p
     );
     await panel.screenshot({ path: test.info().outputPath('local-binding-light.png') });
     await panel.getByRole('radio', { name: '深色', exact: true }).click();
-    await expect(binding).toHaveCSS('background-color', 'rgb(168, 255, 0)');
+    await expect(binding).toHaveCSS('background-color', 'rgb(207, 246, 146)');
     await expect(binding).toHaveCSS('color', 'rgb(21, 24, 27)');
     await expect(panel.locator('.fixed-composer')).toHaveCount(0);
     await panel.screenshot({ path: test.info().outputPath('local-project-binding.png') });

@@ -9,7 +9,7 @@
   --edge: #ffffff0c;
   --text: #eeeff0;
   --muted: #969ba2;
-  --accent: #a8ff00;
+  --accent: var(--ui-accent);
   color: var(--text);
   background: var(--page);
 }
@@ -17,7 +17,7 @@
   color-scheme: light;
   --page: var(--ui-page);
   --surface: var(--ui-card);
-  --input: #ededf0;
+  --input: var(--ui-completed);
   --edge: var(--ui-edge);
   --text: #282b30;
   --muted: #697078;
@@ -405,7 +405,7 @@ button:disabled {
   border-color: color-mix(in srgb, var(--muted) 45%, transparent);
 }
 .task-card[data-status='running'] {
-  border-color: #a8ff0030;
+  border-color: color-mix(in srgb, var(--accent) 19%, transparent);
 }
 .task-card[data-status='running']:before {
   content: '';
@@ -413,7 +413,12 @@ button:disabled {
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  background: linear-gradient(110deg, transparent 20%, #a8ff0009 50%, transparent 80%);
+  background: linear-gradient(
+    110deg,
+    transparent 20%,
+    color-mix(in srgb, var(--accent) 3.5%, transparent) 50%,
+    transparent 80%
+  );
   background-size: 200% 100%;
   animation: task-flow 3s linear infinite;
 }
@@ -467,7 +472,7 @@ button:disabled {
 }
 .status-running {
   color: var(--accent);
-  background: #a8ff000c;
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
 }
 .status-completed {
   color: #709982;
@@ -1381,16 +1386,20 @@ h3 {
   opacity: 1;
 }
 :root[data-theme='light'] :is(.project-filters, .filter-controls) .button {
+  --button-bg: transparent;
+  --button-bg-hover: transparent;
+  --button-bg-pressed: transparent;
   background: transparent;
 }
 :root[data-theme='light']
   :is(.project-filters, .filter-controls)
   .button:where(:hover, [data-hovered='true'], :active, [data-pressed='true']),
 :root[data-theme='light'] .app-tab[data-hovered='true'] {
-  background: var(--ui-card);
+  background: transparent;
 }
 :root[data-theme='light'] .task-card[data-status='completed'] .task-symbol {
   background: var(--ui-completed);
+  color: var(--ui-completed-ink);
 }
 
 :root[data-theme='light'] :is(.project-filters, .filter-controls) .button[aria-pressed='true'] {
@@ -1405,4 +1414,25 @@ h3 {
 }
 :root[data-theme='light'] .client-avatar {
   background: var(--ui-completed);
+}
+
+:root[data-theme='light'] :is(.card, .notice) .button {
+  --button-bg: var(--ui-completed);
+  --button-bg-hover: var(--ui-completed);
+  --button-bg-pressed: var(--ui-completed);
+  --button-fg: var(--ui-completed-ink);
+  background: var(--ui-completed);
+  color: var(--ui-completed-ink);
+}
+
+:root[data-theme='light']
+  :is(.card, .notice)
+  .button:not(:disabled):not([aria-disabled='true']):not([data-pending='true']):where(
+    :hover,
+    [data-hovered='true'],
+    :active,
+    [data-pressed='true']
+  ) {
+  --button-fg: var(--text);
+  color: var(--text);
 }

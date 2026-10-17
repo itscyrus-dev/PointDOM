@@ -19,7 +19,7 @@
   --control-pressed: var(--ui-control-pressed);
   --activity-track: #3d532a;
   --activity-tail: #608d24;
-  --activity-body: #a8ff00;
+  --activity-body: var(--ui-accent);
   --activity-head: #e4ffb5;
   --activity-ink: #b6ef65;
   --activity-soft: #26321d;
@@ -871,9 +871,9 @@ kbd {
   color-scheme: light;
   --bg: var(--ui-page);
   --surface: var(--ui-card);
-  --raised: var(--ui-selection);
+  --raised: var(--ui-completed);
   --input: #f7f8fa;
-  --ink: #191c20;
+  --ink: #282b30;
   --muted: #626a75;
   --soft: #454e59;
   --border: var(--ui-edge);
@@ -881,7 +881,7 @@ kbd {
   --control-hover: var(--ui-control-hover);
   --control-pressed: var(--ui-control-pressed);
   --activity-track: #cfeaa5;
-  --activity-tail: #88cc00;
+  --activity-tail: var(--ui-accent);
   --activity-body: var(--ui-accent);
   --activity-head: #547e00;
   --activity-ink: var(--ui-accent-ink);
@@ -2309,12 +2309,15 @@ button[data-pending='true'] {
   border-color: transparent;
 }
 :root[data-mode='light'] .record-tabs .button {
+  --button-bg: transparent;
+  --button-bg-hover: transparent;
+  --button-bg-pressed: transparent;
   background: transparent;
 }
 :root[data-mode='light']
   .record-tabs
   .button:where(:hover, [data-hovered='true'], :active, [data-pressed='true']) {
-  background: var(--ui-card);
+  background: transparent;
 }
 
 :root[data-mode='light'] .record-tabs .button[aria-pressed='true'] {
@@ -2322,4 +2325,34 @@ button[data-pending='true'] {
   --button-bg-hover: var(--ui-selection);
   --button-bg-pressed: var(--ui-selection);
   background: var(--ui-selection);
+}
+
+:root[data-mode='light'] .card .button {
+  --button-bg: var(--ui-completed);
+  --button-bg-hover: var(--ui-completed);
+  --button-bg-pressed: var(--ui-completed);
+  --button-fg: var(--ui-completed-ink);
+  background: var(--ui-completed);
+  color: var(--ui-completed-ink);
+}
+
+:root[data-mode='light'] .theme-mode-switch {
+  background: var(--ui-completed);
+}
+
+:root[data-mode='light']
+  .card
+  .button:not(:disabled):not([aria-disabled='true']):not([data-pending='true']):where(
+    :hover,
+    [data-hovered='true'],
+    :active,
+    [data-pressed='true']
+  ) {
+  --button-fg: var(--ink);
+  color: var(--ink);
+}
+
+:root[data-mode='light'] .project-binding .binding-icon {
+  background: var(--ui-completed);
+  color: var(--ui-completed-ink);
 }

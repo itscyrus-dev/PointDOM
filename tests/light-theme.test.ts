@@ -33,10 +33,10 @@ test('action, selection and running labels meet normal-text contrast in both app
   }
 });
 
-test('routine selection and completed states do not reuse the primary action fill', () => {
+test('selection uses the theme accent while completed states stay neutral', () => {
   for (const theme of [uiTheme.light, uiTheme.dark]) {
-    assert.notEqual(theme.selection, uiTheme.brand.accent);
-    assert.notEqual(theme.navigation, uiTheme.brand.accent);
+    assert.equal(theme.selection, uiTheme.brand.accent);
+    assert.equal(theme.navigation, uiTheme.brand.accent);
     assert.notEqual(theme.completed, uiTheme.brand.accent);
   }
 });
@@ -45,8 +45,9 @@ test('light controls and metadata use the requested neutral surfaces', () => {
   for (const role of ['control-hover', 'control-pressed'] as const) {
     assert.equal(uiTheme.light[role], '#f8f8f8');
   }
-  assert.equal(uiTheme.light.navigation, '#f8f8f8');
-  assert.equal(uiTheme.light.selection, '#f8f8f8');
+  assert.equal(uiTheme.light.navigation, '#cff692');
+  assert.equal(uiTheme.light.selection, '#cff692');
+  assert.equal(uiTheme.brand.accent, '#cff692');
   assert.equal(uiTheme.light.page, '#ffffff');
   assert.equal(uiTheme.light.card, '#f8f8f8');
   assert.equal(uiTheme.light.completed, '#eeeeee');

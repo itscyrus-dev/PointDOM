@@ -332,12 +332,9 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     await expect(page.getByText('已定位导航组件', { exact: true })).toBeVisible();
     await expect(page.locator('.app-tab[data-selected="true"]')).toHaveCSS(
       'color',
-      'rgb(238, 239, 240)',
+      'rgb(21, 24, 27)',
     );
-    await expect(page.locator('.app-tab[data-selected="true"]')).toHaveCSS(
-      'background-color',
-      'rgb(32, 34, 36)',
-    );
+    await expectTabSurface(page.locator('.app-tab[data-selected="true"]'), 'rgb(207, 246, 146)');
     await page.screenshot({ path: test.info().outputPath('desktop-dark.png') });
     await expect(page.locator('.app-toolbar img')).toHaveCount(0);
     await expect(page.locator('.app-toolbar button:visible')).toHaveCount(0);
@@ -433,6 +430,7 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     await page.locator('.menu-bar-setting .switch__content').click();
     await expect(menuBar).toBeChecked();
     await lightTheme.click();
+    await expect(themeControls).toHaveCSS('background-color', 'rgb(238, 238, 238)');
     await expect
       .poll(() => lightTheme.evaluate((element) => getComputedStyle(element).backgroundColor))
       .toBe('rgb(255, 255, 255)');
@@ -459,30 +457,25 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
           .first()
           .evaluate((element) => getComputedStyle(element).backgroundColor),
       )
-      .toBe('rgb(248, 248, 248)');
+      .toBe('rgb(207, 246, 146)');
     await expect(page.locator('.app-tab[data-selected="true"]')).toHaveCSS(
       'color',
-      'rgb(40, 43, 48)',
+      'rgb(21, 24, 27)',
     );
-    await expect(page.locator('.app-tab[data-selected="true"]')).toHaveCSS(
-      'background-color',
-      'rgb(248, 248, 248)',
-    );
+    await expectTabSurface(page.locator('.app-tab[data-selected="true"]'), 'rgb(207, 246, 146)');
     await expect(page.locator('.status-running').first()).toHaveCSS('color', 'rgb(69, 97, 43)');
     await expect(page.locator('.status-running').first()).toHaveCSS(
       'background-color',
       'rgb(239, 245, 231)',
     );
-    await expectTabSurface(page.locator('.project-filters .button').first(), 'rgb(248, 248, 248)');
+    await expectTabSurface(page.locator('.project-filters .button').first(), 'rgb(207, 246, 146)');
     await expectTabSurface(
       page.locator('.filter-controls .button[aria-pressed="false"]'),
       'rgba(0, 0, 0, 0)',
-      'rgb(248, 248, 248)',
     );
     await expectTabSurface(
       page.getByRole('tab', { name: '设置', exact: true }),
       'rgba(0, 0, 0, 0)',
-      'rgb(248, 248, 248)',
     );
     await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
     for (const card of [page.locator('.summary-grid'), page.locator('.task-card').first()]) {
@@ -496,20 +489,29 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     await page.getByRole('tab', { name: '设置', exact: true }).click();
     await expect(page.locator('.menu-bar-setting .switch__control')).toHaveCSS(
       'background-color',
-      'rgb(168, 255, 0)',
+      'rgb(207, 246, 146)',
     );
     await darkTheme.click();
     await expect(page.locator('.menu-bar-setting .switch__control')).toHaveCSS(
       'background-color',
-      'rgb(168, 255, 0)',
+      'rgb(207, 246, 146)',
     );
     await expect(page.locator('.app-tab[data-selected="true"]')).toHaveCSS(
       'color',
-      'rgb(238, 239, 240)',
+      'rgb(21, 24, 27)',
     );
     await lightTheme.click();
     await page.getByRole('tab', { name: '客户端', exact: true }).click();
     await expect(page.getByRole('heading', { name: '连接客户端' })).toBeVisible();
+    for (const name of ['配置', '连接配置']) {
+      const button = page.getByRole('button', { name, exact: true });
+      await expect(button).toHaveCSS('color', 'rgb(184, 184, 184)');
+      await button.hover();
+      await expect(button).toHaveCSS('background-color', 'rgb(238, 238, 238)');
+      await expect(button).toHaveCSS('color', 'rgb(40, 43, 48)');
+      await page.mouse.move(0, 0);
+      await expect(button).toHaveCSS('color', 'rgb(184, 184, 184)');
+    }
     for (const avatar of await page.locator('.client-avatar').all()) {
       await expect(avatar).toHaveCSS('background-color', 'rgb(238, 238, 238)');
     }
@@ -550,6 +552,15 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     await expect(page.getByRole('button', { name: '连接项目', exact: true })).toHaveCount(0);
     await page.setViewportSize({ width: 400, height: 640 });
     const projectActions = page.locator('.project-actions');
+    for (const button of await projectActions.locator('button').all()) {
+      await expectTabSurface(button, 'rgb(238, 238, 238)');
+      await expect(button).toHaveCSS('color', 'rgb(184, 184, 184)');
+      await button.hover();
+      await expect(button).toHaveCSS('color', 'rgb(40, 43, 48)');
+      await expect(button).toHaveCSS('background-color', 'rgb(238, 238, 238)');
+      await page.mouse.move(0, 0);
+      await expect(button).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
+    }
     expect(
       await projectActions.locator('button').evaluateAll((buttons) => {
         const boxes = buttons.map((button) => button.getBoundingClientRect());
@@ -601,7 +612,7 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     await page.getByRole('button', { name: '手动添加项目', exact: true }).click();
     const addAction = page.locator('#manual-project-form button[type="submit"]');
     await expect(addAction).toBeDisabled();
-    await expect(addAction).toHaveCSS('background-color', 'rgb(248, 248, 248)');
+    await expect(addAction).toHaveCSS('background-color', 'rgb(238, 238, 238)');
     await page.getByRole('button', { name: '选择源码文件夹' }).click();
     await expect(page.getByText('/fixture/new-project', { exact: true })).toBeVisible();
     await page.getByRole('textbox', { name: '网页地址' }).fill('http://localhost:3001');
@@ -812,6 +823,7 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
       'background-color',
       'rgb(238, 238, 238)',
     );
+    await expect(page.locator('.task-symbol').first()).toHaveCSS('color', 'rgb(184, 184, 184)');
     await page.screenshot({
       path: test.info().outputPath('desktop-completed-light.png'),
       animations: 'disabled',

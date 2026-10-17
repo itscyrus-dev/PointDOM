@@ -15,32 +15,36 @@ actual actions and states, not implementation previews or fictional progress.
 Use React, TypeScript and official HeroUI 3 controls. Keep Chrome's native side panel.
 No second dialog, focus trap, dropdown keyboard system or marketing-style homepage.
 
-| Role           | Dark     | Light   |
-| -------------- | -------- | ------- |
-| Page           | #141516  | #FFFFFF |
-| Card           | #202224  | #F8F8F8 |
-| Input/selected | #2B2E31  | #EDEDF0 |
-| Text           | #EEEFF0  | #282B30 |
-| Secondary      | #969BA2  | #697078 |
-| Card border    | white 6% | none    |
+| Role        | Dark     | Light   |
+| ----------- | -------- | ------- |
+| Page        | #141516  | #FFFFFF |
+| Card        | #202224  | #F8F8F8 |
+| Input       | #2B2E31  | #EEEEEE |
+| Text        | #EEEFF0  | #282B30 |
+| Secondary   | #969BA2  | #697078 |
+| Card border | white 6% | none    |
 
-Desktop: 16px cards, 9px controls, 13px body, 16px page headings, restrained lime
-branding (#A8FF00). Extension: 14px cards, 9px controls, 13px body, outer spacing 16px.
-App and extension share semantic tokens from `src/shared/ui-theme.json`. Reserve
-fluorescent lime #A8FF00 for enabled switches, the active element-picking glyph,
-active execution indicators and dark-mode primary actions. Dark primary action labels
-use #15181B; hover darkens to #98E600 and press to #88CC00.
-In light mode, the page is #FFFFFF, cards and all ordinary button states use #F8F8F8
-without visible borders. Selected navigation and filter tabs use #F8F8F8, including
-when hovered; unselected tabs rest transparent and use #F8F8F8 on hover.
-Client icon blocks and completed task glyph backgrounds use #EEEEEE. Neutral metadata
-and completed badges use #EEEEEE with #B8B8B8 labels per the product reference.
-Project actions have no hover tooltips. In dark mode, unselected navigation
-and filter tabs have no hover background. Filters and completed badges use neutral
-surfaces with readable labels; running badges use a restrained green tint. Secondary
-actions hover in neutral gray. Never reuse the primary fill for routine selection
-or completion. Check interactive and running-state text contrast in both appearances; preserve semantic error and
-warning colors, existing layout and brand artwork.
+Desktop: 16px cards, 9px controls, 13px body, 16px page headings. Extension:
+14px cards, 9px controls, 13px body, outer spacing 16px.
+App and extension share semantic tokens from `src/shared/ui-theme.json`.
+The theme accent is #CFF692 in both appearances. Use it for enabled switches,
+selected navigation and filter tabs, the active element-picking glyph and execution
+indicators. Selected tabs use #15181B labels and keep the same fill on hover and
+press. Unselected tabs stay transparent, including on hover and press.
+Dark-mode primary actions use #CFF692 with #15181B labels; their fill stays fixed
+through hover and press. Existing logo artwork is independent of the UI palette.
+
+In light mode, the page is #FFFFFF. Cards and standalone buttons use #F8F8F8 without
+visible borders. Buttons inside cards and pairing approval notices use #EEEEEE with
+#B8B8B8 labels. Hover and press only deepen labels and inherited icons to #282B30;
+moving away restores #B8B8B8. Disabled buttons retain their resting label color.
+Theme switch tracks and input surfaces use #EEEEEE; the selected theme retains its
+white circular surface. Client icon blocks, completed task glyph backgrounds and
+neutral badges use #EEEEEE. Completed checkmarks and badge labels use #B8B8B8.
+Project actions have no hover tooltips. Completed badges remain neutral in both
+appearances; running badges use a restrained green tint. Preserve semantic error
+and warning colors, layout and brand artwork. Check interactive selection and
+running-state label contrast in both appearances.
 
 Thin neutral edges and restrained overlay shadows; no stacked rings, heavy shadows
 or geometry changes on hover. Controls have visible keyboard focus and labels.
@@ -130,7 +134,7 @@ main window. Right-click provides Open, Tasks, Projects, Clients, Settings, Abou
 and Quit, separated into navigation and lifecycle groups. The menu opens the requested
 main-window tab and dismisses the task panel. Use a 2x antialiased fixed-color menu-bar icon:
 a dark rounded tile, white curved selection brackets and a white idle center point.
-During execution only the center becomes lime and breathes smoothly over a 2.4-second
+During execution only the center becomes #CFF692 and breathes smoothly over a 2.4-second
 cycle at 25fps; the tile and white brackets stay fixed. Reduced motion keeps the
 lime point static. Disable template tinting both when creating and updating the icon,
 so system appearance never reverses the dark tile or removes the green point.
@@ -253,8 +257,7 @@ Language uses an unfilled translation-icon trigger; no text pills for current va
 names and a fixed leading checkmark column, backed by an extensible list of supported
 locales. Menu hover has no fill, outline or shadow; keyboard focus uses a contained
 inset outline. Keep popup padding and shadows restrained without clipping item focus.
-Preserve keyboard activation and 44px coarse-pointer targets. Dark-mode navigation hover changes foreground only. Light-mode navigation hover uses
-#F8F8F8, while selected tabs retain #F8F8F8. Keyboard focus remains visible.
+Preserve keyboard activation and 44px coarse-pointer targets. Unselected navigation stays transparent on hover in both appearances; selected tabs retain #CFF692. Keyboard focus remains visible.
 
 Window close hides the app while its local service continues running. The menu bar
 provides task access and Quit. Running animations respect system reduced motion.
