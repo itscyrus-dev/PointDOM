@@ -23,6 +23,16 @@ PointDOM sends browser change requests to a local coding CLI or your coding clie
 4. In your source directory run `pdo link --origin http://localhost:3000`, replacing the URL with your actual development origin.
 5. Open that page, enable page access in PointDOM, choose an executor, select elements and submit. Execution records and results appear in the annotation card.
 
+### Install with curl (macOS)
+
+Run this command to install the latest release and start the local service:
+
+```sh
+curl -fsSL https://github.com/itscyrus-dev/PointDOM/releases/latest/download/install.sh | sh
+```
+
+Then run `~/.local/bin/pdo setup` to open the extension setup guide. After loading the extension, copy and run the installation command from its settings to authorize automatic pairing.
+
 ## Supported tools
 
 [Codex](docs/agents/CODEX.md) · [Claude Code](docs/agents/CLAUDE_CODE.md) · [OpenCode](docs/agents/OPENCODE.md) · [Trae](docs/agents/TRAE.md)
