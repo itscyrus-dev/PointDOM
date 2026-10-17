@@ -1,8 +1,36 @@
 # Changelog
 
-Notable changes to PointDOM. Release archives and installers are available from [GitHub Releases](https://github.com/itscyrus-dev/PointDOM/releases).
+Notable changes to PointDOM. Download installers and checksums from
+[GitHub Releases](https://github.com/itscyrus-dev/PointDOM/releases).
 
-## [Unreleased]
+## [0.6.0] - 2026-10-17
+
+### Added
+
+- Native Tauri 2 application and Rust loopback/MCP service, without an Electron or Node runtime.
+- macOS Apple Silicon DMG, Windows x64 installer, Linux x64 DEB/AppImage, native CLI archives and Chrome extension ZIP, with SHA-256 checksums.
+- Compact task, project, client and settings views; menu-bar task access, theme/language preferences and reduced-motion-aware execution indicators.
+- Explicit project binding from a local development page, verified macOS process discovery and manual folder setup on all platforms.
+- Project-scoped MCP recipients, exclusive task claims, factual progress, durable reports and authorized Codex macOS conversation notifications.
+- First-sentence task titles, inline copy feedback and bounded internal task scrolling.
+
+### Changed
+
+- MCP is the sole task execution transport. Remove model CLI runners, managed model sessions and obsolete installers/guides.
+- Preserve existing project IDs, pairing, history and unknown stored fields, with a private migration backup. Interrupted tasks are never replayed.
+- Use neutral navigation/filter/completion surfaces; reserve fluorescent lime for primary actions, enabled switches and active execution.
+
+### Fixed
+
+- Persist cancellation before notifying the original client; prevent late claims or reports from overwriting cancelled tasks.
+- Keep local project identity across development-port changes without granting unrelated origins access.
+- Support Windows executable names, user directories and file persistence; open approved links and extension folders through platform-native handlers.
+
+### Compatibility
+
+- Intel Macs are not supported. Windows/Linux use manual project setup and generic MCP listening; automatic source discovery and Codex desktop wakeup are macOS-only.
+- Installers are unsigned; macOS builds are not notarized. OS/browser permissions and client approvals remain required.
+- Stop the previous service before starting 0.6.0, then reload the extension. Existing historical release notes below describe their original versions, not current setup instructions.
 
 ## [0.5.1] - 2026-10-16
 

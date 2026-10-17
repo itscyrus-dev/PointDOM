@@ -1,6 +1,8 @@
 import type { Submission } from './contracts.js';
 /** Only explicit user notes are instructions. DOM fields remain untrusted data. */
-export function agentContext(task: Submission) {
+export function agentContext(
+  task: Pick<Submission, 'id' | 'projectId' | 'instruction' | 'selection' | 'selections'>,
+) {
   const elements = task.selections?.length ? task.selections : [task.selection];
   return {
     taskId: task.id,

@@ -1,0 +1,99 @@
+name: Native builds
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      release-tag:
+        default: ''
+        type: string
+permissions:
+  contents: read
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macOS ARM64
+            os: macos-14
+          - platform: Windows x64
+            os: windows-2022
+          - platform: Linux x64
+            os: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_TEST_THREADS: '1'
+      RELEASE_TAG: ${{ inputs.release-tag }}
+      NO_STRIP: 'true'
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2 xvfb
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: rustup toolchain install 1.97.1 --profile minimal --component rustfmt,clippy
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+      - run: pnpm install --frozen-lockfile
+      - name: Verify versions
+        run: node --input-type=module -e 'import {releaseVersion} from "./scripts/release-utils.ts"; await releaseVersion(".", process.env.RELEASE_TAG || undefined)'
+      - run: pnpm format:check
+      - run: pnpm check
+      - name: Verify generated contracts
+        run: |
+          pnpm native:contracts
+          git diff --exit-code -- crates/pointdom-core/contracts
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Browser and renderer integration tests
+        run: |
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            xvfb-run -a pnpm test:e2e
+            xvfb-run -a pnpm test:desktop
+          else
+            pnpm test:e2e
+            pnpm test:desktop
+          fi
+      - name: Package native installers
+        run: pnpm desktop:pack
+      - run: pnpm release:pack
+      - run: pnpm release:verify
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ runner.os }}-${{ runner.arch }}
+          path: dist/release/*
+          if-no-files-found: error
+          retention-days: 7
+      - name: Isolated UI screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ui-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            test-results/**/desktop-*.png
+            test-results/**/extension-tasks-*.png
+            test-results/**/local-binding-light.png
+          if-no-files-found: ignore
+          retention-days: 7

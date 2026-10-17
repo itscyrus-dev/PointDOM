@@ -157,3 +157,29 @@ test('a response from a replaced pairing cannot restore its old project scope', 
     f.dispose();
   }
 });
+
+test('local setup can open a panel without authorizing page access or lookalike hosts', async () => {
+  const f = fixture();
+  try {
+    await f.scope.load();
+    for (const url of ['http://localhost:5174/app', 'http://127.0.0.1:3000', 'http://[::1]:3000']) {
+      assert.equal(f.scope.canOpen(url), true);
+      assert.equal(f.scope.allows(url), false);
+    }
+    for (const url of [
+      'https://online.example',
+      'http://localhost.evil.example',
+      'http://127.0.0.1.evil.example',
+      'http://localhost@evil.example',
+      'file:///tmp/site',
+      'chrome://extensions',
+    ]) {
+      assert.equal(f.scope.canOpen(url), false);
+    }
+    await f.scope.syncTab({ id: 4, url: 'http://localhost:5174' } as chrome.tabs.Tab);
+    assert.equal(f.options.at(-1)?.enabled, true);
+    assert.equal(f.stopped.at(-1), 4);
+  } finally {
+    f.dispose();
+  }
+});

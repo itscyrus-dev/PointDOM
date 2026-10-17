@@ -6,7 +6,7 @@ Describe the concrete problem and the final change.
 
 - [ ] `pnpm format:check`
 - [ ] `pnpm check`
-- [ ] `pnpm test:e2e` when changing the extension/bridge workflow
+- [ ] `pnpm test:e2e` when changing the extension/MCP workflow
 - [ ] Release/installer checks when changing installation or packaging
 
 Describe tests, compatibility changes and material limitations. UI changes should include isolated test screenshots without private content.

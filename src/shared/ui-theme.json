@@ -1,0 +1,34 @@
+{
+  "brand": {
+    "accent": "#a8ff00",
+    "accent-ink": "#15181b",
+    "accent-hover": "#98e600",
+    "accent-pressed": "#88cc00"
+  },
+  "dark": {
+    "navigation": "#202224",
+    "selection": "#2b2e31",
+    "selection-ink": "#eeeff0",
+    "control-hover": "#34383c",
+    "control-pressed": "#3b4045",
+    "completed": "#2b2e31",
+    "completed-ink": "#c0c6cc",
+    "running": "#26321d",
+    "running-ink": "#c6e89f",
+    "edge": "#2b3035",
+    "online": "#9fbf78"
+  },
+  "light": {
+    "navigation": "#f4f4f5",
+    "selection": "#f4f4f5",
+    "selection-ink": "#282b30",
+    "control-hover": "#f4f4f5",
+    "control-pressed": "#f4f4f5",
+    "completed": "#f4f4f5",
+    "completed-ink": "#5d6872",
+    "running": "#eff5e7",
+    "running-ink": "#45612b",
+    "edge": "#d9dfe1",
+    "online": "#7c985c"
+  }
+}

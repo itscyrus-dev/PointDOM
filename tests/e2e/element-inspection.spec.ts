@@ -1,50 +1,14 @@
-import { fixtureCli } from '../fixtures/cli.js';
-import { extensionBrowserArgs } from './browser-args.js';
-import { test, expect, chromium } from '@playwright/test';
-import { serve } from '@hono/node-server';
-import { Hono } from 'hono';
-import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { randomUUID } from 'node:crypto';
-import { Store } from '../../src/bridge/store.js';
-import { Queue } from '../../src/bridge/queue.js';
-import { createApp } from '../../src/bridge/server.js';
+import { test, expect } from '@playwright/test';
+import { nativeFixture } from '../fixtures/native.js';
 
 test('element names, grouped snapshots and exact locating preserve drafts and reject changed targets', async () => {
-  const directory = mkdtempSync(join(tmpdir(), 'pointdom-element-ui-'));
-  const extension = join(directory, 'extension');
-  cpSync(resolve('dist/extension'), extension, { recursive: true });
-  const store = new Store(join(directory, 'state'));
-  const app = new Hono();
-  app.get('/fixture', (c) =>
-    c.html(`<!doctype html><title>Element fixture</title><style>body{font:16px system-ui;padding:24px}button,input,section{margin:12px;padding:12px}button{color:rgb(20,20,20);background:rgb(240,240,240);border:0;border-radius:8px}#spacer{height:1000px}</style>
+  const fixture =
+    await nativeFixture(`<!doctype html><title>Element fixture</title><style>body{font:16px system-ui;padding:24px}button,input,section{margin:12px;padding:12px}button{color:rgb(20,20,20);background:rgb(240,240,240);border:0;border-radius:8px}#spacer{height:1000px}</style>
   <span id="action-name">保存 修改</span><button id="action" aria-labelledby="action-name" aria-label="Wrong fallback">Icon</button>
   <label for="field">项目名称</label><input id="field" value="DO-NOT-CAPTURE-INPUT">
   <section id="container"><h2>  商品\n 展示 </h2><p>Extra container content</p><div contenteditable="true">DO-NOT-CAPTURE-EDITABLE</div></section>
-  <button id="icon" title="设置">⚙</button><div id="spacer"></div><button id="bottom">底部按钮</button>`),
-  );
-  const server = serve({ hostname: '127.0.0.1', port: 0, fetch: app.fetch });
-  if (!server.listening) await new Promise<void>((done) => server.once('listening', done));
-  const address = server.address();
-  if (!address || typeof address === 'string') throw new Error('Missing fixture port');
-  const origin = `http://127.0.0.1:${address.port}`;
-  store.config.projects.push({
-    id: randomUUID(),
-    name: '元素测试',
-    cwd: directory,
-    origins: [origin],
-  });
-  app.route('/', createApp(store, new Queue(store, fixtureCli(directory)), address.port));
-  for (const name of ['manifest.json', 'panel.js', 'background.js']) {
-    const path = join(extension, name);
-    writeFileSync(path, readFileSync(path, 'utf8').replaceAll('http://127.0.0.1:4318', origin));
-  }
-  const context = await chromium.launchPersistentContext(join(directory, 'profile'), {
-    channel: 'chromium',
-    headless: true,
-    args: extensionBrowserArgs(extension),
-  });
+  <button id="icon" title="设置">⚙</button><div id="spacer"></div><button id="bottom">底部按钮</button>`);
+  const { context, origin } = fixture;
   try {
     const worker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
     const page = await context.newPage();
@@ -54,7 +18,7 @@ test('element names, grouped snapshots and exact locating preserve drafts and re
     panel.setDefaultTimeout(5000);
     await panel.goto(`chrome-extension://${new URL(worker.url()).host}/panel.html`);
     await panel.getByRole('button', { name: '高级：手动配对', exact: true }).click();
-    await panel.locator('#token').fill(store.config.token);
+    await panel.locator('#token').fill(fixture.token);
     await panel.locator('#connect').click();
     await page.bringToFront();
     await panel.locator('#pick').click();
@@ -140,10 +104,6 @@ test('element names, grouped snapshots and exact locating preserve drafts and re
     await panel.getByRole('button', { name: '定位 保存 修改', exact: true }).click();
     await expect(panel.locator('#notice')).toContainText('元素已变化');
   } finally {
-    await context.close();
-    await new Promise<void>((done, reject) =>
-      server.close((error) => (error ? reject(error) : done())),
-    );
-    rmSync(directory, { recursive: true, force: true });
+    await fixture.close();
   }
 });

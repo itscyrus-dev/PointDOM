@@ -6,13 +6,12 @@ import { logoSvg } from '../src/extension/brand.ts';
 const folder = 'src/extension/icons';
 await mkdir(folder, { recursive: true });
 const svg = logoSvg();
-await writeFile(
-  `${folder}/pointdom.svg`,
-  await format(svg, {
-    ...(await resolveConfig(`${folder}/pointdom.svg`)),
-    parser: 'html',
-  }),
-);
+const formatted = await format(svg, {
+  ...(await resolveConfig(`${folder}/pointdom.svg`)),
+  parser: 'html',
+});
+await writeFile(`${folder}/pointdom.svg`, formatted);
+await writeFile('docs/assets/pointdom.svg', formatted);
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ deviceScaleFactor: 1 });

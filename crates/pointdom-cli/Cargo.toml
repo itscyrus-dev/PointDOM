@@ -1,0 +1,16 @@
+[package]
+name = "pointdom-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+[[bin]]
+name = "pointdom"
+path = "src/main.rs"
+[dependencies]
+pointdom-core = { path = "../pointdom-core" }
+tokio = { version = "=1.53.3", features = ["full"] }
+serde_json = "=1.0.154"
+reqwest = { version = "=0.13.5", default-features = false, features = ["json"] }
+[lints]
+workspace = true

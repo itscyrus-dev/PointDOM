@@ -1,10 +1,32 @@
-// Brand marks and page selection keep their identity; panel actions use monochrome contrast.
-export const brandAccent = '#a8ff00';
+import uiTheme from '../shared/ui-theme.json' with { type: 'json' };
+
+export { uiTheme };
+
+/** Semantic roles shared by the desktop and extension in both appearances. */
+export function themeStyles(): string {
+  const variables = (colors: Record<string, string>) =>
+    Object.entries(colors)
+      .map(([name, value]) => `--ui-${name}: ${value};`)
+      .join('\n');
+  return `:root {\n${variables(uiTheme.brand)}\n${variables(uiTheme.dark)}\n}\n:root[data-mode='light'], :root[data-theme='light'] {\n${variables(uiTheme.light)}\n}\n`;
+}
+
+export const brandAccent = uiTheme.brand.accent;
 export const palettes = {
-  // Retain the persisted key so existing language, mode and drafts need no migration.
+  // Retain the persisted key so language, mode and drafts need no migration.
   lime: {
-    dark: { fill: '#f1f3f5', ink: '#15181b', soft: '#f1f3f512', text: '#dce0e5' },
-    light: { fill: '#191c20', ink: '#ffffff', soft: '#191c200c', text: '#30363c' },
+    dark: {
+      fill: brandAccent,
+      ink: uiTheme.brand['accent-ink'],
+      soft: uiTheme.dark.running,
+      text: uiTheme.dark['running-ink'],
+    },
+    light: {
+      fill: brandAccent,
+      ink: uiTheme.brand['accent-ink'],
+      soft: uiTheme.light.running,
+      text: uiTheme.light['running-ink'],
+    },
   },
 } as const;
 export type Accent = keyof typeof palettes;
@@ -24,7 +46,8 @@ export function paletteStyles() {
       })
       .join('\n');
   return (
-    `/* Generated from ui-palette.ts. Monochrome actions; lime brand and page selection. */\n:root {\n--brand-accent: ${brandAccent};\n${definitions('dark')}\n}\n:root[data-mode='light'] {\n${definitions('light')}\n}\n` +
+    themeStyles() +
+    `/* Generated from ui-palette.ts. Quiet neutral controls; lime primary actions and activity. */\n:root {\n--brand-accent: ${brandAccent};\n${definitions('dark')}\n}\n:root[data-mode='light'] {\n${definitions('light')}\n}\n` +
     Object.keys(palettes)
       .map(
         (id) =>

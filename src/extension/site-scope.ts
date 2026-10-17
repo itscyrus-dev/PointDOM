@@ -9,6 +9,22 @@ const projectsSchema = z.object({
   projects: z.array(z.object({ origins: originsSchema })),
 });
 
+/** Opening local setup never grants access to page contents or task execution. */
+export function isLocalDevelopmentUrl(value?: string) {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return (
+      ['http:', 'https:'].includes(url.protocol) &&
+      !url.username &&
+      !url.password &&
+      ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** The allowlist comes only from the authenticated local bridge, never a web page. */
 export class SiteScope {
   private origins: string[] = [];
@@ -23,6 +39,10 @@ export class SiteScope {
     } catch {
       return false;
     }
+  }
+
+  canOpen(url?: string) {
+    return this.allows(url) || isLocalDevelopmentUrl(url);
   }
 
   async load() {
@@ -72,13 +92,13 @@ export class SiteScope {
 
   async syncTab(tab: chrome.tabs.Tab) {
     if (tab.id === undefined) return;
-    const enabled = this.allows(tab.url);
+    const enabled = this.canOpen(tab.url);
     await chrome.sidePanel.setOptions({ tabId: tab.id, path: 'panel.html', enabled });
     await chrome.action.setTitle({
       tabId: tab.id,
       title: enabled ? 'PointDOM' : 'PointDOM · 仅在已关联的项目网页中可用',
     });
-    if (!enabled)
+    if (!this.allows(tab.url))
       await chrome.tabs.sendMessage(tab.id, { type: 'PAGEPATCH_STOP_PICKER' }).catch(() => {});
   }
 

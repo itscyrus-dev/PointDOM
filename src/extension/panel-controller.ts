@@ -1,18 +1,20 @@
-import { watchInstruction } from '../shared/mcp-watch.js';
-import { cliStatusSchema, type CliStatus } from '../shared/cli.js';
+import { cancellationMessage } from '../shared/task-message.js';
+import { isLocalDevelopmentUrl } from './site-scope.js';
+import { watchInstruction, wakeupInstruction } from '../shared/mcp-watch.js';
 import {
   newConnectionNonce,
   connectionChallenge,
-  localInstallCommand,
+  desktopConnectionLink,
+  desktopProjectLink,
   type InstallPlatform,
 } from './local-install.js';
 import { z } from 'zod';
 import { agentContext } from '../shared/agent-context.js';
 import {
   executorSchema,
+  cancellationSchema,
   agentConnectionSchema,
   type AgentConnection,
-  type Executor,
   jobSchema,
   projectSchema,
   readSelections,
@@ -49,8 +51,6 @@ export type PanelState = {
   enablingOrigin: string;
   projectId: string;
   jobs: Job[];
-  clis: CliStatus[];
-  cliExecutor: Executor;
   agents: AgentConnection[];
   recipientId: string;
   selections: Selection[];
@@ -77,8 +77,6 @@ export class PanelController {
     enablingOrigin: '',
     projectId: '',
     jobs: [],
-    clis: [],
-    cliExecutor: 'codex',
     agents: [],
     recipientId: '',
     selections: [],
@@ -138,12 +136,6 @@ export class PanelController {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: AbortSignal.timeout(10000),
     });
-    if (path.startsWith('/api/clis') && response.status === 404)
-      throw new Error(
-        this.state.preferences.language === 'en'
-          ? 'Update the local PointDOM service to use CLI execution.'
-          : '请先更新 PointDOM 本地服务，再使用 CLI 执行。',
-      );
     const value: unknown = await response.json();
     if (!response.ok) {
       const parsed = z.object({ error: z.string() }).safeParse(value);
@@ -201,21 +193,6 @@ export class PanelController {
     this.retry = null;
     this.bindProjects();
   }
-  async detectClis() {
-    const { clis } = z
-      .object({ clis: z.array(cliStatusSchema) })
-      .parse(await this.api('/api/clis?refresh=1'));
-    this.patch({ clis });
-  }
-  async setCli(id: Executor) {
-    if (
-      this.retry ||
-      (id !== 'mcp' && !this.state.clis.some((cli) => cli.id === id && cli.available))
-    )
-      return;
-    await this.api('/api/settings', { executor: id });
-    this.patch({ cliExecutor: id });
-  }
   setRecipient(id: string) {
     if (this.retry || !this.state.agents.some((a) => a.id === id)) return;
     this.recipients.set(this.state.projectId, id);
@@ -232,12 +209,14 @@ export class PanelController {
   get hasPendingSubmission() {
     return this.retry !== null;
   }
-  async copyWatchInstruction() {
+  async copyWatchInstruction(mode?: 'wakeup') {
     const project = this.state.projects.find((p) => p.id === this.state.projectId);
     if (!project) return;
     const recipient = this.state.agents.find((a) => a.id === this.state.recipientId);
     await navigator.clipboard.writeText(
-      watchInstruction(this.state.preferences.language, project, recipient?.id || ''),
+      (mode === 'wakeup' || (recipient && /codex/i.test(recipient.name))
+        ? wakeupInstruction
+        : watchInstruction)(this.state.preferences.language, project, recipient?.id || ''),
     );
     this.notify('在客户端项目对话中发送一次。', 'Send once in your client project conversation.');
   }
@@ -299,21 +278,37 @@ export class PanelController {
     } catch (error) {
       if (version !== this.connectVersion) return false;
       if (!saved) this.token = previousToken;
-      this.patch({ connection: 'offline', ...(background ? {} : { settings: true }) });
+      this.patch({
+        connection: 'offline',
+        ...(background
+          ? {}
+          : { settings: this.state.settings || !isLocalDevelopmentUrl(this.state.origin) }),
+      });
       if (!background || !this.state.notice?.error) this.fail(error);
       return false;
     }
   }
-  async copyInstallCommand() {
-    if (!this.state.installPlatform)
-      throw new Error('One-command installation is unavailable on this platform.');
-    const command = localInstallCommand(
-      this.state.installPlatform,
-      chrome.runtime.id,
-      await connectionChallenge(this.nonce),
-      chrome.runtime.getManifest().version,
-    );
-    await navigator.clipboard.writeText(command);
+  async bindCurrentPage() {
+    const tab = await this.contextTab();
+    if (!tab?.url || !/^https?:/.test(tab.url) || tab.id !== this.state.tabId)
+      throw new Error(
+        this.state.preferences.language === 'en'
+          ? 'Open the project page and click the extension icon first.'
+          : '请在项目网页点击扩展图标，再绑定当前页面。',
+      );
+    const origin = new URL(tab.url).origin;
+    if (origin !== this.state.origin)
+      throw new Error(
+        this.state.preferences.language === 'en'
+          ? 'The active page changed. Try again.'
+          : '当前网页已变化，请重试。',
+      );
+    await chrome.tabs.create({ url: desktopProjectLink(origin), active: false });
+    this.notify('在 PointDOM 确认绑定。', 'Confirm the project in PointDOM.');
+  }
+  async connectDesktop() {
+    const url = desktopConnectionLink(chrome.runtime.id, await connectionChallenge(this.nonce));
+    await chrome.tabs.create({ url, active: false });
     this.patch({ bootstrap: 'waiting' });
     await this.discover();
   }
@@ -350,7 +345,7 @@ export class PanelController {
         }
       } else if (this.state.bootstrap !== 'waiting') this.patch({ bootstrap: 'available' });
     } catch {
-      // Service unavailable is an expected onboarding state, never proof that CLI is absent.
+      // Service unavailable is an expected onboarding state.
       if (this.running && this.state.bootstrap === 'available') this.patch({ bootstrap: 'idle' });
     } finally {
       this.discovering = false;
@@ -373,7 +368,7 @@ export class PanelController {
     while (this.running && this.state.connection === 'connected') {
       const projectId = this.state.projectId;
       try {
-        const [projectResponse, incoming, clis, agents] = await Promise.all([
+        const [projectResponse, incoming, agents] = await Promise.all([
           this.api('/api/projects').then((value) =>
             z
               .object({
@@ -387,9 +382,6 @@ export class PanelController {
                 (value) => z.object({ jobs: z.array(jobSchema) }).parse(value).jobs,
               )
             : Promise.resolve([]),
-          this.api('/api/clis').then(
-            (value) => z.object({ clis: z.array(cliStatusSchema) }).parse(value).clis,
-          ),
           projectId
             ? this.api(`/api/agents?projectId=${encodeURIComponent(projectId)}`).then(
                 (value) => z.object({ agents: z.array(agentConnectionSchema) }).parse(value).agents,
@@ -406,9 +398,7 @@ export class PanelController {
         const jobs = incoming.filter((job) => job.projectId === projectId);
         if (JSON.stringify(jobs) !== JSON.stringify(this.state.jobs)) this.patch({ jobs });
         this.patch({
-          clis,
           agents: agents.filter((a) => a.projectId === projectId),
-          cliExecutor: projectResponse.agentSettings.defaultExecutor,
         });
         return;
       } catch (error) {
@@ -420,9 +410,18 @@ export class PanelController {
       }
     }
   }
+  private async contextTab() {
+    const params = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
+    const source = params.has('settings') ? params.get('bindTabId') : null;
+    if (source !== null) {
+      if (!/^\d+$/.test(source)) return undefined;
+      return chrome.tabs.get(Number(source)).catch(() => undefined);
+    }
+    return (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+  }
   private async syncTab() {
     const version = ++this.syncVersion;
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tab = await this.contextTab();
     if (version !== this.syncVersion) return;
     const origin = tab?.url && /^https?:/.test(tab.url) ? new URL(tab.url).origin : '';
     const page: Selection | null =
@@ -579,10 +578,16 @@ export class PanelController {
       this.recipients = new Map(
         Object.entries(savedRecipients.success ? savedRecipients.data : {}),
       );
-      // Persist one pending capability across panel/tab reopening. No page content is involved.
-      this.nonce =
-        typeof data.pointdomConnectionNonce === 'string' &&
-        /^[a-f0-9]{64}$/.test(data.pointdomConnectionNonce)
+      // The worker serializes initial creation across automatic setup and side-panel views.
+      const shared = z
+        .object({ nonce: z.string().regex(/^[a-f0-9]{64}$/) })
+        .safeParse(
+          await chrome.runtime.sendMessage({ type: 'POINTDOM_CONNECTION_NONCE' }).catch(() => null),
+        );
+      this.nonce = shared.success
+        ? shared.data.nonce
+        : typeof data.pointdomConnectionNonce === 'string' &&
+            /^[a-f0-9]{64}$/.test(data.pointdomConnectionNonce)
           ? data.pointdomConnectionNonce
           : newConnectionNonce();
       await chrome.storage.local.set({ pointdomConnectionNonce: this.nonce });
@@ -598,7 +603,7 @@ export class PanelController {
       await Promise.all([this.syncTab(), this.loadShortcuts()]);
       if (this.token) await this.connect();
       else {
-        this.patch({ settings: true });
+        this.patch({ settings: !isLocalDevelopmentUrl(this.state.origin) });
         await this.discover();
       }
     } catch (error) {
@@ -655,11 +660,8 @@ export class PanelController {
         files: ['content.js'],
       });
       if (this.state.tabId !== tabId || this.state.page?.url !== pageUrl) return;
-      const active = await this.readPickerState(tabId);
-      this.notify(
-        active ? '点击元素，Esc 结束。' : '选取已结束。',
-        active ? 'Click elements; Esc to finish.' : 'Selection ended.',
-      );
+      await this.readPickerState(tabId);
+      this.clearNotice();
     } catch (error) {
       this.notify(
         `${error instanceof Error ? error.message : '选取失败'}。请在设置中启用当前网页访问。`,
@@ -832,10 +834,7 @@ export class PanelController {
       state.submitting ||
       state.connection !== 'connected' ||
       !state.projectId ||
-      (!this.retry &&
-        !(state.cliExecutor === 'mcp'
-          ? canReceiveMcp(state)
-          : state.clis.some((cli) => cli.id === state.cliExecutor && cli.available))) ||
+      (!this.retry && !canReceiveMcp(state)) ||
       !(state.draft.trim() || state.selections.some((s) => s.description?.trim()))
     )
       return;
@@ -845,8 +844,9 @@ export class PanelController {
       return;
     }
     const data: Submission = this.retry || {
-      executor: state.cliExecutor,
-      ...(state.cliExecutor === 'mcp' ? { recipientId: state.recipientId } : {}),
+      executor: 'mcp',
+      recipientId: state.recipientId,
+      notificationLanguage: state.preferences.language,
       id: crypto.randomUUID(),
       projectId: state.projectId,
       instruction:
@@ -869,9 +869,7 @@ export class PanelController {
           tabId: state.tabId,
         });
       if (this.state.tabId === state.tabId) this.patch({ selections: [], draft: '' });
-      if (state.cliExecutor === 'mcp')
-        this.notify('已提交，等待领取。', 'Submitted. Awaiting claim.');
-      else this.notify('已提交，自动执行。', 'Submitted. Execution starts automatically.');
+      this.notify('已提交，等待领取。', 'Submitted. Awaiting claim.');
       await this.refresh();
     } catch (error) {
       this.notify(
@@ -898,14 +896,14 @@ export class PanelController {
     this.notify('填写修改意见后提交。', 'Describe your next change, then submit.');
   }
   async cancel(job: Job) {
-    await this.api(`/api/jobs/${job.id}/cancel`, {});
+    const result = cancellationSchema.parse(await this.api(`/api/jobs/${job.id}/cancel`, {}));
     await this.refresh();
-    if (job.executor === 'mcp')
-      this.notify(
-        '批注已取消；请在 Agent App 中停止正在执行的操作。',
-        'Annotation cancelled. Stop any ongoing edits in your agent app.',
-      );
+    this.notify(
+      cancellationMessage(result, (zh) => zh),
+      cancellationMessage(result, (_zh, en) => en),
+    );
   }
+
   async copyContext() {
     const target = this.state.selections[0] || this.state.page;
     if (!target) {
@@ -937,6 +935,7 @@ export function canReceiveMcp(state: PanelState) {
       (a) =>
         a.id === state.recipientId &&
         (a.listening ||
+          a.wakeable ||
           state.jobs.some(
             (j) => j.executor === 'mcp' && j.recipient?.id === a.id && j.status === 'running',
           )),

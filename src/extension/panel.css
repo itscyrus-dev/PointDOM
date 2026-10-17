@@ -1,4 +1,4 @@
-/* finesse · register=product · shell=native annotation rail · React/HeroUI · monochrome actions + lime brand · SOUL=5 SPECTACLE=1 DENSITY=7 */
+/* finesse · register=product · shell=native-utility · palette=neutral+lime-actions · SOUL=3 SPECTACLE=1 DENSITY=7 */
 :root {
   color-scheme: dark;
   --bg: #111315;
@@ -15,8 +15,8 @@
   --warning: #eed487;
   --shadow: #080b10a6;
   --mask: #f1f2f3;
-  --control-hover: color-mix(in srgb, var(--ink) 6%, transparent);
-  --control-pressed: color-mix(in srgb, var(--ink) 10%, transparent);
+  --control-hover: var(--ui-control-hover);
+  --control-pressed: var(--ui-control-pressed);
   --activity-track: #3d532a;
   --activity-tail: #608d24;
   --activity-body: #a8ff00;
@@ -110,6 +110,12 @@ svg {
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+/* Gravity UI uses filled paths; keep HeroUI's own control icons unchanged. */
+.ui-icon,
+.ui-icon use {
+  fill: currentColor;
+  stroke: none;
 }
 :where(button, select):focus-visible {
   outline: 2px solid var(--success);
@@ -343,7 +349,14 @@ section,
 .compose-tools .pick-button {
   width: 90px;
   min-width: 90px;
-  flex: none;
+  max-width: 90px;
+  flex: 0 0 90px;
+  white-space: nowrap;
+}
+.picker-label {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
 }
 .pick-button svg {
   width: 14px;
@@ -370,13 +383,7 @@ section,
     opacity: 0.6;
   }
 }
-.button.pick-button[aria-pressed='true'] {
-  --button-bg: var(--control-hover);
-  --button-bg-hover: var(--control-pressed);
-  --button-bg-pressed: var(--control-pressed);
-  border-color: var(--border-strong);
-  color: var(--ink);
-}
+
 button.send {
   flex: none;
   min-height: 34px;
@@ -608,9 +615,9 @@ button.send svg {
   gap: 8px;
 }
 .job-head strong {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--muted);
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
 .job-head .pill {
@@ -862,23 +869,23 @@ kbd {
 }
 :root[data-mode='light'] {
   color-scheme: light;
-  --bg: #ffffff;
+  --bg: #fcfcfd;
   --surface: #ffffff;
-  --raised: #f1f3f5;
+  --raised: var(--ui-selection);
   --input: #f7f8fa;
   --ink: #191c20;
   --muted: #626a75;
   --soft: #454e59;
-  --border: #e8ebee;
-  --border-strong: #dde2e7;
-  --control-hover: #f1f3f5;
-  --control-pressed: #e8ebee;
-  --activity-track: #d2e5be;
-  --activity-tail: #a5ce7d;
-  --activity-body: #63a827;
-  --activity-head: #367810;
-  --activity-ink: #507f18;
-  --activity-soft: #f2f8e9;
+  --border: var(--ui-edge);
+  --border-strong: var(--ui-edge);
+  --control-hover: var(--ui-control-hover);
+  --control-pressed: var(--ui-control-pressed);
+  --activity-track: #cfeaa5;
+  --activity-tail: #88cc00;
+  --activity-body: var(--ui-accent);
+  --activity-head: #547e00;
+  --activity-ink: var(--ui-accent-ink);
+  --activity-soft: var(--ui-running);
   --activity-width: 2px;
   --error: #ad2835;
   --error-soft: #bd23370a;
@@ -903,8 +910,9 @@ kbd {
   background: var(--input);
   border-color: transparent;
 }
+:root[data-mode='light'] kbd,
 :root[data-mode='light'] .pill {
-  background: var(--input);
+  background: var(--ui-completed);
   border-color: transparent;
 }
 :root[data-mode='light'] .approval {
@@ -1194,6 +1202,9 @@ button[data-pending='true'] {
   background: var(--accent-soft);
   color: var(--success);
 }
+:root[data-mode='light'] .execution-trigger {
+  --button-bg: var(--ui-selection);
+}
 .execution-trigger {
   flex: 0 1 auto;
   width: auto;
@@ -1205,14 +1216,18 @@ button[data-pending='true'] {
   gap: 6px;
 }
 .dropdown-chevron {
-  width: 14px;
-  height: 14px;
-  min-width: 14px;
+  width: 12px;
+  height: 12px;
+  min-width: 12px;
   flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
+  fill: currentColor;
+  stroke: none;
   color: var(--muted);
+  transform: rotate(0deg);
+  transition: transform 160ms ease;
+}
+.dropdown-chevron[data-open='true'] {
+  transform: rotate(180deg);
 }
 #execution-summary {
   overflow: hidden;
@@ -1222,9 +1237,6 @@ button[data-pending='true'] {
 .pd-select .select__indicator {
   position: static;
   inset: auto;
-}
-.execution-trigger .dropdown-chevron[data-open='true'] {
-  rotate: 180deg;
 }
 @media (pointer: coarse) {
   .pd-select .select__trigger,
@@ -1469,9 +1481,6 @@ button[data-pending='true'] {
   height: 12px;
   min-width: 12px;
 }
-.element-details-trigger .dropdown-chevron[data-open] {
-  transform: rotate(180deg);
-}
 .element-details-popover {
   position: relative;
   inset: auto;
@@ -1627,8 +1636,8 @@ button[data-pending='true'] {
   --button-fg: var(--muted);
 }
 .button--secondary {
-  --button-bg-hover: color-mix(in srgb, var(--raised) 88%, var(--ink));
-  --button-bg-pressed: color-mix(in srgb, var(--raised) 80%, var(--ink));
+  --button-bg-hover: var(--ui-control-hover);
+  --button-bg-pressed: var(--ui-control-pressed);
 }
 @media (hover: hover) {
   .button:not(:disabled):not([aria-disabled='true']):not([data-pending='true']):where(
@@ -1641,7 +1650,10 @@ button[data-pending='true'] {
     color: var(--ink);
   }
 }
-.button:not(:disabled):not([data-pending='true']):where(:active, [data-pressed='true']) {
+.button:not(:disabled):not([aria-disabled='true']):not([data-pending='true']):where(
+    :active,
+    [data-pressed='true']
+  ) {
   background: var(--button-bg-pressed);
 }
 @media (pointer: coarse) {
@@ -1758,7 +1770,7 @@ button[data-pending='true'] {
 }
 :root[data-mode='light'] .button--secondary {
   --button-bg: var(--input);
-  --button-bg-hover: var(--raised);
+  --button-bg-hover: var(--ui-control-hover);
   --button-bg-pressed: var(--control-pressed);
 }
 :root[data-mode='light'] .primary:disabled {
@@ -2159,7 +2171,7 @@ button[data-pending='true'] {
   justify-content: flex-start;
   font-size: 11px;
 }
-.execution-popover .cli-empty {
+.execution-popover .mcp-empty {
   margin: 8px 10px;
   color: var(--muted);
   font-size: 12px;
@@ -2188,4 +2200,76 @@ button[data-pending='true'] {
 }
 .mcp-settings .button {
   justify-self: start;
+}
+
+.project-binding {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 28px 18px;
+  text-align: center;
+}
+.project-binding .binding-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.project-binding p,
+.project-binding small {
+  color: var(--muted);
+}
+.project-binding .primary {
+  margin-top: 6px;
+  min-width: 144px;
+}
+
+/* Shared lime controls retain their hue through hover and press. */
+.button--primary {
+  --button-bg: var(--accent);
+  --button-fg: var(--accent-ink);
+  --button-bg-hover: var(--ui-accent-hover);
+  --button-bg-pressed: var(--ui-accent-pressed);
+}
+.record-tabs .button {
+  --button-bg-hover: transparent;
+  --button-bg-pressed: transparent;
+}
+.record-tabs button[aria-pressed='true'],
+.pd-select-popover [aria-selected='true'],
+.project-binding .binding-icon {
+  color: var(--ui-selection-ink);
+  background: var(--ui-selection);
+}
+.record-tabs button[aria-pressed='true'] {
+  --button-bg-hover: var(--ui-selection);
+  --button-bg-pressed: var(--ui-selection);
+}
+.record-tabs button[aria-pressed='true'] span {
+  color: inherit;
+}
+:root .job .pill.status-completed {
+  color: var(--ui-completed-ink);
+  background: var(--ui-completed);
+}
+:root .job .pill.status-running,
+#tab-active.has-active-jobs #active-count {
+  color: var(--ui-running-ink);
+  background: var(--ui-running);
+}
+
+/* Picking is an active action in both appearances, distinct from neutral filters. */
+:root .button.pick-button[aria-pressed='true'] {
+  --button-bg: var(--ui-accent);
+  --button-bg-hover: var(--ui-accent);
+  --button-bg-pressed: var(--ui-accent);
+  --button-fg: var(--ui-accent-ink);
+  background: var(--ui-accent);
+  border-color: var(--ui-accent);
+  color: var(--ui-accent-ink);
 }

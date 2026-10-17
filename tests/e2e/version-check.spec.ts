@@ -59,7 +59,7 @@ test('settings version checks work without pairing and handle pending, updates, 
     latest = `v${newer}`;
     await check.click();
     await expect(check).toContainText(`发现 v${newer}`);
-    await expect(panel.locator('.settings-version')).toContainText('pdo upgrade');
+    await expect(panel.locator('.settings-version')).toContainText('原生客户端');
     await check.hover();
     await panel
       .locator('.settings-version')

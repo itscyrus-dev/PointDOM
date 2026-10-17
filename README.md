@@ -1,60 +1,59 @@
-<p align="center">
-  <img src="docs/assets/pointdom.svg" alt="PointDOM logo" width="80" height="80" />
-</p>
+<p align="center"><img src="docs/assets/pointdom.svg" alt="PointDOM" width="72" /></p>
 <h1 align="center">PointDOM</h1>
-<p align="center">Point at a page. Describe a change. Let your coding agent edit the source.</p>
+<p align="center">Browser annotations. Your coding client.</p>
+<p align="center"><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
 <p align="center">
-  <strong>English</strong> · <a href="README.zh-CN.md" lang="zh-CN">简体中文</a>
+<a href="https://github.com/itscyrus-dev/PointDOM/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/itscyrus-dev/PointDOM/actions/workflows/ci.yml/badge.svg" /></a>
+<a href="https://github.com/itscyrus-dev/PointDOM/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/itscyrus-dev/PointDOM" /></a>
+<img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8D8" />
+<img alt="Rust" src="https://img.shields.io/badge/Rust-2024-DEA584" />
+<img alt="HeroUI 3" src="https://img.shields.io/badge/HeroUI-3-18181B" />
+<a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-green" /></a>
 </p>
-<p align="center">
-  <a href="docs/README.md">Documentation</a> ·
-  <a href="https://github.com/itscyrus-dev/PointDOM/releases">Releases</a> ·
-  <a href="https://github.com/itscyrus-dev/PointDOM/issues">Issues</a> ·
-  <a href="LICENSE">MIT License</a>
-</p>
 
-PointDOM sends browser change requests to a local coding CLI or your coding client through MCP listening. Select an element, describe the change and submit. Follow actual execution records and reported results in the panel.
+PointDOM turns browser annotations into tasks for your MCP coding client. Select one
+or more elements, describe the change and follow actual progress in the Chrome side
+panel or desktop task list. Your client owns source edits, accounts and permissions.
 
-## Quick start
+## Install
 
-1. Install `pointdom-extension.zip` from a release: enable Developer mode at `chrome://extensions` and drag in the ZIP.
-2. Open extension settings. Copy the local-service installation command and run it in your terminal; pairing completes automatically.
-3. Install and sign in to a supported CLI, or configure your client using **Settings → Copy MCP configuration**.
-4. In your source directory run `pdo link --origin http://localhost:3000`, replacing the URL with your actual development origin.
-5. Open that page, enable page access in PointDOM, choose an executor, select elements and submit. Execution records and results appear in the annotation card.
+Download the installer and Chrome extension ZIP from [Releases](https://github.com/itscyrus-dev/PointDOM/releases/latest).
 
-### Install with curl (macOS)
+| Platform    | Download       | Architecture       |
+| ----------- | -------------- | ------------------ |
+| macOS 12+   | DMG            | Apple Silicon only |
+| Windows 10+ | Setup EXE      | x64                |
+| Linux       | DEB / AppImage | x64, WebKitGTK 4.1 |
 
-Run this command to install the latest release and start the local service:
+Installers are unsigned; macOS builds are not notarized. Intel Macs are not supported.
+For upgrades from 0.5, quit the old service before starting 0.6. Projects, pairing and
+history are preserved with a private backup; interrupted tasks are never replayed.
+
+## Use
+
+1. Open PointDOM. Extract the extension ZIP, enable Developer mode at `chrome://extensions`, and choose **Load unpacked**. Approve the Chrome connection in the app.
+2. Start your development server. On macOS, open the side panel and choose **Bind project**; confirm its verified source folder. Windows/Linux use **Settings → Advanced** to add the folder and address manually. Grant only the linked page's Chrome permission.
+3. Configure your client from **Clients**. Connect its universal MCP entry and bind the exact project. Generic MCP clients receive tasks while listening; explicitly authorized Codex desktop conversations can receive notifications on macOS.
+4. Select page elements, add an overall request or element notes, choose the MCP recipient and submit. Inspect progress, reports and cancellation from the task list.
+
+The app uses Tauri 2, Rust, React and HeroUI 3. Installed builds contain no Electron
+or Node runtime and never launch model CLIs. Client reports are not independent
+verification. Automatic source discovery and Codex desktop notifications are currently
+macOS-only; generic MCP listening works on all three platforms.
+
+## Develop
+
+Install [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/), the Rust toolchain
+in `rust-toolchain.toml`, Node 24 and the pinned pnpm version.
 
 ```sh
-curl -fsSL https://github.com/itscyrus-dev/PointDOM/releases/latest/download/install.sh | sh
+pnpm install --frozen-lockfile
+pnpm desktop:dev
+# Build the native installer for your platform:
+pnpm desktop:pack
 ```
 
-Then run `~/.local/bin/pdo setup` to open the extension setup guide. After loading the extension, copy and run the installation command from its settings to authorize automatic pairing.
+Builds do not replace installed apps or running services. See [Contributing](CONTRIBUTING.md)
+for checks and isolated fixtures, and [Release procedure](docs/RELEASING.md) for packaging.
 
-## Supported tools
-
-[Codex](docs/agents/CODEX.md) · [Claude Code](docs/agents/CLAUDE_CODE.md) · [OpenCode](docs/agents/OPENCODE.md) · [Trae](docs/agents/TRAE.md)
-
-Install and sign in to a CLI, then select it beside Submit. The menu shows detected tools only; use Check again after installation. Your selection is shared across projects. Configure your account, model and permissions in that CLI.
-
-Prefer an existing client conversation? Choose **MCP listening**, send **Copy watch instruction** to that conversation once, then select its connection. While the agent keeps waiting, browser submissions are claimed, executed and reported without another message per task. New work requires a real pending wait or an already-running assigned task. If the host ends the turn or disconnects, monitoring stops; MCP cannot wake an idle client. See [MCP listening](docs/MCP.md).
-
-Tasks execute in order within each project. You can stop a task; a service restart does not replay unfinished work. Inspect partial changes before resubmitting a failed task.
-
-## Projects and updates
-
-Link each new source directory with `pdo link --origin URL`; no per-project agent configuration is needed. Start your development server before opening the linked page.
-
-Release installation requires Chrome 120+ and Node.js 24 (the installer supplies a runtime when needed). macOS is the locally verified platform; Windows installation and CLI path handling still require native Windows verification. `pdo upgrade` updates the local service; ZIP-installed extensions need manual updates. This README describes the working tree, not necessarily the latest published release.
-
-## Documentation and contributing
-
-[Installation](docs/INSTALL_AGENT.md) · [CLI integration](docs/CLI.md) · [MCP listening](docs/MCP.md) · [Verification](docs/VERIFICATION.md) · [Development](docs/DEVELOPMENT.md) · [Design](DESIGN.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
-
-Development requires Node.js 24 and the pnpm version pinned in package.json. Run `pnpm check`, `pnpm test:e2e` and `pnpm format:check`. Tests use isolated CLI fixtures, native stdio MCP clients and temporary projects, never paid models or real agent conversations.
-
-## License
-
-[MIT](LICENSE). Release packages include third-party notices. See [Changelog](CHANGELOG.md).
+[Desktop setup and architecture](docs/DESKTOP.md) · [MCP protocol](docs/MCP.md) · [Security](SECURITY.md) · [MIT license](LICENSE)
