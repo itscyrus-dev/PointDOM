@@ -1,14 +1,14 @@
-/* finesse · register=product · shell=native-utility · palette=neutral+lime-actions · SOUL=3 SPECTACLE=1 DENSITY=7 */
+/* finesse · register=product · shell=native-utility · palette=radix-gray+blue · SOUL=3 SPECTACLE=1 DENSITY=7 */
 :root {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
   font-size: 13px;
   color-scheme: dark;
-  --page: #141516;
-  --surface: #202224;
-  --input: #2b2e31;
-  --edge: #ffffff0c;
-  --text: #eeeff0;
-  --muted: #969ba2;
+  --page: var(--ui-page);
+  --surface: var(--ui-card);
+  --input: var(--ui-control);
+  --edge: var(--ui-edge);
+  --text: var(--ui-text);
+  --muted: var(--ui-muted);
   --accent: var(--ui-accent);
   color: var(--text);
   background: var(--page);
@@ -17,10 +17,10 @@
   color-scheme: light;
   --page: var(--ui-page);
   --surface: var(--ui-card);
-  --input: var(--ui-completed);
+  --input: var(--ui-control);
   --edge: var(--ui-edge);
-  --text: #282b30;
-  --muted: #697078;
+  --text: var(--ui-text);
+  --muted: var(--ui-muted);
   --accent: var(--ui-accent);
 }
 * {
@@ -98,7 +98,7 @@ button:disabled {
 }
 .button--primary {
   background: var(--accent);
-  color: #172409;
+  color: var(--ui-primary-ink);
 }
 .button--secondary {
   background: var(--input);
@@ -226,13 +226,14 @@ button:disabled {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #bb8362;
+  background: var(--ui-warning);
 }
 .connection.online:before {
-  background: #a8c77c;
+  background: var(--ui-online);
 }
 .summary-grid {
   display: grid;
+  padding-inline: 14px;
   margin-bottom: 16px;
   border: 1px solid var(--edge);
   border-radius: 14px;
@@ -240,7 +241,7 @@ button:disabled {
   background: var(--surface);
 }
 .metric {
-  padding: 9px 28px 9px 14px;
+  padding: 9px 14px 9px 0;
   min-height: 38px;
   border: 0;
   border-radius: 0;
@@ -475,13 +476,13 @@ button:disabled {
   background: color-mix(in srgb, var(--accent) 5%, transparent);
 }
 .status-completed {
-  color: #709982;
-  background: #6fbd950c;
+  color: var(--ui-completed-ink);
+  background: var(--ui-completed);
 }
 .status-failed,
 .status-interrupted {
-  color: #c58d75;
-  background: #d48c6c0c;
+  color: var(--ui-error);
+  background: var(--ui-error-soft);
 }
 .task-detail {
   padding: 16px;
@@ -644,7 +645,7 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 .notice.error {
-  color: #c58d75;
+  color: var(--ui-error);
 }
 .notice .button {
   margin-left: auto;
@@ -1294,46 +1295,67 @@ h3 {
   transform: rotate(180deg);
 }
 
-/* Shared lime controls retain their hue through hover and press. */
-.button--primary {
-  --button-bg: var(--accent);
-  --button-fg: var(--ui-accent-ink);
-  --button-bg-hover: var(--ui-accent-hover);
-  --button-bg-pressed: var(--ui-accent-pressed);
-  color: var(--ui-accent-ink);
+/* Shared Radix interaction roles, independent of appearance. */
+:root .button:where(:not(.task-card)) {
+  --button-bg: var(--ui-control);
+  --button-bg-hover: var(--ui-control-hover);
+  --button-bg-pressed: var(--ui-control-pressed);
+  --button-fg: var(--ui-control-ink);
+  background: var(--button-bg);
+  color: var(--button-fg);
+  border-color: transparent;
+}
+:root .button--tertiary {
+  --button-bg: transparent;
+  --button-fg: var(--ui-muted);
+}
+:root .button--primary {
+  --button-bg: var(--ui-primary);
+  --button-bg-hover: var(--ui-primary-hover);
+  --button-bg-pressed: var(--ui-primary-pressed);
+  --button-fg: var(--ui-primary-ink);
+}
+@media (hover: hover) {
+  :root .button:not(.task-card):not(:disabled):where(:hover, [data-hovered='true']) {
+    background: var(--button-bg-hover);
+  }
+  :root .button--tertiary:not(:disabled):where(:hover, [data-hovered='true']) {
+    color: var(--ui-text);
+  }
+}
+:root .button:not(.task-card):not(:disabled):where(:active, [data-pressed='true']) {
+  background: var(--button-bg-pressed);
+}
+:root .button:disabled {
+  --button-bg: var(--ui-control);
+  --button-fg: var(--ui-disabled-ink);
+  background: var(--button-bg);
+  color: var(--button-fg);
+  opacity: 1;
 }
 .app-tab[data-selected='true'] {
-  color: var(--ui-selection-ink);
+  color: var(--ui-navigation-ink);
   background: var(--ui-navigation);
 }
-.project-filters .button[aria-pressed='true'],
-.filter-controls .button[aria-pressed='true'] {
+:root :is(.project-filters, .filter-controls) .button {
+  background: var(--button-bg);
+  color: var(--button-fg);
+  --button-bg: transparent;
+  --button-bg-hover: transparent;
+  --button-bg-pressed: transparent;
+  --button-fg: var(--ui-muted);
+}
+:root :is(.project-filters, .filter-controls) .button[aria-pressed='true'] {
+  background: var(--button-bg);
+  color: var(--button-fg);
   --button-bg: var(--ui-selection);
   --button-bg-hover: var(--ui-selection);
   --button-bg-pressed: var(--ui-selection);
-  color: var(--ui-selection-ink);
-  background: var(--ui-selection);
+  --button-fg: var(--ui-selection-ink);
 }
-.project-filters .button:not([aria-pressed='true']),
-.filter-controls .button:not([aria-pressed='true']) {
-  --button-bg-hover: transparent;
-  --button-bg-pressed: transparent;
-}
-@media (hover: hover) {
-  .button--primary:not(:disabled):hover,
-  .button--primary[data-hovered='true']:not(:disabled) {
-    background: var(--button-bg-hover);
-  }
-  .button--secondary:not(:disabled):hover,
-  .button--secondary[data-hovered='true']:not(:disabled) {
-    background: var(--ui-control-hover);
-  }
-}
-.button--primary:not(:disabled):active,
-.button--primary[data-pressed='true']:not(:disabled) {
-  background: var(--button-bg-pressed);
-}
-.status-completed {
+.status-completed,
+.version-badge,
+.status:not([class*='status-']) {
   color: var(--ui-completed-ink);
   background: var(--ui-completed);
 }
@@ -1341,94 +1363,31 @@ h3 {
   color: var(--ui-running-ink);
   background: var(--ui-running);
 }
+.status-failed,
+.status-interrupted,
+.notice.error {
+  color: var(--ui-error);
+  background: var(--ui-error-soft);
+}
 .connection.online:before {
   background: var(--ui-online);
 }
-:root[data-theme='light'] .task-card[data-status='running']:before {
-  background-image: linear-gradient(
-    110deg,
-    transparent 20%,
-    color-mix(in srgb, var(--accent) 3.5%, transparent) 50%,
-    transparent 80%
-  );
+.client-avatar {
+  background: var(--ui-control);
+  color: var(--ui-muted);
 }
-
-.button--primary:disabled {
-  background: var(--input);
-  color: var(--muted);
-  opacity: 1;
-}
-
-:root[data-theme='light'] :is(.card, .task-card, .summary-grid, .notice) {
+:root :is(.card, .task-card, .summary-grid, .notice) {
   background: var(--ui-card);
   border-color: transparent;
   box-shadow: none;
 }
-:root[data-theme='light'] .version-badge,
-:root[data-theme='light'] .status:not([class*='status-']) {
-  background: var(--ui-completed);
-  color: var(--ui-completed-ink);
-}
 
-:root[data-theme='light'] .button {
-  --button-bg: var(--ui-card);
-  --button-bg-hover: var(--ui-card);
-  --button-bg-pressed: var(--ui-card);
-  background: var(--ui-card);
-  border-color: transparent;
-}
-:root[data-theme='light'] .button--primary {
-  color: var(--ui-accent-ink);
-}
-:root[data-theme='light'] .button:disabled {
-  background: var(--ui-card);
-  color: var(--ui-completed-ink);
-  opacity: 1;
-}
-:root[data-theme='light'] :is(.project-filters, .filter-controls) .button {
-  --button-bg: transparent;
+:root .button.about-link {
   --button-bg-hover: transparent;
   --button-bg-pressed: transparent;
-  background: transparent;
-}
-:root[data-theme='light']
-  :is(.project-filters, .filter-controls)
-  .button:where(:hover, [data-hovered='true'], :active, [data-pressed='true']),
-:root[data-theme='light'] .app-tab[data-hovered='true'] {
-  background: transparent;
 }
 
-:root[data-theme='light'] :is(.project-filters, .filter-controls) .button[aria-pressed='true'] {
-  --button-bg: var(--ui-selection);
-  --button-bg-hover: var(--ui-selection);
-  --button-bg-pressed: var(--ui-selection);
-  background: var(--ui-selection);
-}
-
-:root[data-theme='light'] .app-tab[data-selected='true'] {
-  background: var(--ui-navigation);
-}
-:root[data-theme='light'] .client-avatar {
-  background: var(--ui-completed);
-}
-
-:root[data-theme='light'] :is(.card, .notice) .button {
-  --button-bg: var(--ui-completed);
-  --button-bg-hover: var(--ui-completed);
-  --button-bg-pressed: var(--ui-completed);
-  --button-fg: var(--ui-completed-ink);
-  background: var(--ui-completed);
-  color: var(--ui-completed-ink);
-}
-
-:root[data-theme='light']
-  :is(.card, .notice)
-  .button:not(:disabled):not([aria-disabled='true']):not([data-pending='true']):where(
-    :hover,
-    [data-hovered='true'],
-    :active,
-    [data-pressed='true']
-  ) {
-  --button-fg: var(--text);
-  color: var(--text);
+.summary-grid .metric:not(:last-child),
+:root .button.about-link:not(:last-child) {
+  border-bottom: 1px solid var(--edge);
 }

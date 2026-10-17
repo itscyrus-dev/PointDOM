@@ -15,35 +15,41 @@ actual actions and states, not implementation previews or fictional progress.
 Use React, TypeScript and official HeroUI 3 controls. Keep Chrome's native side panel.
 No second dialog, focus trap, dropdown keyboard system or marketing-style homepage.
 
-| Role        | Dark     | Light   |
-| ----------- | -------- | ------- |
-| Page        | #141516  | #FFFFFF |
-| Card        | #202224  | #F8F8F8 |
-| Input       | #2B2E31  | #EEEEEE |
-| Text        | #EEEFF0  | #282B30 |
-| Secondary   | #969BA2  | #697078 |
-| Card border | white 6% | none    |
+App and extension use the official `@radix-ui/colors` 3.0.0 Gray and Blue scales,
+including their dark variants. Semantic roles live in `src/extension/ui-palette.ts`;
+both renderers consume the same generated CSS variables. Do not add local hex overrides.
+Follow [Radix scale roles](https://www.radix-ui.com/colors/docs/palette-composition/understanding-the-scale).
+
+| Role                            | Light                         | Dark                               |
+| ------------------------------- | ----------------------------- | ---------------------------------- |
+| Page / card                     | Gray 1 / 2                    | Gray Dark 1 / 2                    |
+| Control / hover / pressed       | Gray 3 / 4 / 5                | Gray Dark 3 / 4 / 5                |
+| Separator / input border        | Gray 4 / 7                    | Gray Dark 4 / 7                    |
+| Body / secondary text           | Gray 12 / 11                  | Gray Dark 12 / 11                  |
+| Disabled text                   | Gray 9                        | Gray Dark 9                        |
+| Selected main navigation        | Gray 2; Blue 9 label and icon | Gray Dark 3; Blue 9 label and icon |
+| Selected filters                | Gray 3 + Gray 12              | Gray Dark 3 + Gray Dark 12         |
+| Running badge                   | Blue 3 + Blue 12              | Blue Dark 3 + Blue Dark 12         |
+| Primary / hover / pressed       | Blue 11 / 12 / 12             | Blue Dark 11 / 12 / 12             |
+| Primary text                    | Gray 1                        | Blue Dark 1                        |
+| Completed / paired badge        | Gray 3 + Gray 11              | Gray Dark 3 + Gray Dark 11         |
+| Enabled switch / picker outline | Blue 9                        | Blue Dark 9                        |
+
+Primary fills use step 11 so normal-size labels meet 4.5:1 contrast. Neutral controls
+use step 12 labels; quiet text actions use step 11 and step 12 on hover. Disabled
+controls use step 9 and remain distinguishable from enabled actions. Unselected tabs
+stay transparent on hover and press; selected tabs retain their selection surface.
+Errors and warnings use Radix Red and Amber semantic roles rather than the blue accent.
+Ordinary cards are borderless in both appearances; use surface contrast for grouping.
+Use Gray 4 / Gray Dark 4 for subtle internal separators between card items, including
+appearance settings, task metrics and About links. Inset separators to the content
+edges and omit them after the final item. Retain input boundaries and visible keyboard focus. Keep project
+actions free of hover tooltips. About-page resource links remain transparent on hover
+and press; only their text color changes, with keyboard focus retained. Logo artwork retains its dark tile and white selection frame;
+its center point uses Blue 9 (#0090FF), with a subtle cyan-blue highlight. Retain persisted theme identifiers without migration.
 
 Desktop: 16px cards, 9px controls, 13px body, 16px page headings. Extension:
 14px cards, 9px controls, 13px body, outer spacing 16px.
-App and extension share semantic tokens from `src/shared/ui-theme.json`.
-The theme accent is #CFF692 in both appearances. Use it for enabled switches,
-selected navigation and filter tabs, the active element-picking glyph and execution
-indicators. Selected tabs use #15181B labels and keep the same fill on hover and
-press. Unselected tabs stay transparent, including on hover and press.
-Dark-mode primary actions use #CFF692 with #15181B labels; their fill stays fixed
-through hover and press. Existing logo artwork is independent of the UI palette.
-
-In light mode, the page is #FFFFFF. Cards and standalone buttons use #F8F8F8 without
-visible borders. Buttons inside cards and pairing approval notices use #EEEEEE with
-#B8B8B8 labels. Hover and press only deepen labels and inherited icons to #282B30;
-moving away restores #B8B8B8. Disabled buttons retain their resting label color.
-Theme switch tracks and input surfaces use #EEEEEE; the selected theme retains its
-white circular surface. Client icon blocks and neutral badges use #EEEEEE; badge labels use #B8B8B8.
-Project actions have no hover tooltips. Completed badges remain neutral in both
-appearances; running badges use a restrained green tint. Preserve semantic error
-and warning colors, layout and brand artwork. Check interactive selection and
-running-state label contrast in both appearances.
 
 Thin neutral edges and restrained overlay shadows; no stacked rings, heavy shadows
 or geometry changes on hover. Controls have visible keyboard focus and labels.
@@ -121,7 +127,8 @@ completion never navigates. Support keyboard tab navigation and reduced motion.
   never demand a restart after every configuration click. Explicit Codex MCP configuration and universal MCP configuration for other
   hosts. Distinguish configured, connected, listening, wakeable and running states.
 - Settings: extension setup, pairing and Appearance. Appearance groups the native
-  “Show menu bar icon” switch, theme and language. Menu-bar visibility persists across
+  “Show menu bar icon” switch, theme and language. Use the official HeroUI large switch
+  size for a clearly visible track and thumb. Menu-bar visibility persists across
   restarts and does not change Dock visibility. No separate App settings card.
   Persist language in native preferences, migrating the existing renderer choice
   only when no native language is saved. Switching language updates both windows,
@@ -137,11 +144,11 @@ main window. Right-click provides Open, Tasks, Projects, Clients, Settings, Abou
 and Quit, separated into navigation and lifecycle groups. The menu opens the requested
 main-window tab and dismisses the task panel. Use a 2x antialiased fixed-color menu-bar icon:
 a dark rounded tile, white curved selection brackets and a white idle center point.
-During execution only the center becomes #CFF692 and breathes smoothly over a 2.4-second
+During execution only the center becomes Radix Blue 9 (#0090FF) and breathes smoothly over a 2.4-second
 cycle at 25fps; the tile and white brackets stay fixed. Reduced motion keeps the
-lime point static. Disable template tinting both when creating and updating the icon,
-so system appearance never reverses the dark tile or removes the green point.
-The app icon shares the selection frame and lime point, with
+blue activity point static. Disable template tinting both when creating and updating the icon,
+so system appearance never reverses the dark tile or removes the blue activity point.
+The app icon shares the selection frame and blue point, with
 a restrained dark surface gradient and subtle edge highlight. The task panel uses a transparent native window
 and transparent document roots behind its clipped 16px rounded surface; CSS rounding
 alone must not leave opaque square corners. macOS transparency uses Tauri's
@@ -260,7 +267,7 @@ Language uses an unfilled translation-icon trigger; no text pills for current va
 names and a fixed leading checkmark column, backed by an extensible list of supported
 locales. Menu hover has no fill, outline or shadow; keyboard focus uses a contained
 inset outline. Keep popup padding and shadows restrained without clipping item focus.
-Preserve keyboard activation and 44px coarse-pointer targets. Unselected navigation stays transparent on hover in both appearances; selected tabs retain #CFF692. Keyboard focus remains visible.
+Preserve keyboard activation and 44px coarse-pointer targets. Unselected navigation stays transparent on hover in both appearances; selected main navigation retains its neutral surface and bright Blue 9 labels and icons. Keyboard focus remains visible.
 
 Window close hides the app while its local service continues running. The menu bar
 provides task access and Quit. Running animations respect system reduced motion.

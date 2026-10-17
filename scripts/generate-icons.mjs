@@ -7,10 +7,9 @@ const folder = 'src/extension/icons';
 await mkdir(folder, { recursive: true });
 const svg = logoSvg();
 const formatted = await format(svg, {
-  ...(await resolveConfig(`${folder}/pointdom.svg`)),
+  ...(await resolveConfig('docs/assets/pointdom.svg')),
   parser: 'html',
 });
-await writeFile(`${folder}/pointdom.svg`, formatted);
 await writeFile('docs/assets/pointdom.svg', formatted);
 const browser = await chromium.launch({ headless: true });
 try {

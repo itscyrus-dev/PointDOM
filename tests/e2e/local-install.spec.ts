@@ -57,6 +57,7 @@ test('unbound local page shows a prominent binding action in the panel without p
     await expect(binding).toBeVisible();
     await expect(binding).toBeEnabled();
     await expectPrimaryAction(binding);
+    await expect(panel.locator('.brand-point')).toHaveCSS('fill', 'rgb(0, 144, 255)');
     await expect(panel.locator('#connection-view')).toBeHidden();
     await panel.getByRole('button', { name: '打开设置', exact: true }).click();
     await expect(panel.locator('.site-access-settings')).toBeHidden();
@@ -65,14 +66,15 @@ test('unbound local page shows a prominent binding action in the panel without p
     await panel.getByRole('radio', { name: '浅色', exact: true }).click();
     await expect(binding).toBeVisible();
     await expectPrimaryAction(binding);
+    await expect(panel.locator('.brand-point')).toHaveCSS('fill', 'rgb(0, 144, 255)');
     await expect(panel.locator('.project-binding')).toHaveCSS(
       'border-top-color',
       'rgba(0, 0, 0, 0)',
     );
     await panel.screenshot({ path: test.info().outputPath('local-binding-light.png') });
     await panel.getByRole('radio', { name: '深色', exact: true }).click();
-    await expect(binding).toHaveCSS('background-color', 'rgb(207, 246, 146)');
-    await expect(binding).toHaveCSS('color', 'rgb(21, 24, 27)');
+    await expect(binding).toHaveCSS('background-color', 'rgb(112, 184, 255)');
+    await expect(binding).toHaveCSS('color', 'rgb(13, 21, 32)');
     await expect(panel.locator('.fixed-composer')).toHaveCount(0);
     await panel.screenshot({ path: test.info().outputPath('local-project-binding.png') });
     await binding.click();

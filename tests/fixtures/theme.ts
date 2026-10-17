@@ -9,20 +9,21 @@ export async function expectPrimaryAction(button: Locator) {
         element.getAttribute('data-mode') === 'light' ||
         element.getAttribute('data-theme') === 'light',
     );
-  const fill = light ? 'rgb(238, 238, 238)' : 'rgb(207, 246, 146)';
-  const ink = light ? 'rgb(184, 184, 184)' : 'rgb(21, 24, 27)';
+  const fill = light ? 'rgb(13, 116, 206)' : 'rgb(112, 184, 255)';
+  const hover = light ? 'rgb(17, 50, 100)' : 'rgb(194, 230, 255)';
+  const ink = light ? 'rgb(252, 252, 252)' : 'rgb(13, 21, 32)';
   await page.mouse.move(0, 0);
   await expect(button).toHaveCSS('background-color', fill);
   await expect(button).toHaveCSS('color', ink);
   await button.hover();
-  await expect(button).toHaveCSS('background-color', fill);
-  await expect(button).toHaveCSS('color', light ? 'rgb(40, 43, 48)' : ink);
+  await expect(button).toHaveCSS('background-color', hover);
+  await expect(button).toHaveCSS('color', ink);
   await expect(button).toBeEnabled();
-  await expect(button).toHaveCSS('--button-bg-pressed', light ? '#eeeeee' : '#cff692');
+  await expect(button).toHaveCSS('--button-bg-pressed', light ? '#113264' : '#c2e6ff');
   await page.mouse.down();
   try {
-    await expect(button).toHaveCSS('background-color', fill);
-    await expect(button).toHaveCSS('color', light ? 'rgb(40, 43, 48)' : ink);
+    await expect(button).toHaveCSS('background-color', hover);
+    await expect(button).toHaveCSS('color', ink);
   } finally {
     // Release outside even after a failed assertion; never submit a fixture action.
     await page.mouse.move(0, 0);

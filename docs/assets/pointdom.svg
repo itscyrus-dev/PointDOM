@@ -10,8 +10,8 @@
       <stop offset="1" stop-color="#c8cdd1" />
     </linearGradient>
     <radialGradient id="point" cx="0.35" cy="0.25" r="0.8">
-      <stop stop-color="#d3ff7a" />
-      <stop offset="1" stop-color="#a8ff00" />
+      <stop stop-color="#00b3ff" />
+      <stop offset="1" stop-color="#0090ff" />
     </radialGradient>
   </defs>
   <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#surface)" />

@@ -148,13 +148,13 @@ test('native Rust service and MCP drive extension annotations, progress and exac
     await panel.locator('#pick').click();
     const picker = panel.locator('#pick');
     for (const [appearance, background] of [
-      ['浅色', 'rgb(238, 238, 238)'],
-      ['深色', 'rgb(52, 56, 60)'],
+      ['浅色', 'rgb(232, 232, 232)'],
+      ['深色', 'rgb(42, 42, 42)'],
     ]) {
       await panel.getByRole('radio', { name: appearance, exact: true }).click();
       await expect(picker).toHaveAttribute('aria-pressed', 'true');
       await expect(picker).toHaveCSS('background-color', background!);
-      await expect(picker.locator('.picker-indicator')).toHaveCSS('color', 'rgb(207, 246, 146)');
+      await expect(picker.locator('.picker-indicator')).toHaveCSS('color', 'rgb(0, 144, 255)');
       await picker.hover();
       await expect(picker).toHaveCSS('background-color', background!);
       await panel.mouse.move(0, 0);
@@ -162,9 +162,9 @@ test('native Rust service and MCP drive extension annotations, progress and exac
     await page.locator('#heading').click();
     const submit = panel.locator('#submit');
     await expect(submit).toBeDisabled();
-    await expect(submit).toHaveCSS('background-color', 'rgb(34, 38, 42)');
+    await expect(submit).toHaveCSS('background-color', 'rgb(34, 34, 34)');
     await submit.hover({ force: true });
-    await expect(submit).toHaveCSS('background-color', 'rgb(34, 38, 42)');
+    await expect(submit).toHaveCSS('background-color', 'rgb(34, 34, 34)');
     await panel.getByLabel('Original heading的修改描述').fill('Rename this heading');
     await panel.getByRole('radio', { name: '浅色', exact: true }).click();
     await expectPrimaryAction(panel.locator('#submit'));
@@ -229,56 +229,56 @@ test('native Rust service and MCP drive extension annotations, progress and exac
       return [css.color, css.backgroundColor];
     });
     await panel.getByRole('radio', { name: '浅色', exact: true }).click();
-    await expect(completedStatus).toHaveCSS('color', 'rgb(184, 184, 184)');
-    await expect(completedStatus).toHaveCSS('background-color', 'rgb(238, 238, 238)');
-    await expect(panel.locator('html')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(completedStatus).toHaveCSS('color', 'rgb(100, 100, 100)');
+    await expect(completedStatus).toHaveCSS('background-color', 'rgb(240, 240, 240)');
+    await expect(panel.locator('html')).toHaveCSS('background-color', 'rgb(252, 252, 252)');
     for (const card of [panel.locator('.job'), panel.locator('.compose-box')]) {
-      await expect(card).toHaveCSS('background-color', 'rgb(248, 248, 248)');
+      await expect(card).toHaveCSS('background-color', 'rgb(249, 249, 249)');
       await expect(card).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
     }
-    await expect(panel.locator('#tab-all')).toHaveCSS('background-color', 'rgb(207, 246, 146)');
-    await expect(panel.locator('#tab-all')).toHaveCSS('color', 'rgb(21, 24, 27)');
-    await expectTabSurface(panel.locator('#tab-all'), 'rgb(207, 246, 146)');
+    await expect(panel.locator('#tab-all')).toHaveCSS('background-color', 'rgb(240, 240, 240)');
+    await expect(panel.locator('#tab-all')).toHaveCSS('color', 'rgb(32, 32, 32)');
+    await expectTabSurface(panel.locator('#tab-all'), 'rgb(240, 240, 240)');
     await expectTabSurface(panel.locator('#tab-active'), 'rgba(0, 0, 0, 0)');
     await expect(panel.locator('.theme-mode-switch')).toHaveCSS(
       'background-color',
-      'rgb(238, 238, 238)',
+      'rgb(240, 240, 240)',
     );
     const executor = panel.locator('#execution-settings');
-    await expect(executor).toHaveCSS('color', 'rgb(184, 184, 184)');
+    await expect(executor).toHaveCSS('color', 'rgb(100, 100, 100)');
     await panel.mouse.move(0, 0);
-    await expect(executor).toHaveCSS('background-color', 'rgb(238, 238, 238)');
+    await expect(executor).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await executor.hover();
-    await expect(executor).toHaveCSS('color', 'rgb(40, 43, 48)');
-    await expect(executor).toHaveCSS('background-color', 'rgb(238, 238, 238)');
+    await expect(executor).toHaveCSS('color', 'rgb(32, 32, 32)');
+    await expect(executor).toHaveCSS('background-color', 'rgb(232, 232, 232)');
     await panel.mouse.down();
     try {
-      await expect(executor).toHaveCSS('background-color', 'rgb(238, 238, 238)');
+      await expect(executor).toHaveCSS('background-color', 'rgb(224, 224, 224)');
     } finally {
       await panel.mouse.up();
     }
     await expect(panel.locator('.execution-popover')).toBeVisible();
-    await expect(executor).toHaveCSS('background-color', 'rgb(238, 238, 238)');
+    await expect(executor).toHaveCSS('background-color', 'rgb(224, 224, 224)');
     await panel.keyboard.press('Escape');
     await panel.locator('#connection-settings').click();
     await expect(panel.locator('#shortcut-pick')).toHaveCSS(
       'background-color',
-      'rgb(238, 238, 238)',
+      'rgb(240, 240, 240)',
     );
-    await expect(panel.locator('#shortcut-pick')).toHaveCSS('color', 'rgb(184, 184, 184)');
+    await expect(panel.locator('#shortcut-pick')).toHaveCSS('color', 'rgb(100, 100, 100)');
     await expect(panel.locator('#shortcut-panel')).toHaveCSS(
       'background-color',
-      'rgb(238, 238, 238)',
+      'rgb(240, 240, 240)',
     );
-    await expect(panel.locator('#shortcut-panel')).toHaveCSS('color', 'rgb(184, 184, 184)');
+    await expect(panel.locator('#shortcut-panel')).toHaveCSS('color', 'rgb(100, 100, 100)');
     await expect(panel.locator('#pairing-status')).toHaveCSS(
       'background-color',
-      'rgb(238, 238, 238)',
+      'rgb(240, 240, 240)',
     );
-    await expect(panel.locator('#pairing-status')).toHaveCSS('color', 'rgb(184, 184, 184)');
+    await expect(panel.locator('#pairing-status')).toHaveCSS('color', 'rgb(100, 100, 100)');
     await panel.getByRole('button', { name: '返回批注', exact: true }).click();
 
-    await expect(panel.locator('#instruction')).toHaveCSS('background-color', 'rgb(247, 248, 250)');
+    await expect(panel.locator('#instruction')).toHaveCSS('background-color', 'rgb(240, 240, 240)');
     await panel.screenshot({
       path: test.info().outputPath('extension-tasks-light.png'),
       animations: 'disabled',
@@ -286,7 +286,10 @@ test('native Rust service and MCP drive extension annotations, progress and exac
     await panel.getByRole('radio', { name: '深色', exact: true }).click();
     await expect(completedStatus).toHaveCSS('color', darkStatus[0]!);
     await expect(completedStatus).toHaveCSS('background-color', darkStatus[1]!);
-    await expectTabSurface(panel.locator('#tab-all'), 'rgb(207, 246, 146)');
+    await expectTabSurface(panel.locator('#tab-all'), 'rgb(34, 34, 34)');
+    for (const card of [panel.locator('.job'), panel.locator('.compose-box')]) {
+      await expect(card).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
+    }
     await expectTabSurface(panel.locator('#tab-active'), 'rgba(0, 0, 0, 0)');
     await panel.screenshot({
       path: test.info().outputPath('extension-tasks-dark.png'),

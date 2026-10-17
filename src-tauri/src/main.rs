@@ -599,7 +599,7 @@ fn tray_image(frame: usize, active: bool, attention: bool) -> Image<'static> {
                     let badge = attention && (tx - 18.5).hypot(ty - 3.5) < 0.95;
                     let shade = ((ty - 0.75) / 20.5).clamp(0.0, 1.0);
                     let sample = if active && dot {
-                        [207, 246, 146]
+                        [0, 144, 255]
                     } else if bracket || dot || badge {
                         [255, 255, 255]
                     } else if tile_distance > 4.95 {
@@ -1083,11 +1083,11 @@ mod tests {
     }
 
     #[test]
-    fn running_point_is_lime_and_brackets_stay_white() {
+    fn running_point_is_blue_and_brackets_stay_white() {
         for frame in 0..60 {
             let image = tray_image(frame, true, false);
             let center = (22 * 44 + 22) * 4;
-            assert_eq!(&image.rgba()[center..center + 4], &[207, 246, 146, 255]);
+            assert_eq!(&image.rgba()[center..center + 4], &[0, 144, 255, 255]);
             let bracket = (10 * 44 + 15) * 4;
             assert_eq!(&image.rgba()[bracket..bracket + 4], &[255, 255, 255, 255]);
         }

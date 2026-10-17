@@ -1131,7 +1131,7 @@ function Desktop() {
                   <h2>{t('外观', 'Appearance')}</h2>
                   <Switch
                     className="menu-bar-setting"
-                    size="sm"
+                    size="lg"
                     isSelected={state?.appSettings.showMenuBarIcon ?? true}
                     isDisabled={busy || !state}
                     onChange={(visible: boolean) =>

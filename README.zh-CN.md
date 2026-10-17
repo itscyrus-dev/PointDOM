@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/assets/pointdom.svg" alt="PointDOM" width="72" /></p>
+<p align="center"><img src="docs/assets/pointdom.svg" alt="PointDOM 蓝色标志" width="72" /></p>
 <h1 align="center">PointDOM</h1>
 <p align="center">在网页指出问题，让你的代码客户端完成修改。</p>
 <p align="center"><a href="README.md">English</a> · <strong>简体中文</strong></p>

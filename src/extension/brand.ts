@@ -1,4 +1,4 @@
-import { brandAccent } from './ui-palette.js';
+export const logoAccent = '#0090ff';
 
 // One geometric mark for the panel, toolbar and extension management page.
 export const logoFrame = 'M7.5 13V9a1.5 1.5 0 0 1 1.5-1.5h4M19 24.5h4a1.5 1.5 0 0 0 1.5-1.5v-4';
@@ -15,7 +15,7 @@ export function logoSvg() {
       <stop stop-color="#ffffff"/><stop offset="1" stop-color="#c8cdd1"/>
     </linearGradient>
     <radialGradient id="point" cx="0.35" cy="0.25" r="0.8">
-      <stop stop-color="#d3ff7a"/><stop offset="1" stop-color="${brandAccent}"/>
+      <stop stop-color="#00b3ff"/><stop offset="1" stop-color="${logoAccent}"/>
     </radialGradient>
   </defs>
   <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#surface)"/>

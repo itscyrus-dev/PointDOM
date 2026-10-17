@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/assets/pointdom.svg" alt="PointDOM" width="72" /></p>
+<p align="center"><img src="docs/assets/pointdom.svg" alt="PointDOM blue logo" width="72" /></p>
 <h1 align="center">PointDOM</h1>
 <p align="center">Browser annotations. Your coding client.</p>
 <p align="center"><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>

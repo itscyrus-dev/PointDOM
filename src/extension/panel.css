@@ -1,28 +1,28 @@
-/* finesse · register=product · shell=native-utility · palette=neutral+lime-actions · SOUL=3 SPECTACLE=1 DENSITY=7 */
+/* finesse · register=product · shell=native-utility · palette=radix-gray+blue · SOUL=3 SPECTACLE=1 DENSITY=7 */
 :root {
   color-scheme: dark;
-  --bg: #111315;
-  --surface: #1a1d20;
-  --raised: #22262a;
-  --input: #22262a;
-  --ink: #f1f3f5;
-  --muted: #a3abb5;
-  --soft: #c6cbd1;
-  --border: #2b3035;
-  --border-strong: #3b4249;
-  --error: #ffb2a9;
-  --error-soft: #ffb2a90a;
-  --warning: #eed487;
+  --bg: var(--ui-page);
+  --surface: var(--ui-card);
+  --raised: var(--ui-control);
+  --input: var(--ui-control);
+  --ink: var(--ui-text);
+  --muted: var(--ui-muted);
+  --soft: var(--ui-text);
+  --border: var(--ui-edge);
+  --border-strong: var(--ui-edge-strong);
+  --error: var(--ui-error);
+  --error-soft: var(--ui-error-soft);
+  --warning: var(--ui-warning);
   --shadow: #080b10a6;
   --mask: #f1f2f3;
   --control-hover: var(--ui-control-hover);
   --control-pressed: var(--ui-control-pressed);
-  --activity-track: #3d532a;
-  --activity-tail: #608d24;
+  --activity-track: var(--ui-activity-track);
+  --activity-tail: var(--ui-activity-tail);
   --activity-body: var(--ui-accent);
-  --activity-head: #e4ffb5;
-  --activity-ink: #b6ef65;
-  --activity-soft: #26321d;
+  --activity-head: var(--ui-activity-head);
+  --activity-ink: var(--ui-accent);
+  --activity-soft: var(--ui-running);
   --activity-width: 1.5px;
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
   font-family: var(--font);
@@ -226,7 +226,8 @@ section,
   stroke-width: 2.5;
 }
 .brand-point {
-  fill: var(--brand-accent);
+  /* The brand point shares the Blue 9 accent in both appearances. */
+  fill: #0090ff;
   stroke: none;
 }
 .pill {
@@ -855,14 +856,14 @@ kbd {
   --field-placeholder: var(--muted);
   --field-border: var(--border-strong);
   --field-border-hover: var(--border-strong);
-  --field-border-focus: var(--success);
+  --field-border-focus: var(--ui-accent);
   --field-radius: var(--control-radius);
-  --focus: var(--success);
+  --focus: var(--ui-accent);
   --radius: var(--card-radius);
   --default: var(--raised);
   --default-foreground: var(--ink);
   --default-hover: var(--input);
-  --surface: #1a1d20;
+  --surface: var(--ui-card);
   --surface-secondary: var(--raised);
   --surface-tertiary: var(--input);
   --surface-quaternary: var(--input);
@@ -871,25 +872,25 @@ kbd {
   color-scheme: light;
   --bg: var(--ui-page);
   --surface: var(--ui-card);
-  --raised: var(--ui-completed);
-  --input: #f7f8fa;
-  --ink: #282b30;
-  --muted: #626a75;
-  --soft: #454e59;
+  --raised: var(--ui-control);
+  --input: var(--ui-control);
+  --ink: var(--ui-text);
+  --muted: var(--ui-muted);
+  --soft: var(--ui-text);
   --border: var(--ui-edge);
-  --border-strong: var(--ui-edge);
+  --border-strong: var(--ui-edge-strong);
   --control-hover: var(--ui-control-hover);
   --control-pressed: var(--ui-control-pressed);
-  --activity-track: #cfeaa5;
-  --activity-tail: var(--ui-accent);
+  --activity-track: var(--ui-activity-track);
+  --activity-tail: var(--ui-activity-tail);
   --activity-body: var(--ui-accent);
-  --activity-head: #547e00;
-  --activity-ink: var(--ui-accent-ink);
+  --activity-head: var(--ui-activity-head);
+  --activity-ink: var(--ui-accent);
   --activity-soft: var(--ui-running);
   --activity-width: 2px;
-  --error: #ad2835;
-  --error-soft: #bd23370a;
-  --warning: #795c00;
+  --error: var(--ui-error);
+  --error-soft: var(--ui-error-soft);
+  --warning: var(--ui-warning);
   --shadow: #22232814;
 }
 :root[data-mode='light']
@@ -903,7 +904,7 @@ kbd {
     .mcp-settings,
     .site-access-settings
   ) {
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   box-shadow: none;
 }
 :root[data-mode='light'] .selected-entry {
@@ -916,8 +917,8 @@ kbd {
   border-color: transparent;
 }
 :root[data-mode='light'] .approval {
-  background: #fbf8ee;
-  border-color: #e8dfc5;
+  background: var(--ui-warning-soft);
+  border-color: var(--ui-warning);
 }
 :root[data-mode='light'] #notice:not(:empty):not(.error) {
   background: transparent;
@@ -1201,9 +1202,6 @@ button[data-pending='true'] {
 .pd-select-popover [aria-selected='true'] {
   background: var(--accent-soft);
   color: var(--success);
-}
-:root[data-mode='light'] .execution-trigger {
-  --button-bg: var(--ui-selection);
 }
 .execution-trigger {
   flex: 0 1 auto;
@@ -1775,7 +1773,7 @@ button[data-pending='true'] {
 }
 :root[data-mode='light'] .primary:disabled {
   background: var(--input);
-  color: #93959d;
+  color: var(--ui-disabled-ink);
   border-color: transparent;
   opacity: 1;
 }
@@ -2229,31 +2227,69 @@ button[data-pending='true'] {
   min-width: 144px;
 }
 
-/* Shared lime controls retain their hue through hover and press. */
-.button--primary {
-  --button-bg: var(--accent);
-  --button-fg: var(--accent-ink);
-  --button-bg-hover: var(--ui-accent-hover);
-  --button-bg-pressed: var(--ui-accent-pressed);
+/* Shared Radix interaction roles, independent of appearance. */
+:root .button {
+  --button-bg: var(--ui-control);
+  --button-bg-hover: var(--ui-control-hover);
+  --button-bg-pressed: var(--ui-control-pressed);
+  --button-fg: var(--ui-control-ink);
+  background: var(--button-bg);
+  color: var(--button-fg);
+  border-color: transparent;
+}
+:root :is(.button--ghost, .button--outline) {
+  --button-bg: transparent;
+  --button-fg: var(--ui-muted);
+}
+:root .button--primary {
+  --button-bg: var(--ui-primary);
+  --button-bg-hover: var(--ui-primary-hover);
+  --button-bg-pressed: var(--ui-primary-pressed);
+  --button-fg: var(--ui-primary-ink);
+}
+@media (hover: hover) {
+  :root .button:not(:disabled):where(:hover, [data-hovered='true']) {
+    background: var(--button-bg-hover);
+  }
+  :root :is(.button--ghost, .button--outline):not(:disabled):where(:hover, [data-hovered='true']) {
+    color: var(--ui-text);
+  }
+}
+:root .button:not(:disabled):where(:active, [data-pressed='true']) {
+  background: var(--button-bg-pressed);
+}
+:root .button:disabled {
+  --button-bg: var(--ui-control);
+  --button-fg: var(--ui-disabled-ink);
+  background: var(--button-bg);
+  color: var(--button-fg);
+  opacity: 1;
 }
 :root .record-tabs .button {
+  background: var(--button-bg);
+  color: var(--button-fg);
+  --button-bg: transparent;
   --button-bg-hover: transparent;
   --button-bg-pressed: transparent;
+  --button-fg: var(--ui-muted);
 }
-.record-tabs button[aria-pressed='true'],
-.pd-select-popover [aria-selected='true'],
-.project-binding .binding-icon {
-  color: var(--ui-selection-ink);
-  background: var(--ui-selection);
-}
-:root .record-tabs button[aria-pressed='true'] {
+:root .record-tabs .button[aria-pressed='true'] {
+  background: var(--button-bg);
+  color: var(--button-fg);
+  --button-bg: var(--ui-selection);
   --button-bg-hover: var(--ui-selection);
   --button-bg-pressed: var(--ui-selection);
+  --button-fg: var(--ui-selection-ink);
 }
 .record-tabs button[aria-pressed='true'] span {
   color: inherit;
 }
-:root .job .pill.status-completed {
+.pd-select-popover [aria-selected='true'] {
+  color: var(--ui-selection-ink);
+  background: var(--ui-selection);
+}
+:root .job .pill.status-completed,
+.pill:not([class*='status-']) {
   color: var(--ui-completed-ink);
   background: var(--ui-completed);
 }
@@ -2262,97 +2298,29 @@ button[data-pending='true'] {
   color: var(--ui-running-ink);
   background: var(--ui-running);
 }
-
-/* Keep the picking surface neutral; the active stop glyph carries the brand color. */
 :root .button.pick-button[aria-pressed='true'] {
   --button-bg: var(--ui-control-hover);
   --button-bg-hover: var(--ui-control-hover);
   --button-bg-pressed: var(--ui-control-hover);
-  --button-fg: var(--ink);
-  background: var(--ui-control-hover);
-  border-color: var(--border-strong);
-  color: var(--ink);
+  --button-fg: var(--ui-text);
+  background: var(--button-bg);
+  color: var(--button-fg);
+  border-color: transparent;
 }
 .pick-button[aria-pressed='true'] .picker-indicator {
   color: var(--ui-accent);
 }
-
-:root[data-mode='light'] .card {
+:root .project-binding .binding-icon,
+kbd,
+.executor-badge {
+  background: var(--ui-control);
+  color: var(--ui-muted);
+}
+.theme-mode-switch {
+  background: var(--ui-control);
+}
+:root .card {
   background: var(--ui-card);
   border-color: transparent;
   box-shadow: none;
-}
-:root[data-mode='light'] kbd,
-:root[data-mode='light'] .pill:not([class*='status-']),
-:root[data-mode='light'] .executor-badge {
-  background: var(--ui-completed);
-  color: var(--ui-completed-ink);
-}
-
-:root[data-mode='light'] .button {
-  --button-bg: var(--ui-card);
-  --button-bg-hover: var(--ui-card);
-  --button-bg-pressed: var(--ui-card);
-  background: var(--ui-card);
-  border-color: transparent;
-}
-:root[data-mode='light'] .button--primary {
-  --button-fg: var(--ui-accent-ink);
-  color: var(--ui-accent-ink);
-}
-:root[data-mode='light'] .button:disabled {
-  background: var(--ui-card);
-  color: var(--ui-completed-ink);
-  opacity: 1;
-}
-:root[data-mode='light'] .pick-button[aria-pressed='true'] {
-  border-color: transparent;
-}
-:root[data-mode='light'] .record-tabs .button {
-  --button-bg: transparent;
-  --button-bg-hover: transparent;
-  --button-bg-pressed: transparent;
-  background: transparent;
-}
-:root[data-mode='light']
-  .record-tabs
-  .button:where(:hover, [data-hovered='true'], :active, [data-pressed='true']) {
-  background: transparent;
-}
-
-:root[data-mode='light'] .record-tabs .button[aria-pressed='true'] {
-  --button-bg: var(--ui-selection);
-  --button-bg-hover: var(--ui-selection);
-  --button-bg-pressed: var(--ui-selection);
-  background: var(--ui-selection);
-}
-
-:root[data-mode='light'] .card .button {
-  --button-bg: var(--ui-completed);
-  --button-bg-hover: var(--ui-completed);
-  --button-bg-pressed: var(--ui-completed);
-  --button-fg: var(--ui-completed-ink);
-  background: var(--ui-completed);
-  color: var(--ui-completed-ink);
-}
-
-:root[data-mode='light'] .theme-mode-switch {
-  background: var(--ui-completed);
-}
-
-:root[data-mode='light']
-  .card
-  .button:not(:disabled):not([aria-disabled='true']):not([data-pending='true']):where(
-    :hover,
-    [data-hovered='true'],
-    :active,
-    [data-pressed='true']
-  ) {
-  --button-fg: var(--ink);
-  color: var(--ink);
-}
-
-:root[data-mode='light'] .project-binding .binding-icon {
-  background: var(--ui-completed);
-  color: var(--ui-completed-ink);
 }

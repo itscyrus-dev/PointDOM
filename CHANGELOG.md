@@ -18,7 +18,8 @@ Notable changes to PointDOM. Download installers and checksums from
 
 - MCP is the sole task execution transport. Remove model CLI runners, managed model sessions and obsolete installers/guides.
 - Preserve existing project IDs, pairing, history and unknown stored fields, with a private migration backup. Interrupted tasks are never replayed.
-- Use neutral navigation/filter/completion surfaces; reserve fluorescent lime for primary actions, enabled switches and active execution.
+- Share official Radix Gray and Blue light/dark palettes across the app and extension, including a blue logo, neutral filter/completion surfaces and blue navigation and activity indicators.
+- Use borderless cards, subtle inset row separators, text-only About-link hover states and a larger menu-bar visibility switch.
 
 ### Fixed
 
@@ -132,7 +133,7 @@ Notable changes to PointDOM. Download installers and checksums from
 - Run `pdo upgrade` after tasks finish, reload PointDOM in Chrome, refresh project pages and reconnect MCP clients.
 - Older version-specific extension paths or aliases need a one-time load from the fixed folder via `pdo extension`. Version-specific MCP configurations need one regenerated entry from `pdo connect --json`.
 - Existing pairing, projects and task records are retained. New DOM context fields are optional for older records; reselect elements to capture the richer context. Existing MCP claims remain subject to their original session identity.
-- Chrome Web Store distribution is not included. Closed shadow trees, iframe interiors and canvas internals do not have supported precise selection. Live compatibility with every agent account/version is not implied by fixture tests; see [verification](docs/VERIFICATION.md).
+- Chrome Web Store distribution is not included. Closed shadow trees, iframe interiors and canvas internals do not have supported precise selection. Live compatibility with every agent account/version is not implied by fixture tests; see [verification](https://github.com/itscyrus-dev/PointDOM/blob/v0.3.0/docs/VERIFICATION.md).
 
 ## Earlier releases
 

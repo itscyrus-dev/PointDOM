@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { gray, grayDark, blue, blueDark } from '@radix-ui/colors';
+import { logoSvg } from '../src/extension/brand.js';
 import { uiTheme } from '../src/extension/ui-palette.js';
 
 function luminance(hex: string): number {
@@ -13,43 +15,47 @@ function luminance(hex: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-test('action, selection and running labels meet normal-text contrast in both appearances', () => {
-  const pairs = [
-    [uiTheme.brand['accent-ink'], uiTheme.brand.accent],
-    [uiTheme.brand['accent-ink'], uiTheme.brand['accent-hover']],
-    [uiTheme.brand['accent-ink'], uiTheme.brand['accent-pressed']],
-    [uiTheme.dark['completed-ink'], uiTheme.dark.completed],
-    ...[uiTheme.light, uiTheme.dark].flatMap((theme) => [
-      [theme['selection-ink'], theme.selection],
-      [theme['selection-ink'], theme.navigation],
-      [theme['running-ink'], theme.running],
-    ]),
-  ];
-  for (const [foreground, background] of pairs) {
-    const a = luminance(foreground!);
-    const b = luminance(background!);
-    const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-    assert.ok(ratio >= 4.5, `${foreground} on ${background}: ${ratio.toFixed(2)}`);
-  }
-});
-
-test('selection uses the theme accent while completed states stay neutral', () => {
+test('Radix semantic roles keep readable controls and labels in both appearances', () => {
   for (const theme of [uiTheme.light, uiTheme.dark]) {
-    assert.equal(theme.selection, uiTheme.brand.accent);
-    assert.equal(theme.navigation, uiTheme.brand.accent);
-    assert.notEqual(theme.completed, uiTheme.brand.accent);
+    const pairs = [
+      [theme.text, theme.card],
+      [theme.muted, theme.card],
+      [theme['selection-ink'], theme.selection],
+      [theme['running-ink'], theme.running],
+      [theme['completed-ink'], theme.completed],
+      ...['primary', 'primary-hover', 'primary-pressed'].map((role) => [
+        theme['primary-ink'],
+        theme[role as 'primary'],
+      ]),
+    ];
+    for (const [foreground, background] of pairs) {
+      const a = luminance(foreground!);
+      const b = luminance(background!);
+      const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      assert.ok(ratio >= 4.5, `${foreground} on ${background}: ${ratio.toFixed(2)}`);
+    }
+    assert.notEqual(theme['disabled-ink'], theme['control-ink']);
   }
 });
 
-test('light controls and metadata use the requested neutral surfaces', () => {
-  for (const role of ['control-hover', 'control-pressed'] as const) {
-    assert.equal(uiTheme.light[role], '#f8f8f8');
-  }
-  assert.equal(uiTheme.light.navigation, '#cff692');
-  assert.equal(uiTheme.light.selection, '#cff692');
-  assert.equal(uiTheme.brand.accent, '#cff692');
-  assert.equal(uiTheme.light.page, '#ffffff');
-  assert.equal(uiTheme.light.card, '#f8f8f8');
-  assert.equal(uiTheme.light.completed, '#eeeeee');
-  assert.equal(uiTheme.light['completed-ink'], '#b8b8b8');
+test('both appearances use official Radix Gray and Blue scales', () => {
+  assert.equal(uiTheme.light.page, gray.gray1);
+  assert.equal(uiTheme.light.card, gray.gray2);
+  assert.equal(uiTheme.light.control, gray.gray3);
+  assert.equal(uiTheme.light['control-hover'], gray.gray4);
+  assert.equal(uiTheme.light.selection, gray.gray3);
+  assert.equal(uiTheme.light.primary, blue.blue11);
+  assert.equal(uiTheme.light['navigation-ink'], blue.blue9);
+  assert.equal(uiTheme.dark.page, grayDark.gray1);
+  assert.equal(uiTheme.dark.card, grayDark.gray2);
+  assert.equal(uiTheme.dark.control, grayDark.gray3);
+  assert.equal(uiTheme.dark['control-hover'], grayDark.gray4);
+  assert.equal(uiTheme.dark.selection, grayDark.gray3);
+  assert.equal(uiTheme.dark.primary, blueDark.blue11);
+  assert.equal(uiTheme.dark['navigation-ink'], blueDark.blue9);
+});
+
+test('logo artwork shares the blue UI accent', () => {
+  assert.match(logoSvg(), /stop-color="#0090ff"/);
+  assert.doesNotMatch(logoSvg(), /#a8ff00|#d3ff7a/);
 });
