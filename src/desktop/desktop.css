@@ -1397,10 +1397,6 @@ h3 {
 :root[data-theme='light'] .app-tab[data-hovered='true'] {
   background: transparent;
 }
-:root[data-theme='light'] .task-card[data-status='completed'] .task-symbol {
-  background: var(--ui-completed);
-  color: var(--ui-completed-ink);
-}
 
 :root[data-theme='light'] :is(.project-filters, .filter-controls) .button[aria-pressed='true'] {
   --button-bg: var(--ui-selection);

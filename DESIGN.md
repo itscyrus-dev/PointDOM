@@ -39,8 +39,7 @@ visible borders. Buttons inside cards and pairing approval notices use #EEEEEE w
 #B8B8B8 labels. Hover and press only deepen labels and inherited icons to #282B30;
 moving away restores #B8B8B8. Disabled buttons retain their resting label color.
 Theme switch tracks and input surfaces use #EEEEEE; the selected theme retains its
-white circular surface. Client icon blocks, completed task glyph backgrounds and
-neutral badges use #EEEEEE. Completed checkmarks and badge labels use #B8B8B8.
+white circular surface. Client icon blocks and neutral badges use #EEEEEE; badge labels use #B8B8B8.
 Project actions have no hover tooltips. Completed badges remain neutral in both
 appearances; running badges use a restrained green tint. Preserve semantic error
 and warning colors, layout and brand artwork. Check interactive selection and
@@ -66,7 +65,11 @@ Language uses the Lucide Languages icon shown in HeroUI docs, bundled locally wi
 Keep the main toolbar free of branding and appearance shortcuts; theme and language belong in Settings. No Unicode icon substitutes or remote icon fetches.
 
 Use vertically grouped round cards with 16–18px internal spacing, compact count rows
-and a small persistent connection footer. Keep newest tasks first and number visible rows in descending order, ending at 1. App and extension task titles use the first sentence of the overall user request; when absent, use the first nonempty element note. Resolve historical generated instructions at display time without rewriting stored tasks or changing execution scope. Preserve full descriptions in task details. Expand selected details immediately below their row
+and a small persistent connection footer. Keep newest tasks first and assign descending numbers from the complete task list.
+Main-window and menu-bar rows share the same number for each task, including when
+filtered or when the menu bar prioritizes active tasks. Completed rows show the
+number, title, metadata and right-hand status badge without a duplicate checkmark
+or icon block. Running rows retain their activity animation. App and extension task titles use the first sentence of the overall user request; when absent, use the first nonempty element note. Resolve historical generated instructions at display time without rewriting stored tasks or changing execution scope. Preserve full descriptions in task details. Expand selected details immediately below their row
 in the same scrolling list; clicking again collapses them. Task rows scroll naturally,
 never sticky. A centered Collapse label and upward chevron at the bottom also close
 the detail, returning focus and the viewport to its task row. Animate expansion and collapse for 200ms using Motion; reduced motion

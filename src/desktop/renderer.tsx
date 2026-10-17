@@ -376,6 +376,7 @@ function Desktop() {
       !state?.projects.some((project) => project.cwd === candidate.cwd && project.localDiscovery),
   );
   const jobs = state?.jobs || [];
+  const taskNumbers = new Map(jobs.map((job, index) => [job.id, jobs.length - index]));
   const running = jobs.filter((job) => job.status === 'running').length;
   const queued = jobs.filter((job) => job.status === 'queued').length;
   const focused = jobs.find((job) => job.id === selected);
@@ -469,7 +470,7 @@ function Desktop() {
       </>
     </Card>
   ) : null;
-  const taskRow = (job: Job, compact = false, number?: number) => (
+  const taskRow = (job: Job, compact = false) => (
     <Button
       key={job.id}
       id={compact ? undefined : `task-row-${job.id}`}
@@ -485,21 +486,17 @@ function Desktop() {
           : setSelected(selected === job.id ? '' : job.id)
       }
     >
-      {number !== undefined ? <span className="task-number">{number}</span> : null}
-      <span className="task-symbol" aria-hidden="true">
-        <UiIcon
-          name={
-            job.status === 'completed'
-              ? 'check'
-              : job.status === 'failed'
-                ? 'error'
-                : job.status === 'running'
-                  ? 'running'
-                  : 'waiting'
-          }
-          className={job.status === 'running' ? 'task-orbit' : ''}
-        />
-      </span>
+      <span className="task-number">{taskNumbers.get(job.id)}</span>
+      {job.status !== 'completed' ? (
+        <span className="task-symbol" aria-hidden="true">
+          <UiIcon
+            name={
+              job.status === 'failed' ? 'error' : job.status === 'running' ? 'running' : 'waiting'
+            }
+            className={job.status === 'running' ? 'task-orbit' : ''}
+          />
+        </span>
+      ) : null}
       <span className="task-copy">
         <strong>{taskTitle(job)}</strong>
         <small>
@@ -724,9 +721,9 @@ function Desktop() {
                           (!project || j.projectId === project) &&
                           (filter === 'all' || !terminal(j.status)),
                       )
-                      .map((job, index, visibleJobs) => (
+                      .map((job) => (
                         <div className="task-entry" key={job.id}>
-                          {taskRow(job, false, visibleJobs.length - index)}
+                          {taskRow(job)}
                           <AnimatePresence initial={false}>
                             {selected === job.id ? (
                               <motion.div

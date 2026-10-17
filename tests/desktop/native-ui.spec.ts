@@ -819,11 +819,8 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
       'rgb(184, 184, 184)',
     );
 
-    await expect(page.locator('.task-symbol').first()).toHaveCSS(
-      'background-color',
-      'rgb(238, 238, 238)',
-    );
-    await expect(page.locator('.task-symbol').first()).toHaveCSS('color', 'rgb(184, 184, 184)');
+    await expect(page.locator('.task-card[data-status="completed"] .task-symbol')).toHaveCount(0);
+    await expect(page.locator('.task-number')).toHaveText(['5', '4', '3', '2', '1']);
     await page.screenshot({
       path: test.info().outputPath('desktop-completed-light.png'),
       animations: 'disabled',
@@ -1114,6 +1111,7 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     await page.goto(`http://127.0.0.1:${address.port}/?view=tray`);
     await page.setViewportSize({ width: 380, height: 520 });
     await expect(page.locator('.tray-shell')).toBeVisible();
+    await expect(page.locator('.tray-list .task-number')).toHaveText('1');
     await expect(page.locator('html')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await expect(page.locator('.tray-shell')).toHaveCSS('border-radius', '16px');
@@ -1134,6 +1132,32 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     );
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
     await page.screenshot({ path: test.info().outputPath('tray.png') });
+    await page.evaluate(() => {
+      const fixture = window as unknown as { fixtureCount: number; fixtureCompleted: boolean };
+      fixture.fixtureCount = 10;
+      fixture.fixtureCompleted = true;
+    });
+    await expect(page.locator('.tray-list .task-card')).toHaveCount(8);
+    await expect(page.locator('.tray-list .task-number')).toHaveText([
+      '10',
+      '9',
+      '8',
+      '7',
+      '6',
+      '5',
+      '4',
+      '3',
+    ]);
+    await expect(page.locator('.tray-list .task-symbol')).toHaveCount(0);
+    await expect(page.locator('.tray-list .status-completed')).toHaveCount(8);
+    await page.screenshot({ path: test.info().outputPath('tray-completed.png') });
+    await page.evaluate(() => {
+      const fixture = window as unknown as { fixtureCount?: number; fixtureCompleted?: boolean };
+      delete fixture.fixtureCount;
+      delete fixture.fixtureCompleted;
+    });
+    await expect(page.locator('.tray-list .task-card')).toHaveCount(1);
+
     await page.getByRole('button', { name: /调整导航间距/ }).click();
     expect(
       await page.evaluate(
