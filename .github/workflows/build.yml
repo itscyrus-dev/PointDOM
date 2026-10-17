@@ -57,7 +57,11 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+            !target/**/incremental
+            !target/**/bundle
+          key: rust-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: |
+            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
       - run: pnpm install --frozen-lockfile
       - name: Verify versions
         run: node --input-type=module -e 'import {releaseVersion} from "./scripts/release-utils.ts"; await releaseVersion(".", process.env.RELEASE_TAG || undefined)'
@@ -71,17 +75,26 @@ jobs:
       - name: Browser and renderer integration tests
         run: |
           if [[ "$RUNNER_OS" == Linux ]]; then
-            xvfb-run -a pnpm test:e2e
+            xvfb-run -a pnpm exec playwright test
             xvfb-run -a pnpm test:desktop
           else
-            pnpm test:e2e
+            pnpm exec playwright test
             pnpm test:desktop
           fi
+      # pnpm check already built the extension and renderer used by these tests.
+      - name: Build native release binaries
+        run: |
+          node scripts/desktop/build.mjs
+          pnpm exec tauri build --no-bundle
       - name: Package native installers
-        run: pnpm desktop:pack
+        if: inputs.release-tag != ''
+        run: pnpm exec tauri bundle
       - run: pnpm release:pack
+        if: inputs.release-tag != ''
       - run: pnpm release:verify
+        if: inputs.release-tag != ''
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: inputs.release-tag != ''
         with:
           name: release-${{ runner.os }}-${{ runner.arch }}
           path: dist/release/*
@@ -106,4 +119,6 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+            !target/**/incremental
+            !target/**/bundle
+          key: rust-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
