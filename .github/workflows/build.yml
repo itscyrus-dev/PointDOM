@@ -51,6 +51,7 @@ jobs:
           cache: pnpm
       - run: rustup toolchain install 1.97.1 --profile minimal --component rustfmt,clippy
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        id: native_cache
         with:
           path: |
             ~/.cargo/registry
@@ -97,3 +98,12 @@ jobs:
             test-results/**/local-binding-light.png
           if-no-files-found: ignore
           retention-days: 7
+      - name: Preserve compiled dependencies after failed checks
+        if: failure() && steps.native_cache.outcome == 'success' && steps.native_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}

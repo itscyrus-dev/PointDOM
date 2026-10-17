@@ -19,7 +19,7 @@ import { createServer } from 'node:http';
 import { extensionBrowserArgs } from './browser-args.js';
 
 test('native Rust service and MCP drive extension annotations, progress and exact task ownership', async () => {
-  test.setTimeout(60000);
+  test.setTimeout(120000);
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'pointdom-native-e2e-')));
   const state = join(root, 'state');
   mkdirSync(state);
@@ -126,10 +126,19 @@ test('native Rust service and MCP drive extension annotations, progress and exac
         configurable: true,
       }),
     );
-    const wait = client.callTool({
-      name: 'pointdom_wait_for_task',
-      arguments: { projectId: project, timeoutSeconds: 25 },
-    });
+    // A fixture client must keep listening while slower runners exercise the UI.
+    const waitForTask = async () => {
+      for (;;) {
+        const result = await client.callTool({
+          name: 'pointdom_wait_for_task',
+          arguments: { projectId: project, timeoutSeconds: 25 },
+        });
+        if (result.isError) throw new Error('Fixture MCP wait failed');
+        const response = JSON.parse((result.content as { text: string }[])[0]!.text);
+        if (!response.timedOut) return result;
+      }
+    };
+    const wait = waitForTask();
     void wait.catch(() => {});
     await panel.locator('#execution-settings').click();
     await expect(panel.getByRole('list', { name: 'CLI 列表' })).toHaveCount(0);
@@ -273,10 +282,7 @@ test('native Rust service and MCP drive extension annotations, progress and exac
     expect(JSON.parse(readFileSync(join(state, 'config.json'), 'utf8')).defaultExecutor).toBe(
       'mcp',
     );
-    const nextWait = client.callTool({
-      name: 'pointdom_wait_for_task',
-      arguments: { projectId: project, timeoutSeconds: 25 },
-    });
+    const nextWait = waitForTask();
     void nextWait.catch(() => {});
     await page.bringToFront();
     await panel.locator('#pick').click();

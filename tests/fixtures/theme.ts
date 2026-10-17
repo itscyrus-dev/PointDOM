@@ -7,13 +7,15 @@ export async function expectLimeAction(button: Locator) {
   await expect(button).toHaveCSS('color', 'rgb(21, 24, 27)');
   await button.hover();
   await expect(button).toHaveCSS('background-color', 'rgb(152, 230, 0)');
+  await expect(button).toBeEnabled();
+  await expect(button).toHaveCSS('--button-bg-pressed', '#88cc00');
   await page.mouse.down();
   try {
     await expect(button).toHaveCSS('background-color', 'rgb(136, 204, 0)');
     await expect(button).toHaveCSS('color', 'rgb(21, 24, 27)');
-    // Release outside the button so checking pressed state never submits an action.
-    await page.mouse.move(0, 0);
   } finally {
+    // Release outside even after a failed assertion; never submit a fixture action.
+    await page.mouse.move(0, 0);
     await page.mouse.up();
   }
   await expect(button).toHaveCSS('background-color', 'rgb(168, 255, 0)');
