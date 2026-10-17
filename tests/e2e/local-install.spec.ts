@@ -1,4 +1,4 @@
-import { expectLimeAction } from '../fixtures/theme.js';
+import { expectPrimaryAction } from '../fixtures/theme.js';
 import { test, expect } from '@playwright/test';
 import { nativeFixture } from '../fixtures/native.js';
 
@@ -45,11 +45,8 @@ test('unbound local page shows a prominent binding action in the panel without p
     await panel.setViewportSize({ width: 380, height: 760 });
     await panel.goto(`chrome-extension://${id}/panel.html`);
     const challenge = await panel.evaluate(async () => {
-      const saved = await chrome.storage.local.get('pointdomConnectionNonce');
-      const digest = await crypto.subtle.digest(
-        'SHA-256',
-        new TextEncoder().encode(String(saved.pointdomConnectionNonce)),
-      );
+      const { nonce } = await chrome.runtime.sendMessage({ type: 'POINTDOM_CONNECTION_NONCE' });
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(nonce));
       return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(
         '',
       );
@@ -59,7 +56,7 @@ test('unbound local page shows a prominent binding action in the panel without p
     const binding = panel.getByRole('button', { name: '绑定项目', exact: true });
     await expect(binding).toBeVisible();
     await expect(binding).toBeEnabled();
-    await expectLimeAction(binding);
+    await expectPrimaryAction(binding);
     await expect(panel.locator('#connection-view')).toBeHidden();
     await panel.getByRole('button', { name: '打开设置', exact: true }).click();
     await expect(panel.locator('.site-access-settings')).toBeHidden();
@@ -67,7 +64,7 @@ test('unbound local page shows a prominent binding action in the panel without p
     await panel.getByRole('button', { name: '关闭设置', exact: true }).click();
     await panel.getByRole('radio', { name: '浅色', exact: true }).click();
     await expect(binding).toBeVisible();
-    await expectLimeAction(binding);
+    await expectPrimaryAction(binding);
     await expect(panel.locator('.project-binding')).toHaveCSS(
       'border-top-color',
       'rgba(0, 0, 0, 0)',
@@ -137,11 +134,8 @@ for (const platform of ['mac', 'win'] as const) {
         expect(panel.url()).toBe(url);
       }
       const challenge = await panel.evaluate(async () => {
-        const saved = await chrome.storage.local.get('pointdomConnectionNonce');
-        const digest = await crypto.subtle.digest(
-          'SHA-256',
-          new TextEncoder().encode(String(saved.pointdomConnectionNonce)),
-        );
+        const { nonce } = await chrome.runtime.sendMessage({ type: 'POINTDOM_CONNECTION_NONCE' });
+        const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(nonce));
         return Array.from(new Uint8Array(digest), (byte) =>
           byte.toString(16).padStart(2, '0'),
         ).join('');

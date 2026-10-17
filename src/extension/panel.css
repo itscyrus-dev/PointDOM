@@ -2288,3 +2288,38 @@ button[data-pending='true'] {
   background: var(--ui-completed);
   color: var(--ui-completed-ink);
 }
+
+:root[data-mode='light'] .button {
+  --button-bg: var(--ui-card);
+  --button-bg-hover: var(--ui-card);
+  --button-bg-pressed: var(--ui-card);
+  background: var(--ui-card);
+  border-color: transparent;
+}
+:root[data-mode='light'] .button--primary {
+  --button-fg: var(--ui-accent-ink);
+  color: var(--ui-accent-ink);
+}
+:root[data-mode='light'] .button:disabled {
+  background: var(--ui-card);
+  color: var(--ui-completed-ink);
+  opacity: 1;
+}
+:root[data-mode='light'] .pick-button[aria-pressed='true'] {
+  border-color: transparent;
+}
+:root[data-mode='light'] .record-tabs .button {
+  background: transparent;
+}
+:root[data-mode='light']
+  .record-tabs
+  .button:where(:hover, [data-hovered='true'], :active, [data-pressed='true']) {
+  background: var(--ui-card);
+}
+
+:root[data-mode='light'] .record-tabs .button[aria-pressed='true'] {
+  --button-bg: var(--ui-selection);
+  --button-bg-hover: var(--ui-selection);
+  --button-bg-pressed: var(--ui-selection);
+  background: var(--ui-selection);
+}

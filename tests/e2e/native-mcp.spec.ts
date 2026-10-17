@@ -1,4 +1,4 @@
-import { expectLimeAction, expectTabSurface } from '../fixtures/theme.js';
+import { expectPrimaryAction, expectTabSurface } from '../fixtures/theme.js';
 import { test, expect, chromium } from '@playwright/test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -148,7 +148,7 @@ test('native Rust service and MCP drive extension annotations, progress and exac
     await panel.locator('#pick').click();
     const picker = panel.locator('#pick');
     for (const [appearance, background] of [
-      ['浅色', 'rgb(244, 244, 245)'],
+      ['浅色', 'rgb(248, 248, 248)'],
       ['深色', 'rgb(52, 56, 60)'],
     ]) {
       await panel.getByRole('radio', { name: appearance, exact: true }).click();
@@ -167,9 +167,9 @@ test('native Rust service and MCP drive extension annotations, progress and exac
     await expect(submit).toHaveCSS('background-color', 'rgb(34, 38, 42)');
     await panel.getByLabel('Original heading的修改描述').fill('Rename this heading');
     await panel.getByRole('radio', { name: '浅色', exact: true }).click();
-    await expectLimeAction(panel.locator('#submit'));
+    await expectPrimaryAction(panel.locator('#submit'));
     await panel.getByRole('radio', { name: '深色', exact: true }).click();
-    await expectLimeAction(panel.locator('#submit'));
+    await expectPrimaryAction(panel.locator('#submit'));
     await panel.locator('#submit').click();
     const waiting = JSON.parse(((await wait).content as { text: string }[])[0]!.text);
     expect(waiting.taskId).toBeTruthy();
@@ -236,23 +236,23 @@ test('native Rust service and MCP drive extension annotations, progress and exac
       await expect(card).toHaveCSS('background-color', 'rgb(248, 248, 248)');
       await expect(card).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
     }
-    await expect(panel.locator('#tab-all')).toHaveCSS('background-color', 'rgb(244, 244, 245)');
+    await expect(panel.locator('#tab-all')).toHaveCSS('background-color', 'rgb(238, 238, 238)');
     await expect(panel.locator('#tab-all')).toHaveCSS('color', 'rgb(40, 43, 48)');
-    await expectTabSurface(panel.locator('#tab-all'), 'rgb(244, 244, 245)');
-    await expectTabSurface(panel.locator('#tab-active'), 'rgba(0, 0, 0, 0)');
+    await expectTabSurface(panel.locator('#tab-all'), 'rgb(238, 238, 238)');
+    await expectTabSurface(panel.locator('#tab-active'), 'rgba(0, 0, 0, 0)', 'rgb(248, 248, 248)');
     const executor = panel.locator('#execution-settings');
     await panel.mouse.move(0, 0);
-    await expect(executor).toHaveCSS('background-color', 'rgb(244, 244, 245)');
+    await expect(executor).toHaveCSS('background-color', 'rgb(248, 248, 248)');
     await executor.hover();
-    await expect(executor).toHaveCSS('background-color', 'rgb(244, 244, 245)');
+    await expect(executor).toHaveCSS('background-color', 'rgb(248, 248, 248)');
     await panel.mouse.down();
     try {
-      await expect(executor).toHaveCSS('background-color', 'rgb(244, 244, 245)');
+      await expect(executor).toHaveCSS('background-color', 'rgb(248, 248, 248)');
     } finally {
       await panel.mouse.up();
     }
     await expect(panel.locator('.execution-popover')).toBeVisible();
-    await expect(executor).toHaveCSS('background-color', 'rgb(244, 244, 245)');
+    await expect(executor).toHaveCSS('background-color', 'rgb(248, 248, 248)');
     await panel.keyboard.press('Escape');
     await panel.locator('#connection-settings').click();
     await expect(panel.locator('#shortcut-pick')).toHaveCSS(

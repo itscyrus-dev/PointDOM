@@ -2,7 +2,6 @@ import { Dropdown } from '@heroui/react/dropdown';
 import { Switch } from '@heroui/react/switch';
 import { Tabs } from '@heroui/react/tabs';
 import { Toast, ToastQueue } from '@heroui/react/toast';
-import { Tooltip } from '@heroui/react/tooltip';
 import { ToggleButton } from '@heroui/react/toggle-button';
 import { ToggleButtonGroup } from '@heroui/react/toggle-button-group';
 import { UiIcon } from '../shared/ui-icon.js';
@@ -502,7 +501,7 @@ function Desktop() {
         />
       </span>
       <span className="task-copy">
-        <strong title={taskDescription(job)}>{taskTitle(job)}</strong>
+        <strong>{taskTitle(job)}</strong>
         <small>
           {projectName(job.projectId)} · {job.recipient?.name || job.agent || 'MCP'}
         </small>
@@ -826,135 +825,105 @@ function Desktop() {
                     <Card className="panel-card project-card" key={p.id}>
                       <div className="project-heading">
                         <h2>{p.name}</h2>
-                        <Tooltip delay={450}>
-                          <Button
-                            isIconOnly
-                            variant="tertiary"
-                            className="project-remove"
-                            aria-label={t('移除项目', 'Remove project')}
-                            isDisabled={busy}
-                            onPress={() =>
-                              void run(async () => {
-                                try {
-                                  if (await native.removeProject(p.id)) {
-                                    if (project === p.id) setProject('');
-                                    if (setupCopy?.id === p.id) setSetupCopy(undefined);
-                                    notify(t('项目已移除', 'Project removed'));
-                                  }
-                                } catch (cause) {
-                                  if (cause === 'PROJECT_HAS_ACTIVE_TASKS')
-                                    throw t(
-                                      '请先完成或取消该项目的待处理任务。',
-                                      'Finish or cancel this project’s pending tasks first.',
-                                    );
-                                  throw cause;
+                        <Button
+                          isIconOnly
+                          variant="tertiary"
+                          className="project-remove"
+                          aria-label={t('移除项目', 'Remove project')}
+                          isDisabled={busy}
+                          onPress={() =>
+                            void run(async () => {
+                              try {
+                                if (await native.removeProject(p.id)) {
+                                  if (project === p.id) setProject('');
+                                  if (setupCopy?.id === p.id) setSetupCopy(undefined);
+                                  notify(t('项目已移除', 'Project removed'));
                                 }
-                              })
-                            }
-                          >
-                            <UiIcon name="delete" />
-                          </Button>
-                          <Tooltip.Content className="project-tooltip">
-                            {t(
-                              '移除绑定，保留源码和历史任务',
-                              'Remove connection; keep source files and task history',
-                            )}
-                          </Tooltip.Content>
-                        </Tooltip>
+                              } catch (cause) {
+                                if (cause === 'PROJECT_HAS_ACTIVE_TASKS')
+                                  throw t(
+                                    '请先完成或取消该项目的待处理任务。',
+                                    'Finish or cancel this project’s pending tasks first.',
+                                  );
+                                throw cause;
+                              }
+                            })
+                          }
+                        >
+                          <UiIcon name="delete" />
+                        </Button>
                       </div>
-                      <p className="project-address" title={p.origins.join(' · ')}>
+                      <p className="project-address">
                         {p.origins.length ? p.origins.join(' · ') : t('未运行', 'Not running')}
                       </p>
-                      <small className="folder project-folder" title={p.cwd}>
-                        {p.cwd}
-                      </small>
+                      <small className="folder project-folder">{p.cwd}</small>
                       <div className="project-actions">
-                        <Tooltip delay={450}>
-                          <Button
-                            variant="secondary"
-                            aria-label={t('打开网页', 'Open website')}
-                            isDisabled={
-                              !p.origins.length ||
-                              (p.localDiscovery &&
-                                !p.origins.some((origin) =>
-                                  ['localhost', '127.0.0.1', '[::1]'].includes(
-                                    new URL(origin).hostname,
-                                  ),
-                                ))
-                            }
-                            onPress={() => void run(() => native.openProject(p.id))}
-                          >
-                            <UiIcon name="open" />
-                            {t('打开', 'Open')}
-                          </Button>
-                          <Tooltip.Content className="project-tooltip">
-                            {t('在浏览器打开项目网页', 'Open the project website in your browser')}
-                          </Tooltip.Content>
-                        </Tooltip>
-                        <Tooltip delay={450}>
-                          <Button
-                            variant="secondary"
-                            className="project-copy"
-                            aria-label={t('复制 Codex 连接指令', 'Copy Codex setup instruction')}
-                            onPress={() => {
-                              const text = wakeupInstruction(
-                                language === 'en' ? 'en' : 'zh-CN',
-                                p,
-                                '',
-                              );
-                              void (async () => {
-                                try {
-                                  setCopiedProject('');
-                                  await navigator.clipboard.writeText(text);
-                                  setSetupCopy(undefined);
-                                  setCopiedProject(p.id);
-                                } catch {
-                                  setSetupCopy({ id: p.id, text });
-                                }
-                              })();
-                            }}
-                          >
-                            <span className="project-copy-slot" aria-live="polite">
-                              <AnimatePresence initial={false} mode="wait">
-                                <motion.span
-                                  className="project-copy-feedback"
-                                  key={copiedProject === p.id ? 'copied' : 'copy'}
-                                  initial={{ opacity: 0, y: reduceMotion ? 0 : 4 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: reduceMotion ? 0 : -4 }}
-                                  transition={{ duration: reduceMotion ? 0 : 0.12 }}
-                                >
-                                  <UiIcon name={copiedProject === p.id ? 'check' : 'copy'} />
-                                  {copiedProject === p.id
-                                    ? t('已复制', 'Copied')
-                                    : t('复制', 'Copy')}
-                                </motion.span>
-                              </AnimatePresence>
-                            </span>
-                          </Button>
-                          <Tooltip.Content className="project-tooltip">
-                            {t(
-                              '复制连接指令，在目标 Codex 对话粘贴发送',
-                              'Copy the setup instruction to send in your intended Codex conversation',
-                            )}
-                          </Tooltip.Content>
-                        </Tooltip>
-                        <Tooltip delay={450}>
-                          <Button
-                            variant="secondary"
-                            aria-label={t('查看任务', 'View tasks')}
-                            onPress={() => {
-                              setProject(p.id);
-                              setScreen('tasks');
-                            }}
-                          >
-                            <UiIcon name="tasks" />
-                            {t('查看', 'View')}
-                          </Button>
-                          <Tooltip.Content className="project-tooltip">
-                            {t('查看此项目的任务', 'View this project’s tasks')}
-                          </Tooltip.Content>
-                        </Tooltip>
+                        <Button
+                          variant="secondary"
+                          aria-label={t('打开网页', 'Open website')}
+                          isDisabled={
+                            !p.origins.length ||
+                            (p.localDiscovery &&
+                              !p.origins.some((origin) =>
+                                ['localhost', '127.0.0.1', '[::1]'].includes(
+                                  new URL(origin).hostname,
+                                ),
+                              ))
+                          }
+                          onPress={() => void run(() => native.openProject(p.id))}
+                        >
+                          <UiIcon name="open" />
+                          {t('打开', 'Open')}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          className="project-copy"
+                          aria-label={t('复制 Codex 连接指令', 'Copy Codex setup instruction')}
+                          onPress={() => {
+                            const text = wakeupInstruction(
+                              language === 'en' ? 'en' : 'zh-CN',
+                              p,
+                              '',
+                            );
+                            void (async () => {
+                              try {
+                                setCopiedProject('');
+                                await navigator.clipboard.writeText(text);
+                                setSetupCopy(undefined);
+                                setCopiedProject(p.id);
+                              } catch {
+                                setSetupCopy({ id: p.id, text });
+                              }
+                            })();
+                          }}
+                        >
+                          <span className="project-copy-slot" aria-live="polite">
+                            <AnimatePresence initial={false} mode="wait">
+                              <motion.span
+                                className="project-copy-feedback"
+                                key={copiedProject === p.id ? 'copied' : 'copy'}
+                                initial={{ opacity: 0, y: reduceMotion ? 0 : 4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: reduceMotion ? 0 : -4 }}
+                                transition={{ duration: reduceMotion ? 0 : 0.12 }}
+                              >
+                                <UiIcon name={copiedProject === p.id ? 'check' : 'copy'} />
+                                {copiedProject === p.id ? t('已复制', 'Copied') : t('复制', 'Copy')}
+                              </motion.span>
+                            </AnimatePresence>
+                          </span>
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          aria-label={t('查看任务', 'View tasks')}
+                          onPress={() => {
+                            setProject(p.id);
+                            setScreen('tasks');
+                          }}
+                        >
+                          <UiIcon name="tasks" />
+                          {t('查看', 'View')}
+                        </Button>
                       </div>
                       {setupCopy?.id === p.id ? (
                         <pre className="config-output" tabIndex={0}>
@@ -1200,13 +1169,7 @@ function Desktop() {
                           { id: 'system', icon: 'system', label: t('跟随系统', 'System') },
                         ] as const
                       ).map((mode) => (
-                        <ToggleButton
-                          key={mode.id}
-                          id={mode.id}
-                          isIconOnly
-                          aria-label={mode.label}
-                          title={mode.label}
-                        >
+                        <ToggleButton key={mode.id} id={mode.id} isIconOnly aria-label={mode.label}>
                           <UiIcon name={mode.icon} />
                         </ToggleButton>
                       ))}
@@ -1218,7 +1181,6 @@ function Desktop() {
                       <Dropdown.Trigger
                         className="appearance-icon language-trigger"
                         aria-label={t('选择语言', 'Choose a language')}
-                        title={languages.find((item) => item.id === language)?.label}
                       >
                         <UiIcon name="language" />
                       </Dropdown.Trigger>

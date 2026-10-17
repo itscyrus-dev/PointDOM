@@ -1,4 +1,4 @@
-import { expectLimeAction, expectTabSurface } from '../fixtures/theme.js';
+import { expectPrimaryAction, expectTabSurface } from '../fixtures/theme.js';
 import { test, expect, chromium } from '@playwright/test';
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -459,28 +459,30 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
           .first()
           .evaluate((element) => getComputedStyle(element).backgroundColor),
       )
-      .toBe('rgb(244, 244, 245)');
+      .toBe('rgb(238, 238, 238)');
     await expect(page.locator('.app-tab[data-selected="true"]')).toHaveCSS(
       'color',
       'rgb(40, 43, 48)',
     );
     await expect(page.locator('.app-tab[data-selected="true"]')).toHaveCSS(
       'background-color',
-      'rgb(244, 244, 245)',
+      'rgb(238, 238, 238)',
     );
     await expect(page.locator('.status-running').first()).toHaveCSS('color', 'rgb(69, 97, 43)');
     await expect(page.locator('.status-running').first()).toHaveCSS(
       'background-color',
       'rgb(239, 245, 231)',
     );
-    await expectTabSurface(page.locator('.project-filters .button').first(), 'rgb(244, 244, 245)');
+    await expectTabSurface(page.locator('.project-filters .button').first(), 'rgb(238, 238, 238)');
     await expectTabSurface(
       page.locator('.filter-controls .button[aria-pressed="false"]'),
       'rgba(0, 0, 0, 0)',
+      'rgb(248, 248, 248)',
     );
     await expectTabSurface(
       page.getByRole('tab', { name: '设置', exact: true }),
       'rgba(0, 0, 0, 0)',
+      'rgb(248, 248, 248)',
     );
     await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
     for (const card of [page.locator('.summary-grid'), page.locator('.task-card').first()]) {
@@ -508,6 +510,9 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     await lightTheme.click();
     await page.getByRole('tab', { name: '客户端', exact: true }).click();
     await expect(page.getByRole('heading', { name: '连接客户端' })).toBeVisible();
+    for (const avatar of await page.locator('.client-avatar').all()) {
+      await expect(avatar).toHaveCSS('background-color', 'rgb(238, 238, 238)');
+    }
     await page.getByRole('button', { name: '配置', exact: true }).click();
     await expect(
       page.getByText('配置已刷新。在目标对话启用任务唤醒。', { exact: true }),
@@ -556,9 +561,7 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     ).toBe(true);
     const copyButton = page.getByRole('button', { name: '复制 Codex 连接指令', exact: true });
     await copyButton.hover();
-    await expect(
-      page.getByRole('tooltip', { name: '复制连接指令，在目标 Codex 对话粘贴发送', exact: true }),
-    ).toBeVisible();
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
     const copyBounds = await copyButton.boundingBox();
     await page.evaluate(() =>
       Object.defineProperty(navigator, 'clipboard', {
@@ -598,13 +601,13 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     await page.getByRole('button', { name: '手动添加项目', exact: true }).click();
     const addAction = page.locator('#manual-project-form button[type="submit"]');
     await expect(addAction).toBeDisabled();
-    await expect(addAction).toHaveCSS('background-color', 'rgb(237, 237, 240)');
+    await expect(addAction).toHaveCSS('background-color', 'rgb(248, 248, 248)');
     await page.getByRole('button', { name: '选择源码文件夹' }).click();
     await expect(page.getByText('/fixture/new-project', { exact: true })).toBeVisible();
     await page.getByRole('textbox', { name: '网页地址' }).fill('http://localhost:3001');
-    await expectLimeAction(addAction);
+    await expectPrimaryAction(addAction);
     await darkTheme.click();
-    await expectLimeAction(addAction);
+    await expectPrimaryAction(addAction);
     await lightTheme.click();
     await page.getByRole('textbox', { name: '网页地址' }).fill('');
 
@@ -805,6 +808,10 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
       'rgb(184, 184, 184)',
     );
 
+    await expect(page.locator('.task-symbol').first()).toHaveCSS(
+      'background-color',
+      'rgb(238, 238, 238)',
+    );
     await page.screenshot({
       path: test.info().outputPath('desktop-completed-light.png'),
       animations: 'disabled',

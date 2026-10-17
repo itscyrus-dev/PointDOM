@@ -27,11 +27,15 @@ No second dialog, focus trap, dropdown keyboard system or marketing-style homepa
 Desktop: 16px cards, 9px controls, 13px body, 16px page headings, restrained lime
 branding (#A8FF00). Extension: 14px cards, 9px controls, 13px body, outer spacing 16px.
 App and extension share semantic tokens from `src/shared/ui-theme.json`. Reserve
-fluorescent lime #A8FF00 for primary actions, enabled switches, the active element-picking glyph and active execution
-indicators. Primary action labels use #15181B; hover darkens to #98E600 and press
-to #88CC00. In light mode, navigation, filter selection and secondary action hover use #F4F4F5.
-The page is white, cards use #F8F8F8 without visible borders, and neutral metadata
-tags use #EEEEEE with #B8B8B8 labels per the product reference. Navigation uses a quiet neutral selected surface. Unselected navigation
+fluorescent lime #A8FF00 for enabled switches, the active element-picking glyph,
+active execution indicators and dark-mode primary actions. Dark primary action labels
+use #15181B; hover darkens to #98E600 and press to #88CC00.
+In light mode, the page is #FFFFFF, cards and all ordinary button states use #F8F8F8
+without visible borders. Selected navigation and filter tabs use #EEEEEE, including
+when hovered; unselected tabs rest transparent and use #F8F8F8 on hover.
+Client icon blocks and completed task glyph backgrounds use #EEEEEE. Neutral metadata
+and completed badges use #EEEEEE with #B8B8B8 labels per the product reference.
+Project actions have no hover tooltips. In dark mode, unselected navigation
 and filter tabs have no hover background. Filters and completed badges use neutral
 surfaces with readable labels; running badges use a restrained green tint. Secondary
 actions hover in neutral gray. Never reuse the primary fill for routine selection
@@ -94,7 +98,7 @@ completion never navigates. Support keyboard tab navigation and reduced motion.
   Show manual folder/address entry only under Settings > Advanced. Preserve drafts.
   Copy the project-scoped Codex instruction for the user to send in their intended
   conversation; never choose a recipient or fabricate a host connection.
-  Project cards keep Open, Copy and View on one compact row, with explanatory
+  Project cards keep Open, Copy and View on one compact row, without hover
   tooltips. Copy confirms inline with a check for two seconds, without changing
   button geometry; reduced motion removes its transition. Remove uses native
   confirmation and refuses projects with pending tasks. Persist a removed marker,
@@ -249,8 +253,8 @@ Language uses an unfilled translation-icon trigger; no text pills for current va
 names and a fixed leading checkmark column, backed by an extensible list of supported
 locales. Menu hover has no fill, outline or shadow; keyboard focus uses a contained
 inset outline. Keep popup padding and shadows restrained without clipping item focus.
-Preserve keyboard activation and 44px coarse-pointer targets. Desktop hover changes
-foreground only, never adds a fill; selected states and keyboard focus remain visible.
+Preserve keyboard activation and 44px coarse-pointer targets. Dark-mode navigation hover changes foreground only. Light-mode navigation hover uses
+#F8F8F8, while selected tabs retain #EEEEEE. Keyboard focus remains visible.
 
 Window close hides the app while its local service continues running. The menu bar
 provides task access and Quit. Running animations respect system reduced motion.

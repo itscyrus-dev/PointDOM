@@ -19,11 +19,11 @@
     "online": "#9fbf78"
   },
   "light": {
-    "navigation": "#f4f4f5",
-    "selection": "#f4f4f5",
+    "navigation": "#eeeeee",
+    "selection": "#eeeeee",
     "selection-ink": "#282b30",
-    "control-hover": "#f4f4f5",
-    "control-pressed": "#f4f4f5",
+    "control-hover": "#f8f8f8",
+    "control-pressed": "#f8f8f8",
     "completed": "#eeeeee",
     "completed-ink": "#b8b8b8",
     "running": "#eff5e7",

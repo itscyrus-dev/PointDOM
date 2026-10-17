@@ -42,9 +42,11 @@ test('routine selection and completed states do not reuse the primary action fil
 });
 
 test('light controls and metadata use the requested neutral surfaces', () => {
-  for (const role of ['navigation', 'selection', 'control-hover', 'control-pressed'] as const) {
-    assert.equal(uiTheme.light[role], '#f4f4f5');
+  for (const role of ['control-hover', 'control-pressed'] as const) {
+    assert.equal(uiTheme.light[role], '#f8f8f8');
   }
+  assert.equal(uiTheme.light.navigation, '#eeeeee');
+  assert.equal(uiTheme.light.selection, '#eeeeee');
   assert.equal(uiTheme.light.page, '#ffffff');
   assert.equal(uiTheme.light.card, '#f8f8f8');
   assert.equal(uiTheme.light.completed, '#eeeeee');
