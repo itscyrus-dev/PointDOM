@@ -34,8 +34,9 @@ include tokens, private prompts, page content or signed URLs in logs, issues or 
 
 ## Compatibility and review
 
-CI builds and verifies installers on macOS ARM64, Windows x64 and Linux x64. The
-required `verify` check succeeds only when all three platforms pass. Linux requires
+CI runs tests and compiles release binaries on macOS ARM64, Windows x64 and Linux
+x64. The required `verify` check succeeds only when all three platforms pass.
+The Release workflow additionally builds and verifies installers before publishing. Linux requires
 the WebKitGTK 4.1 and AppIndicator development packages listed in Tauri prerequisites.
 Use `xvfb-run -a` for browser tests on a headless Linux host.
 
