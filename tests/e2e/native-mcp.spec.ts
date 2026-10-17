@@ -236,9 +236,9 @@ test('native Rust service and MCP drive extension annotations, progress and exac
       await expect(card).toHaveCSS('background-color', 'rgb(248, 248, 248)');
       await expect(card).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
     }
-    await expect(panel.locator('#tab-all')).toHaveCSS('background-color', 'rgb(238, 238, 238)');
+    await expect(panel.locator('#tab-all')).toHaveCSS('background-color', 'rgb(248, 248, 248)');
     await expect(panel.locator('#tab-all')).toHaveCSS('color', 'rgb(40, 43, 48)');
-    await expectTabSurface(panel.locator('#tab-all'), 'rgb(238, 238, 238)');
+    await expectTabSurface(panel.locator('#tab-all'), 'rgb(248, 248, 248)');
     await expectTabSurface(panel.locator('#tab-active'), 'rgba(0, 0, 0, 0)', 'rgb(248, 248, 248)');
     const executor = panel.locator('#execution-settings');
     await panel.mouse.move(0, 0);

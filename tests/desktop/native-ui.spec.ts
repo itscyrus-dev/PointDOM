@@ -459,21 +459,21 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
           .first()
           .evaluate((element) => getComputedStyle(element).backgroundColor),
       )
-      .toBe('rgb(238, 238, 238)');
+      .toBe('rgb(248, 248, 248)');
     await expect(page.locator('.app-tab[data-selected="true"]')).toHaveCSS(
       'color',
       'rgb(40, 43, 48)',
     );
     await expect(page.locator('.app-tab[data-selected="true"]')).toHaveCSS(
       'background-color',
-      'rgb(238, 238, 238)',
+      'rgb(248, 248, 248)',
     );
     await expect(page.locator('.status-running').first()).toHaveCSS('color', 'rgb(69, 97, 43)');
     await expect(page.locator('.status-running').first()).toHaveCSS(
       'background-color',
       'rgb(239, 245, 231)',
     );
-    await expectTabSurface(page.locator('.project-filters .button').first(), 'rgb(238, 238, 238)');
+    await expectTabSurface(page.locator('.project-filters .button').first(), 'rgb(248, 248, 248)');
     await expectTabSurface(
       page.locator('.filter-controls .button[aria-pressed="false"]'),
       'rgba(0, 0, 0, 0)',

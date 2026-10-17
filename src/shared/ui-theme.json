@@ -19,8 +19,8 @@
     "online": "#9fbf78"
   },
   "light": {
-    "navigation": "#eeeeee",
-    "selection": "#eeeeee",
+    "navigation": "#f8f8f8",
+    "selection": "#f8f8f8",
     "selection-ink": "#282b30",
     "control-hover": "#f8f8f8",
     "control-pressed": "#f8f8f8",

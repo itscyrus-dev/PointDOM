@@ -31,7 +31,7 @@ fluorescent lime #A8FF00 for enabled switches, the active element-picking glyph,
 active execution indicators and dark-mode primary actions. Dark primary action labels
 use #15181B; hover darkens to #98E600 and press to #88CC00.
 In light mode, the page is #FFFFFF, cards and all ordinary button states use #F8F8F8
-without visible borders. Selected navigation and filter tabs use #EEEEEE, including
+without visible borders. Selected navigation and filter tabs use #F8F8F8, including
 when hovered; unselected tabs rest transparent and use #F8F8F8 on hover.
 Client icon blocks and completed task glyph backgrounds use #EEEEEE. Neutral metadata
 and completed badges use #EEEEEE with #B8B8B8 labels per the product reference.
@@ -254,7 +254,7 @@ names and a fixed leading checkmark column, backed by an extensible list of supp
 locales. Menu hover has no fill, outline or shadow; keyboard focus uses a contained
 inset outline. Keep popup padding and shadows restrained without clipping item focus.
 Preserve keyboard activation and 44px coarse-pointer targets. Dark-mode navigation hover changes foreground only. Light-mode navigation hover uses
-#F8F8F8, while selected tabs retain #EEEEEE. Keyboard focus remains visible.
+#F8F8F8, while selected tabs retain #F8F8F8. Keyboard focus remains visible.
 
 Window close hides the app while its local service continues running. The menu bar
 provides task access and Quit. Running animations respect system reduced motion.

@@ -45,8 +45,8 @@ test('light controls and metadata use the requested neutral surfaces', () => {
   for (const role of ['control-hover', 'control-pressed'] as const) {
     assert.equal(uiTheme.light[role], '#f8f8f8');
   }
-  assert.equal(uiTheme.light.navigation, '#eeeeee');
-  assert.equal(uiTheme.light.selection, '#eeeeee');
+  assert.equal(uiTheme.light.navigation, '#f8f8f8');
+  assert.equal(uiTheme.light.selection, '#f8f8f8');
   assert.equal(uiTheme.light.page, '#ffffff');
   assert.equal(uiTheme.light.card, '#f8f8f8');
   assert.equal(uiTheme.light.completed, '#eeeeee');
