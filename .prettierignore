@@ -5,3 +5,8 @@ dist
 test-results
 playwright-report
 pnpm-lock.yaml
+
+target
+src-tauri/gen
+Cargo.lock
+.agents/skills

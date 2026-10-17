@@ -52,9 +52,13 @@ test('header pointer interactions never stack focus rings; keyboard focus stays 
       await expect(language).toHaveCSS('box-shadow', 'none');
       await panel.keyboard.press('Shift+Tab');
       const selectedMode = panel.locator('#theme-mode').getByRole('radio', { checked: true });
-      await expect(selectedMode).toBeFocused();
-      await expect(selectedMode).toHaveCSS('outline-width', '1px');
-      await expect(selectedMode).toHaveCSS('box-shadow', 'none');
+      // HeroUI restores the group's last focused item, which need not be selected.
+      const focusedMode = panel.locator('#theme-mode [role="radio"]:focus');
+      await expect(focusedMode).toHaveCount(1);
+      await expect(focusedMode).toHaveCSS('outline-width', '1px');
+      await expect(focusedMode).toHaveCSS('outline-style', 'solid');
+      await expect(focusedMode).toHaveCSS('box-shadow', 'none');
+      await expect(selectedMode).toHaveAttribute('aria-label', mode);
       await selectedMode.click();
       await expect(selectedMode).toHaveCSS('outline-style', 'none');
       await expect(selectedMode).toHaveCSS('box-shadow', 'none');

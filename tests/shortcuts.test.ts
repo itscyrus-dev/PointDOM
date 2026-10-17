@@ -16,7 +16,10 @@ test('shortcuts register native panel toggle and inject picker only into command
     format: 'iife',
   });
   let command: (name: string, tab?: { id: number; url?: string }) => void = () => {};
+  let click: (tab: { id: number; url?: string }) => void = () => {};
+  const opened: string[] = [];
   const injections: unknown[] = [];
+  const panels: number[] = [];
   const badges: { tabId: number; text: string }[] = [];
   let restricted = false;
   let nativeToggle = false;
@@ -38,12 +41,19 @@ test('shortcuts register native panel toggle and inject picker only into command
       },
       sidePanel: {
         setOptions: async () => {},
+        getOptions: async () => ({ enabled: false }),
+        open: async ({ tabId }: { tabId: number }) => panels.push(tabId),
         setPanelBehavior: async (options: { openPanelOnActionClick: boolean }) => {
           nativeToggle = options.openPanelOnActionClick;
         },
       },
-      runtime: { onMessage: { addListener() {} } },
+      runtime: {
+        onMessage: { addListener() {} },
+        getURL: (path: string) => `chrome-extension://fixture/${path}`,
+      },
       tabs: {
+        create: async ({ url }: { url: string }) => opened.push(url),
+        sendMessage: async () => {},
         query: async () => [],
         onRemoved: { addListener() {} },
         onUpdated: { addListener() {} },
@@ -64,7 +74,11 @@ test('shortcuts register native panel toggle and inject picker only into command
         },
       },
       action: {
-        onClicked: { addListener() {} },
+        onClicked: {
+          addListener(listener: typeof click) {
+            click = listener;
+          },
+        },
         setBadgeText: async (options: { tabId: number; text: string }) => {
           badges.push(options);
         },
@@ -74,6 +88,15 @@ test('shortcuts register native panel toggle and inject picker only into command
   });
   await new Promise(setImmediate);
   assert.equal(nativeToggle, true);
+  click({ id: 12, url: 'https://unlinked.example/private?token=secret' });
+  await new Promise(setImmediate);
+  assert.deepEqual(opened, []);
+  assert.deepEqual(panels, []);
+  click({ id: 13, url: 'http://127.0.0.1:5174/editor?private=value' });
+  await new Promise(setImmediate);
+  assert.deepEqual(panels, [13]);
+  assert.deepEqual(opened, []);
+  assert.equal(injections.length, 0);
   command('_execute_action', { id: 7 });
   command('pick-element');
   assert.equal(injections.length, 0);

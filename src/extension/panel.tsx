@@ -1,9 +1,12 @@
+import { UiIcon as Icon } from '../shared/ui-icon.js';
+import { taskTitle, taskDescription } from '../shared/task-title.js';
+import { taskMessage } from '../shared/task-message.js';
 import { elementType, shortLabel, styleGroups } from './element-info.js';
 import { checkLatestRelease } from './release-check.js';
 import { logoFrame, logoDot } from './brand.js';
 import { formatTaskDuration } from './task-duration.js';
-import { cliIds } from '../shared/cli.js';
 import { canReceiveMcp } from './panel-controller.js';
+import { isLocalDevelopmentUrl } from './site-scope.js';
 import { executorName } from '../shared/contracts.js';
 import {
   createContext,
@@ -44,53 +47,7 @@ const translators: Record<Preferences['language'], Translator> = {
 };
 const Locale = createContext<Translator>(translators['zh-CN']);
 function Chevron({ className = '', ...props }: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      className={`dropdown-chevron ${className}`}
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <path d="m7 10 5 5 5-5" />
-    </svg>
-  );
-}
-function Icon({
-  name,
-}: {
-  name:
-    | 'settings'
-    | 'sun'
-    | 'moon'
-    | 'system'
-    | 'language'
-    | 'pick'
-    | 'send'
-    | 'refresh'
-    | 'folder'
-    | 'close'
-    | 'back'
-    | 'check';
-}) {
-  const paths = {
-    settings: 'M4 7h16M4 17h16M8 4v6m8 4v6',
-    sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5',
-    moon: 'M20.8 13.3A9 9 0 0 1 10.7 3.2 9 9 0 1 0 20.8 13.3Z',
-    system: 'M3 4h18v12H3zM8 21h8m-4-5v5',
-    language: 'M3 5h12M9 3v2M6 5c0 5 3 8 7 9M12 5c0 4-3 8-8 10m10 6 4-10 4 10m-6-4h4',
-    pick: 'M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M9 9l9 4-4 1-1 4z',
-    send: 'M7 17 17 7M7 7h10v10',
-    refresh: 'M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1',
-    folder: 'M3 7h6l2 2h10v10H3zM3 7V5h6l2 2h8v2',
-    close: 'm6 6 12 12M6 18 18 6',
-    back: 'M19 12H5m7-7-7 7 7 7',
-    check: 'm5 12 4 4L19 6',
-  };
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d={paths[name]} />
-    </svg>
-  );
+  return <Icon {...props} name="chevron" className={`dropdown-chevron ${className}`} />;
 }
 // Compose HeroUI variants so quiet controls never inherit the default primary states.
 function Button({ className, variant, ...props }: ButtonProps) {
@@ -308,102 +265,53 @@ function ExecutionSettings({ state }: { state: PanelState }) {
         aria-label={t('选择执行方式', 'Choose execution mode')}
       >
         <span id="execution-summary">
-          {state.cliExecutor === 'mcp'
-            ? t('MCP 监听', 'MCP watch')
-            : executorName(state.cliExecutor)}
+          {state.agents.find((agent) => agent.id === state.recipientId)?.name ||
+            t('选择 MCP 客户端', 'Choose MCP client')}
         </span>
-        <Chevron />
+        <Chevron data-open={open} />
       </Button>
       <Popover.Content className="execution-popover" placement="bottom end">
         <Popover.Dialog>
           <Popover.Heading>{t('执行工具', 'Execution tool')}</Popover.Heading>
-          <ul className="client-directory" aria-label={t('CLI 列表', 'CLI executors')}>
-            {cliIds
-              .filter(
-                (id) =>
-                  state.connection === 'connected' &&
-                  state.clis.some((cli) => cli.id === id && cli.available),
-              )
-              .map((id) => {
-                const available =
-                  state.connection === 'connected' &&
-                  state.clis.some((cli) => cli.id === id && cli.available);
-                return (
-                  <li className="client-entry" data-client={id} key={id}>
-                    <AsyncButton
-                      className="quiet client-select"
-                      isDisabled={!available}
-                      aria-pressed={available && state.cliExecutor === id}
-                      aria-label={t(`使用 ${executorName(id)}`, `Use ${executorName(id)}`)}
-                      run={async () => {
-                        await controller.setCli(id);
-                        setOpen(false);
-                      }}
-                    >
-                      <strong className="client-name">{executorName(id)}</strong>
-                      {available && state.cliExecutor === id ? (
-                        <Icon name="check" />
-                      ) : (
-                        <small className="client-status">
-                          {available ? t('已检测到', 'Detected') : t('未检测到', 'Not detected')}
-                        </small>
-                      )}
-                    </AsyncButton>
-                  </li>
-                );
-              })}
-          </ul>
-          <AsyncButton
-            className="quiet client-select"
-            aria-label={t('使用 MCP 监听', 'Use MCP listening')}
-            aria-pressed={state.cliExecutor === 'mcp'}
-            run={async () => {
-              await controller.setCli('mcp');
-              setOpen(false);
-            }}
-          >
-            MCP {t('监听', 'listening')}
-            {state.cliExecutor === 'mcp' ? <Icon name="check" /> : null}
-          </AsyncButton>
-          {state.cliExecutor === 'mcp' ? (
-            <ul className="client-directory" aria-label={t('MCP 连接', 'MCP connections')}>
-              {state.agents.map((agent) => (
-                <li key={agent.id}>
-                  <Button
-                    className="quiet client-select"
-                    aria-label={t(`选择 ${agent.name}`, `Select ${agent.name}`)}
-                    aria-pressed={state.recipientId === agent.id}
-                    onPress={() => {
-                      controller.setRecipient(agent.id);
-                      setOpen(false);
-                    }}
-                  >
-                    <strong className="client-name">
-                      {agent.name}
-                      {state.agents.filter((a) => a.name === agent.name).length > 1
-                        ? ` · ${agent.id.slice(0, 6)}`
-                        : ''}
-                    </strong>
-                    <small className="client-status">
-                      {state.jobs.some(
-                        (j) => j.recipient?.id === agent.id && j.status === 'running',
-                      )
-                        ? t('执行中', 'Running')
-                        : agent.listening
-                          ? t('监听中', 'Listening')
+          <ul className="client-directory" aria-label={t('MCP 连接', 'MCP connections')}>
+            {state.agents.map((agent) => (
+              <li key={agent.id}>
+                <Button
+                  className="quiet client-select"
+                  aria-label={t(`选择 ${agent.name}`, `Select ${agent.name}`)}
+                  aria-pressed={state.recipientId === agent.id}
+                  onPress={() => {
+                    controller.setRecipient(agent.id);
+                    setOpen(false);
+                  }}
+                >
+                  <strong className="client-name">
+                    {agent.name}
+                    {state.agents.filter((a) => a.name === agent.name).length > 1
+                      ? ` · ${agent.id.slice(0, 6)}`
+                      : ''}
+                  </strong>
+                  <small className="client-status">
+                    {state.jobs.some((j) => j.recipient?.id === agent.id && j.status === 'running')
+                      ? t('执行中', 'Running')
+                      : agent.listening
+                        ? t('监听中', 'Listening')
+                        : agent.wakeable
+                          ? t('有任务时唤醒', 'Wakes on task')
                           : t('未监听', 'Not listening')}
-                    </small>
-                  </Button>
-                </li>
-              ))}
-            </ul>
+                  </small>
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {state.agents.length === 0 ? (
+            <p className="mcp-empty">
+              {t(
+                '暂无 MCP 连接，请先在客户端配置 PointDOM。',
+                'No MCP connections. Configure PointDOM in your client first.',
+              )}
+            </p>
           ) : null}
-          {!state.clis.some((cli) => cli.available) ? (
-            <p className="cli-empty">{t('未检测到 CLI', 'No CLI detected')}</p>
-          ) : null}
-          <AsyncButton className="quiet cli-detect" run={() => controller.detectClis()}>
-            {t('重新检测', 'Check again')}
-          </AsyncButton>
         </Popover.Dialog>
       </Popover.Content>
     </Popover>
@@ -550,10 +458,7 @@ function Composer({ state }: { state: PanelState }) {
     state.ready &&
     state.connection === 'connected' &&
     !!state.projectId &&
-    (controller.hasPendingSubmission ||
-      (state.cliExecutor === 'mcp'
-        ? canReceiveMcp(state)
-        : state.clis.some((cli) => cli.id === state.cliExecutor && cli.available))) &&
+    (controller.hasPendingSubmission || canReceiveMcp(state)) &&
     !!(state.draft.trim() || state.selections.some((s) => s.description?.trim())) &&
     !state.submitting;
   const project = state.projects.find((p) => p.id === state.projectId);
@@ -705,9 +610,11 @@ function Composer({ state }: { state: PanelState }) {
             run={() => controller.pick()}
           >
             <span className="picker-indicator" aria-hidden="true">
-              <Icon name="pick" />
+              <Icon name={state.pickerActive ? 'stop' : 'pick'} />
             </span>
-            {state.pickerActive ? t('选取中', 'Selecting') : t('选取元素', 'Select')}
+            <span className="picker-label">
+              {state.pickerActive ? t('选取中', 'Selecting') : t('选取元素', 'Select')}
+            </span>
           </AsyncButton>
           <ExecutionSettings state={state} />
           <Button
@@ -725,14 +632,14 @@ function Composer({ state }: { state: PanelState }) {
           </Button>
         </div>
       </Card>
-      {state.cliExecutor === 'mcp' ? (
+      {
         <div className="mcp-listening">
           <small id="mcp-state" role="status">
             {state.connection !== 'connected' ||
             (state.recipientId && !state.agents.some((a) => a.id === state.recipientId))
               ? t('已断开', 'Disconnected')
               : !state.recipientId
-                ? t('选择客户端并开启监听', 'Select a client and start listening')
+                ? t('选择客户端', 'Select a client')
                 : state.jobs.some(
                       (j) =>
                         j.executor === 'mcp' &&
@@ -742,19 +649,93 @@ function Composer({ state }: { state: PanelState }) {
                   ? t('执行中', 'Running')
                   : state.agents.some((a) => a.id === state.recipientId && a.listening)
                     ? t('监听中', 'Listening')
-                    : t('已连接，未监听', 'Connected, not listening')}
+                    : state.agents.some((a) => a.id === state.recipientId && a.wakeable)
+                      ? t('按任务唤醒', 'Task wakeup enabled')
+                      : t('未监听', 'Not listening')}
           </small>
-          <AsyncButton className="quiet" run={() => controller.copyWatchInstruction()}>
-            {t('复制监听指令', 'Copy watch instruction')}
-          </AsyncButton>
+          {!state.agents.some((a) => a.id === state.recipientId && a.wakeable) ? (
+            <AsyncButton className="quiet" run={() => controller.copyWatchInstruction()}>
+              {state.agents.some((a) => a.id === state.recipientId && /codex/i.test(a.name))
+                ? t('复制唤醒指令', 'Copy wakeup instruction')
+                : t('复制监听指令', 'Copy watch instruction')}
+            </AsyncButton>
+          ) : null}
         </div>
-      ) : null}
+      }
       <NoticeBox notice={state.notice} id="notice" />
     </section>
   );
 }
-function cliMessage(code: string, t: Translator) {
+function activityMessage(code: string, t: Translator) {
+  const nativeMessage = taskMessage(code, t);
+  if (nativeMessage !== code) return nativeMessage;
   const messages: Record<string, [string, string]> = {
+    CODEX_CLIENT_CONNECTION_CHANGED: [
+      '对话连接已变化，请重新启用任务通知',
+      'Conversation connection changed; enable task notifications again',
+    ],
+    CODEX_CLIENT_NOTIFYING: ['正在通知 Codex 对话', 'Notifying Codex conversation'],
+    CODEX_CLIENT_NOTIFIED: ['已通知 Codex 对话', 'Codex conversation notified'],
+    CODEX_CLIENT_NOTIFY_UNCONFIRMED: [
+      '通知未确认，请检查 Codex 对话；不会自动重发',
+      'Notification unconfirmed; check Codex. No automatic resend.',
+    ],
+    CODEX_CLIENT_NOT_CLAIMED: [
+      '对话未领取任务，请检查 Codex 和 MCP 连接',
+      'Conversation did not claim the task; check Codex and MCP',
+    ],
+    CODEX_CLIENT_SERVICE_STOPPED: [
+      '服务已停止，请在 Codex 检查任务状态',
+      'Service stopped; check the task in Codex',
+    ],
+    CODEX_SESSION_STARTING: ['正在启动专用会话', 'Starting dedicated session'],
+    CODEX_SESSION_STARTED: ['专用会话已连接', 'Dedicated session connected'],
+    CODEX_SESSION_UNAVAILABLE: [
+      '未找到支持 App Server 的 Codex，请安装或更新 Codex',
+      'Install or update Codex with App Server support',
+    ],
+    CODEX_SESSION_CANCELLED: ['任务已停止', 'Task stopped'],
+    CODEX_SESSION_TIMEOUT: [
+      '执行超时，请检查已有修改',
+      'Execution timed out; inspect partial changes',
+    ],
+    CODEX_SESSION_PROJECT_MOVED: [
+      '项目目录已变化，请重新关联项目',
+      'Project directory changed; link the project again',
+    ],
+    CODEX_SESSION_REQUEST_FAILED: [
+      'Codex 请求失败，请检查登录状态和本地配置',
+      'Codex request failed; check login and local configuration',
+    ],
+    CODEX_SESSION_IDENTITY: [
+      '会话与项目不匹配，已停止执行',
+      'Session identity mismatch; execution stopped',
+    ],
+    CODEX_SESSION_PROTOCOL: [
+      'Codex 协议响应无效，请检查版本兼容性',
+      'Invalid Codex protocol response; check version compatibility',
+    ],
+    CODEX_SESSION_DISCONNECTED: [
+      'Codex 连接中断，请检查已有修改',
+      'Codex disconnected; inspect partial changes',
+    ],
+    CODEX_SESSION_OUTPUT_LIMIT: [
+      'Codex 输出超过限制，已停止执行',
+      'Codex output limit exceeded; execution stopped',
+    ],
+    CODEX_SESSION_INTERACTION_REQUIRED: [
+      'Codex 请求了尚不支持的交互，任务已停止。请补充任务说明后重试',
+      'Codex requested an unsupported interaction; task stopped. Clarify the task before retrying',
+    ],
+    CODEX_SESSION_TURN_FAILED: [
+      'Codex 未成功完成执行，请检查已有修改',
+      'Codex did not complete the turn; inspect partial changes',
+    ],
+    CODEX_SESSION_NO_RESULT: ['Codex 未返回最终结果', 'Codex returned no final report'],
+    CODEX_SESSION_SERVICE_STOPPED: [
+      '服务已停止，请检查已有修改后重新提交',
+      'Service stopped; inspect partial changes before resubmitting',
+    ],
     CLI_STARTING: ['正在启动 CLI', 'Starting CLI'],
     CLI_STARTED: ['已启动 CLI', 'CLI started'],
     CLI_ACTIVITY_TRUNCATED: [
@@ -856,19 +837,23 @@ const JobCard = memo(function JobCard({
   };
   const described = job.selections?.filter((s) => s.description?.trim()) || [];
   const duration = formatTaskDuration(job, language);
+  const title = taskTitle(job);
+  const description = taskDescription(job);
   return (
     <Card className="job" data-status={job.status} data-executor={job.executor || 'codex'}>
       <div className="job-head">
-        <strong>
-          {job.selection.label || job.selection.tag}
-          {(job.selections?.length || 0) > 1
-            ? t(` 等 ${job.selections!.length} 个元素`, ` + ${job.selections!.length - 1} elements`)
-            : ''}
-        </strong>
+        <strong title={description}>{title}</strong>
         <span className={`pill status-${job.status}`}>{names[job.status]}</span>
       </div>
-      <p className="job-instruction">{job.instruction}</p>
+      {description !== title ? (
+        <Fold title={t('任务描述', 'Task description')}>
+          <p className="job-instruction">{description}</p>
+        </Fold>
+      ) : null}
       <div className="job-meta">
+        {(job.selections?.length || 0) > 1 ? (
+          <span>{t(`${job.selections!.length} 个元素`, `${job.selections!.length} elements`)}</span>
+        ) : null}
         <span className="executor-badge">
           {job.delivery && job.delivery.target !== 'mcp'
             ? `${executorName(job.delivery.target)}${job.executor === 'mcp' ? ' · MCP' : ''}`
@@ -897,6 +882,11 @@ const JobCard = memo(function JobCard({
           <small className="muted">{job.delivery.detail}</small>
         </div>
       ) : null}
+      {job.executor === 'codex-session' && job.threadId ? (
+        <small>
+          {t('专用会话', 'Dedicated session')} · {job.threadId.slice(0, 8)}
+        </small>
+      ) : null}
       {job.executor === 'mcp' && job.agent ? (
         <small className="job-agent">
           {job.agent || t('等待 Agent 领取', 'Waiting for an agent')} · {t('通过 MCP', 'via MCP')}
@@ -910,7 +900,7 @@ const JobCard = memo(function JobCard({
               : t('此任务未完成', 'This task was not completed')}
           </b>
           <Fold title={t('错误详情', 'Error details')} open>
-            <pre>{cliMessage(job.error, t)}</pre>
+            <pre>{activityMessage(job.error, t)}</pre>
           </Fold>
         </div>
       ) : null}
@@ -936,7 +926,7 @@ const JobCard = memo(function JobCard({
                 {job.events
                   .map(
                     (e) =>
-                      `${new Date(e.at).toLocaleTimeString(language)}  ${cliMessage(e.text, t)}`,
+                      `${new Date(e.at).toLocaleTimeString(language)}  ${activityMessage(e.text, t)}`,
                   )
                   .join('\n')}
               </pre>
@@ -1028,7 +1018,10 @@ function VersionFooter() {
       </div>
       {result.status === 'available' ? (
         <small>
-          {t('运行', 'Run')} <code>pdo upgrade</code>
+          {t(
+            '安装新版本原生客户端，然后在 Chrome 重新加载扩展。',
+            'Install the new native app, then reload the extension in Chrome.',
+          )}
           {t('，然后重新加载扩展。', ', then reload the extension.')}
         </small>
       ) : null}
@@ -1040,7 +1033,6 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
   const [code, setCode] = useState('');
   const [changingCode, setChangingCode] = useState(false);
   const showPairingForm = !state.pairingSaved || changingCode;
-  const [installCopyError, setInstallCopyError] = useState(false);
   const matching = state.projects.filter((p) => p.origins.includes(state.origin));
   const sites = linkedSites(state.projects);
   const [siteChoice, setSiteChoice] = useState('');
@@ -1120,56 +1112,20 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
                     'Waiting for installation. Connection continues automatically.',
                   )
                 : state.bootstrap === 'available'
-                  ? t(
-                      '已检测到本地服务，运行命令授权此扩展。',
-                      'Local service detected. Run the command to authorize this extension.',
-                    )
+                  ? t('请在 PointDOM App 中允许连接。', 'Allow the connection in the PointDOM app.')
                   : t('本地服务未连接。', 'Local service not connected.')}
             </p>
-            <AsyncButton
-              id="copy-local-install"
-              className="primary"
-              isDisabled={!state.installPlatform}
-              run={async () => {
-                setInstallCopyError(false);
-                try {
-                  await controller.copyInstallCommand();
-                } catch {
-                  setInstallCopyError(true);
-                }
-              }}
-            >
-              {state.bootstrap === 'waiting'
-                ? t('重新复制安装命令', 'Copy install command again')
-                : t('复制安装命令', 'Copy install command')}
-            </AsyncButton>
+            {state.installPlatform === 'mac' ? (
+              <AsyncButton className="primary" run={() => controller.connectDesktop()}>
+                {t('打开 PointDOM 连接', 'Open PointDOM to connect')}
+              </AsyncButton>
+            ) : null}
             <small>
-              {state.installPlatform === 'win'
-                ? t(
-                    '在 PowerShell 粘贴并运行，完成后返回这里。',
-                    'Paste and run in PowerShell, then return here.',
-                  )
-                : state.installPlatform === 'mac'
-                  ? t(
-                      '在终端粘贴并运行，完成后返回这里。',
-                      'Paste and run in Terminal, then return here.',
-                    )
-                  : state.ready
-                    ? t(
-                        '当前环境暂不支持一键安装，可使用下方手动配对。',
-                        'One-command installation is unavailable here. Use manual pairing below.',
-                      )
-                    : t('正在识别系统…', 'Detecting your system…')}
-            </small>
-            <small className="muted">
               {t(
-                '已有安装会复用，保留项目与历史记录。',
-                'Existing installations, projects and history are preserved.',
+                '在 PointDOM App 中点击“允许连接”。',
+                'Click Allow connection in the PointDOM app.',
               )}
             </small>
-            {installCopyError ? (
-              <small role="alert">{t('复制失败，请重试。', 'Copy failed. Try again.')}</small>
-            ) : null}
           </div>
         ) : null}
         <Fold
@@ -1181,8 +1137,8 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
             <>
               <p className="muted">
                 {t(
-                  '粘贴 pdo setup 或 pdo pair 显示的配对码。连接后自动保存，无需重复添加。',
-                  'Paste the code from pdo setup or pdo pair. It is saved locally after connecting.',
+                  '通常在 PointDOM App 中允许连接即可。',
+                  'Normally, approve the connection in the PointDOM app.',
                 )}
               </p>
               <Label htmlFor="token">{t('配对码', 'Pairing code')}</Label>
@@ -1256,20 +1212,6 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
           )}
         </Fold>
       </Card>
-      {state.connection === 'connected' ? (
-        <Card className="mcp-settings">
-          <h2>{t('MCP 设置', 'MCP settings')}</h2>
-          <small>
-            {t(
-              '配置一次，在客户端开启项目监听。',
-              'Configure once, then start watching in your client.',
-            )}
-          </small>
-          <AsyncButton className="quiet" run={() => controller.copyMcpConfig()}>
-            {t('复制 MCP 配置', 'Copy MCP configuration')}
-          </AsyncButton>
-        </Card>
-      ) : null}
       <div id="project-field" hidden={matching.length <= 1}>
         <FieldSelect
           id="project"
@@ -1285,8 +1227,23 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
           onChange={(value) => controller.setProject(value)}
         />
       </div>
-      <Card className="site-access-settings">
+      <Card
+        className="site-access-settings"
+        hidden={
+          isLocalDevelopmentUrl(state.origin) &&
+          !matching.length &&
+          !new URLSearchParams(location.search).has('settings')
+        }
+      >
         <h2>{t('项目网页访问', 'Project page access')}</h2>
+        {state.connection === 'connected' && state.origin && !matching.length ? (
+          <Fold title={t('高级：网页绑定', 'Advanced: page binding')}>
+            <p className="muted">{state.origin}</p>
+            <AsyncButton run={() => controller.bindCurrentPage()}>
+              {t('绑定当前页面', 'Bind this page')}
+            </AsyncButton>
+          </Fold>
+        ) : null}
         {state.connection !== 'connected' ? (
           <p className="muted">
             {t('先在上方连接本地服务。', 'Connect the local service above first.')}
@@ -1294,18 +1251,8 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
         ) : !sites.length ? (
           <div className="project-link-guide">
             <p className="muted">
-              {t(
-                '尚未关联项目。在代码项目目录中运行：',
-                'No projects linked. Run in your source project directory:',
-              )}
+              {t('请在 PointDOM App 中添加项目。', 'Add your project in the PointDOM app.')}
             </p>
-            <code>pdo link --origin http://localhost:3000</code>
-            <small>
-              {t(
-                '将网址替换为实际开发地址，关联后在此启用访问。',
-                'Use your development URL, then enable access here.',
-              )}
-            </small>
           </div>
         ) : (
           <>
@@ -1388,6 +1335,7 @@ function Panel() {
   const settingsOnly = new URLSearchParams(location.search).has('settings');
   const showWorkspace =
     !settingsOnly && state.projects.some((project) => project.origins.includes(state.origin));
+  const showBinding = !settingsOnly && !showWorkspace && isLocalDevelopmentUrl(state.origin);
   useEffect(() => {
     void controller.start();
     return () => controller.stop();
@@ -1450,7 +1398,7 @@ function Panel() {
             <HeaderPreferences preferences={preferences} />
             <Button
               id="connection-settings"
-              hidden={!showWorkspace}
+              hidden={!showWorkspace && !showBinding}
               className="quiet icon-button"
               aria-label={
                 state.settings ? t('关闭设置', 'Close settings') : t('打开设置', 'Open settings')
@@ -1472,6 +1420,31 @@ function Panel() {
           </div>
         </header>
         <main className="panel-layout">
+          {showBinding ? (
+            <Card className="project-binding">
+              <span className="binding-icon">
+                <Icon name="folder" />
+              </span>
+              <h1>{t('绑定项目', 'Bind project')}</h1>
+              <p>{t('连接当前网页的源码项目。', 'Connect the source project for this page.')}</p>
+              <small>{new URL(state.origin).host}</small>
+              <AsyncButton
+                className="primary"
+                isDisabled={!state.ready || state.connection === 'connecting'}
+                run={() =>
+                  state.connection === 'connected'
+                    ? controller.bindCurrentPage()
+                    : controller.connectDesktop()
+                }
+              >
+                <Icon name="clients" />
+                {state.connection === 'connected'
+                  ? t('绑定项目', 'Bind project')
+                  : t('连接 App', 'Connect app')}
+              </AsyncButton>
+              <NoticeBox notice={state.notice} id="binding-notice" />
+            </Card>
+          ) : null}
           {showWorkspace ? (
             <>
               <Composer state={state} />
@@ -1536,8 +1509,8 @@ function Panel() {
             </>
           ) : null}
           <ConnectionSettings
-            state={showWorkspace ? state : { ...state, settings: true }}
-            locked={!showWorkspace}
+            state={showWorkspace || showBinding ? state : { ...state, settings: true }}
+            locked={!showWorkspace && !showBinding}
           />
         </main>
       </Locale>

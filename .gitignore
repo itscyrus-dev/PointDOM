@@ -9,3 +9,11 @@ playwright-report/
 
 # Local interface design history
 .finesse/
+
+# Native build artifacts
+/target/
+/src-tauri/gen/
+
+# Locally installed agent reference material (not product source)
+.agents/skills/
+.agents/skills-lock.json

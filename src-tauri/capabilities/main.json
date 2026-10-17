@@ -1,0 +1,11 @@
+{
+  "identifier": "main",
+  "description": "Bundled main UI. System actions are validated by native commands; no general shell or filesystem access.",
+  "windows": ["main"],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "desktop-admin",
+    "desktop-tasks"
+  ]
+}

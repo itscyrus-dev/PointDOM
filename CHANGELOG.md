@@ -1,8 +1,39 @@
 # Changelog
 
-Notable changes to PointDOM. Release archives and installers are available from [GitHub Releases](https://github.com/itscyrus-dev/PointDOM/releases).
+Notable changes to PointDOM. Download installers and checksums from
+[GitHub Releases](https://github.com/itscyrus-dev/PointDOM/releases).
 
-## [Unreleased]
+## [0.6.0] - 2026-10-17
+
+### Added
+
+- Native Tauri 2 application and Rust loopback/MCP service, without an Electron or Node runtime.
+- macOS Apple Silicon DMG, Windows x64 installer, Linux x64 DEB/AppImage, native CLI archives and Chrome extension ZIP, with SHA-256 checksums.
+- Compact task, project, client and settings views; menu-bar task access, theme/language preferences and reduced-motion-aware execution indicators.
+- Explicit project binding from a local development page, verified macOS process discovery and manual folder setup on all platforms.
+- Project-scoped MCP recipients, exclusive task claims, factual progress, durable reports and authorized Codex macOS conversation notifications.
+- First-sentence task titles, inline copy feedback and bounded internal task scrolling.
+
+### Changed
+
+- MCP is the sole task execution transport. Remove model CLI runners, managed model sessions and obsolete installers/guides.
+- Preserve existing project IDs, pairing, history and unknown stored fields, with a private migration backup. Interrupted tasks are never replayed.
+- Share official Radix Gray and Blue light/dark palettes across the app and extension, including a blue logo, neutral filter/completion surfaces and blue navigation and activity indicators.
+- Use borderless cards, subtle inset row separators, text-only About-link hover states and a larger menu-bar visibility switch.
+
+### Fixed
+
+- Fit empty task views to their complete card height without an unnecessary scrollbar or clipped setup action.
+
+- Persist cancellation before notifying the original client; prevent late claims or reports from overwriting cancelled tasks.
+- Keep local project identity across development-port changes without granting unrelated origins access.
+- Support Windows executable names, user directories and file persistence; open approved links and extension folders through platform-native handlers.
+
+### Compatibility
+
+- Intel Macs are not supported. Windows/Linux use manual project setup and generic MCP listening; automatic source discovery and Codex desktop wakeup are macOS-only.
+- Installers are unsigned; macOS builds are not notarized. OS/browser permissions and client approvals remain required.
+- Stop the previous service before starting 0.6.0, then reload the extension. Existing historical release notes below describe their original versions, not current setup instructions.
 
 ## [0.5.1] - 2026-10-16
 
@@ -104,7 +135,7 @@ Notable changes to PointDOM. Release archives and installers are available from 
 - Run `pdo upgrade` after tasks finish, reload PointDOM in Chrome, refresh project pages and reconnect MCP clients.
 - Older version-specific extension paths or aliases need a one-time load from the fixed folder via `pdo extension`. Version-specific MCP configurations need one regenerated entry from `pdo connect --json`.
 - Existing pairing, projects and task records are retained. New DOM context fields are optional for older records; reselect elements to capture the richer context. Existing MCP claims remain subject to their original session identity.
-- Chrome Web Store distribution is not included. Closed shadow trees, iframe interiors and canvas internals do not have supported precise selection. Live compatibility with every agent account/version is not implied by fixture tests; see [verification](docs/VERIFICATION.md).
+- Chrome Web Store distribution is not included. Closed shadow trees, iframe interiors and canvas internals do not have supported precise selection. Live compatibility with every agent account/version is not implied by fixture tests; see [verification](https://github.com/itscyrus-dev/PointDOM/blob/v0.3.0/docs/VERIFICATION.md).
 
 ## Earlier releases
 

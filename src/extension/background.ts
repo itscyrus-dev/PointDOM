@@ -2,6 +2,29 @@ import { selectionSchema, readSelections } from '../shared/contracts.js';
 import { readPreferences } from './ui-preferences.js';
 import { pickerPalette } from './ui-palette.js';
 import { SiteScope } from './site-scope.js';
+import { newConnectionNonce } from './local-install.js';
+let pendingNonce: Promise<string> | undefined;
+function connectionNonce() {
+  return (pendingNonce ??= chrome.storage.local
+    .get('pointdomConnectionNonce')
+    .then(async (saved) => {
+      const nonce =
+        typeof saved.pointdomConnectionNonce === 'string' &&
+        /^[a-f0-9]{64}$/.test(saved.pointdomConnectionNonce)
+          ? saved.pointdomConnectionNonce
+          : newConnectionNonce();
+      await chrome.storage.local.set({ pointdomConnectionNonce: nonce });
+      return nonce;
+    })
+    .catch((error: unknown) => {
+      pendingNonce = undefined;
+      throw error;
+    }));
+}
+// First install opens setup automatically; approval happens in the native app.
+chrome.runtime.onInstalled?.addListener(({ reason }) => {
+  if (reason === 'install') void chrome.runtime.openOptionsPage();
+});
 let selectionWrites = Promise.resolve();
 void chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
 const sites = new SiteScope();
@@ -54,7 +77,7 @@ chrome.permissions.onRemoved.addListener(() => {
 });
 chrome.action.onClicked.addListener((tab) => {
   // Use the cached allowlist so opening remains inside Chrome's user gesture.
-  if (tab.id !== undefined && sites.allows(tab.url)) {
+  if (tab.id !== undefined && sites.canOpen(tab.url)) {
     void chrome.sidePanel
       .getOptions({ tabId: tab.id })
       .then(async (options) => {
@@ -64,14 +87,22 @@ chrome.action.onClicked.addListener((tab) => {
         if (!options.enabled) await chrome.sidePanel.open({ tabId: tab.id! });
       })
       .catch(() => {});
-  } else {
-    void chrome.runtime.openOptionsPage();
   }
   void refreshSites().catch(() => {});
 });
 chrome.runtime.onMessage.addListener((message: unknown, sender, reply) => {
   if (typeof message !== 'object' || message === null) return;
   const control = message as { type?: string; tabId?: number };
+  if (
+    control.type === 'POINTDOM_CONNECTION_NONCE' &&
+    sender.url?.startsWith(chrome.runtime.getURL(''))
+  ) {
+    void connectionNonce()
+      .then((nonce) => reply({ nonce }))
+      .catch(() => reply({ ok: false }));
+    return true;
+  }
+
   if (control.type === 'POINTDOM_SYNC_SITES' && sender.url?.startsWith(chrome.runtime.getURL(''))) {
     void refreshSites()
       .then(() => reply({ ok: true }))

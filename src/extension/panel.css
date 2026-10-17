@@ -1,28 +1,28 @@
-/* finesse · register=product · shell=native annotation rail · React/HeroUI · monochrome actions + lime brand · SOUL=5 SPECTACLE=1 DENSITY=7 */
+/* finesse · register=product · shell=native-utility · palette=radix-gray+blue · SOUL=3 SPECTACLE=1 DENSITY=7 */
 :root {
   color-scheme: dark;
-  --bg: #111315;
-  --surface: #1a1d20;
-  --raised: #22262a;
-  --input: #22262a;
-  --ink: #f1f3f5;
-  --muted: #a3abb5;
-  --soft: #c6cbd1;
-  --border: #2b3035;
-  --border-strong: #3b4249;
-  --error: #ffb2a9;
-  --error-soft: #ffb2a90a;
-  --warning: #eed487;
+  --bg: var(--ui-page);
+  --surface: var(--ui-card);
+  --raised: var(--ui-control);
+  --input: var(--ui-control);
+  --ink: var(--ui-text);
+  --muted: var(--ui-muted);
+  --soft: var(--ui-text);
+  --border: var(--ui-edge);
+  --border-strong: var(--ui-edge-strong);
+  --error: var(--ui-error);
+  --error-soft: var(--ui-error-soft);
+  --warning: var(--ui-warning);
   --shadow: #080b10a6;
   --mask: #f1f2f3;
-  --control-hover: color-mix(in srgb, var(--ink) 6%, transparent);
-  --control-pressed: color-mix(in srgb, var(--ink) 10%, transparent);
-  --activity-track: #3d532a;
-  --activity-tail: #608d24;
-  --activity-body: #a8ff00;
-  --activity-head: #e4ffb5;
-  --activity-ink: #b6ef65;
-  --activity-soft: #26321d;
+  --control-hover: var(--ui-control-hover);
+  --control-pressed: var(--ui-control-pressed);
+  --activity-track: var(--ui-activity-track);
+  --activity-tail: var(--ui-activity-tail);
+  --activity-body: var(--ui-accent);
+  --activity-head: var(--ui-activity-head);
+  --activity-ink: var(--ui-accent);
+  --activity-soft: var(--ui-running);
   --activity-width: 1.5px;
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
   font-family: var(--font);
@@ -110,6 +110,12 @@ svg {
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+/* Gravity UI uses filled paths; keep HeroUI's own control icons unchanged. */
+.ui-icon,
+.ui-icon use {
+  fill: currentColor;
+  stroke: none;
 }
 :where(button, select):focus-visible {
   outline: 2px solid var(--success);
@@ -220,7 +226,8 @@ section,
   stroke-width: 2.5;
 }
 .brand-point {
-  fill: var(--brand-accent);
+  /* The brand point shares the Blue 9 accent in both appearances. */
+  fill: #0090ff;
   stroke: none;
 }
 .pill {
@@ -343,7 +350,14 @@ section,
 .compose-tools .pick-button {
   width: 90px;
   min-width: 90px;
-  flex: none;
+  max-width: 90px;
+  flex: 0 0 90px;
+  white-space: nowrap;
+}
+.picker-label {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
 }
 .pick-button svg {
   width: 14px;
@@ -370,13 +384,7 @@ section,
     opacity: 0.6;
   }
 }
-.button.pick-button[aria-pressed='true'] {
-  --button-bg: var(--control-hover);
-  --button-bg-hover: var(--control-pressed);
-  --button-bg-pressed: var(--control-pressed);
-  border-color: var(--border-strong);
-  color: var(--ink);
-}
+
 button.send {
   flex: none;
   min-height: 34px;
@@ -608,9 +616,9 @@ button.send svg {
   gap: 8px;
 }
 .job-head strong {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--muted);
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
 .job-head .pill {
@@ -848,41 +856,41 @@ kbd {
   --field-placeholder: var(--muted);
   --field-border: var(--border-strong);
   --field-border-hover: var(--border-strong);
-  --field-border-focus: var(--success);
+  --field-border-focus: var(--ui-accent);
   --field-radius: var(--control-radius);
-  --focus: var(--success);
+  --focus: var(--ui-accent);
   --radius: var(--card-radius);
   --default: var(--raised);
   --default-foreground: var(--ink);
   --default-hover: var(--input);
-  --surface: #1a1d20;
+  --surface: var(--ui-card);
   --surface-secondary: var(--raised);
   --surface-tertiary: var(--input);
   --surface-quaternary: var(--input);
 }
 :root[data-mode='light'] {
   color-scheme: light;
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --raised: #f1f3f5;
-  --input: #f7f8fa;
-  --ink: #191c20;
-  --muted: #626a75;
-  --soft: #454e59;
-  --border: #e8ebee;
-  --border-strong: #dde2e7;
-  --control-hover: #f1f3f5;
-  --control-pressed: #e8ebee;
-  --activity-track: #d2e5be;
-  --activity-tail: #a5ce7d;
-  --activity-body: #63a827;
-  --activity-head: #367810;
-  --activity-ink: #507f18;
-  --activity-soft: #f2f8e9;
+  --bg: var(--ui-page);
+  --surface: var(--ui-card);
+  --raised: var(--ui-control);
+  --input: var(--ui-control);
+  --ink: var(--ui-text);
+  --muted: var(--ui-muted);
+  --soft: var(--ui-text);
+  --border: var(--ui-edge);
+  --border-strong: var(--ui-edge-strong);
+  --control-hover: var(--ui-control-hover);
+  --control-pressed: var(--ui-control-pressed);
+  --activity-track: var(--ui-activity-track);
+  --activity-tail: var(--ui-activity-tail);
+  --activity-body: var(--ui-accent);
+  --activity-head: var(--ui-activity-head);
+  --activity-ink: var(--ui-accent);
+  --activity-soft: var(--ui-running);
   --activity-width: 2px;
-  --error: #ad2835;
-  --error-soft: #bd23370a;
-  --warning: #795c00;
+  --error: var(--ui-error);
+  --error-soft: var(--ui-error-soft);
+  --warning: var(--ui-warning);
   --shadow: #22232814;
 }
 :root[data-mode='light']
@@ -896,20 +904,21 @@ kbd {
     .mcp-settings,
     .site-access-settings
   ) {
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   box-shadow: none;
 }
 :root[data-mode='light'] .selected-entry {
   background: var(--input);
   border-color: transparent;
 }
+:root[data-mode='light'] kbd,
 :root[data-mode='light'] .pill {
-  background: var(--input);
+  background: var(--ui-completed);
   border-color: transparent;
 }
 :root[data-mode='light'] .approval {
-  background: #fbf8ee;
-  border-color: #e8dfc5;
+  background: var(--ui-warning-soft);
+  border-color: var(--ui-warning);
 }
 :root[data-mode='light'] #notice:not(:empty):not(.error) {
   background: transparent;
@@ -1205,14 +1214,18 @@ button[data-pending='true'] {
   gap: 6px;
 }
 .dropdown-chevron {
-  width: 14px;
-  height: 14px;
-  min-width: 14px;
+  width: 12px;
+  height: 12px;
+  min-width: 12px;
   flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
+  fill: currentColor;
+  stroke: none;
   color: var(--muted);
+  transform: rotate(0deg);
+  transition: transform 160ms ease;
+}
+.dropdown-chevron[data-open='true'] {
+  transform: rotate(180deg);
 }
 #execution-summary {
   overflow: hidden;
@@ -1222,9 +1235,6 @@ button[data-pending='true'] {
 .pd-select .select__indicator {
   position: static;
   inset: auto;
-}
-.execution-trigger .dropdown-chevron[data-open='true'] {
-  rotate: 180deg;
 }
 @media (pointer: coarse) {
   .pd-select .select__trigger,
@@ -1469,9 +1479,6 @@ button[data-pending='true'] {
   height: 12px;
   min-width: 12px;
 }
-.element-details-trigger .dropdown-chevron[data-open] {
-  transform: rotate(180deg);
-}
 .element-details-popover {
   position: relative;
   inset: auto;
@@ -1627,8 +1634,8 @@ button[data-pending='true'] {
   --button-fg: var(--muted);
 }
 .button--secondary {
-  --button-bg-hover: color-mix(in srgb, var(--raised) 88%, var(--ink));
-  --button-bg-pressed: color-mix(in srgb, var(--raised) 80%, var(--ink));
+  --button-bg-hover: var(--ui-control-hover);
+  --button-bg-pressed: var(--ui-control-pressed);
 }
 @media (hover: hover) {
   .button:not(:disabled):not([aria-disabled='true']):not([data-pending='true']):where(
@@ -1641,7 +1648,10 @@ button[data-pending='true'] {
     color: var(--ink);
   }
 }
-.button:not(:disabled):not([data-pending='true']):where(:active, [data-pressed='true']) {
+.button:not(:disabled):not([aria-disabled='true']):not([data-pending='true']):where(
+    :active,
+    [data-pressed='true']
+  ) {
   background: var(--button-bg-pressed);
 }
 @media (pointer: coarse) {
@@ -1758,12 +1768,12 @@ button[data-pending='true'] {
 }
 :root[data-mode='light'] .button--secondary {
   --button-bg: var(--input);
-  --button-bg-hover: var(--raised);
+  --button-bg-hover: var(--ui-control-hover);
   --button-bg-pressed: var(--control-pressed);
 }
 :root[data-mode='light'] .primary:disabled {
   background: var(--input);
-  color: #93959d;
+  color: var(--ui-disabled-ink);
   border-color: transparent;
   opacity: 1;
 }
@@ -2159,7 +2169,7 @@ button[data-pending='true'] {
   justify-content: flex-start;
   font-size: 11px;
 }
-.execution-popover .cli-empty {
+.execution-popover .mcp-empty {
   margin: 8px 10px;
   color: var(--muted);
   font-size: 12px;
@@ -2188,4 +2198,129 @@ button[data-pending='true'] {
 }
 .mcp-settings .button {
   justify-self: start;
+}
+
+.project-binding {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 28px 18px;
+  text-align: center;
+}
+.project-binding .binding-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.project-binding p,
+.project-binding small {
+  color: var(--muted);
+}
+.project-binding .primary {
+  margin-top: 6px;
+  min-width: 144px;
+}
+
+/* Shared Radix interaction roles, independent of appearance. */
+:root .button {
+  --button-bg: var(--ui-control);
+  --button-bg-hover: var(--ui-control-hover);
+  --button-bg-pressed: var(--ui-control-pressed);
+  --button-fg: var(--ui-control-ink);
+  background: var(--button-bg);
+  color: var(--button-fg);
+  border-color: transparent;
+}
+:root :is(.button--ghost, .button--outline) {
+  --button-bg: transparent;
+  --button-fg: var(--ui-muted);
+}
+:root .button--primary {
+  --button-bg: var(--ui-primary);
+  --button-bg-hover: var(--ui-primary-hover);
+  --button-bg-pressed: var(--ui-primary-pressed);
+  --button-fg: var(--ui-primary-ink);
+}
+@media (hover: hover) {
+  :root .button:not(:disabled):where(:hover, [data-hovered='true']) {
+    background: var(--button-bg-hover);
+  }
+  :root :is(.button--ghost, .button--outline):not(:disabled):where(:hover, [data-hovered='true']) {
+    color: var(--ui-text);
+  }
+}
+:root .button:not(:disabled):where(:active, [data-pressed='true']) {
+  background: var(--button-bg-pressed);
+}
+:root .button:disabled {
+  --button-bg: var(--ui-control);
+  --button-fg: var(--ui-disabled-ink);
+  background: var(--button-bg);
+  color: var(--button-fg);
+  opacity: 1;
+}
+:root .record-tabs .button {
+  background: var(--button-bg);
+  color: var(--button-fg);
+  --button-bg: transparent;
+  --button-bg-hover: transparent;
+  --button-bg-pressed: transparent;
+  --button-fg: var(--ui-muted);
+}
+:root .record-tabs .button[aria-pressed='true'] {
+  background: var(--button-bg);
+  color: var(--button-fg);
+  --button-bg: var(--ui-selection);
+  --button-bg-hover: var(--ui-selection);
+  --button-bg-pressed: var(--ui-selection);
+  --button-fg: var(--ui-selection-ink);
+}
+.record-tabs button[aria-pressed='true'] span {
+  color: inherit;
+}
+.pd-select-popover [aria-selected='true'] {
+  color: var(--ui-selection-ink);
+  background: var(--ui-selection);
+}
+:root .job .pill.status-completed,
+.pill:not([class*='status-']) {
+  color: var(--ui-completed-ink);
+  background: var(--ui-completed);
+}
+:root .job .pill.status-running,
+#tab-active.has-active-jobs #active-count {
+  color: var(--ui-running-ink);
+  background: var(--ui-running);
+}
+:root .button.pick-button[aria-pressed='true'] {
+  --button-bg: var(--ui-control-hover);
+  --button-bg-hover: var(--ui-control-hover);
+  --button-bg-pressed: var(--ui-control-hover);
+  --button-fg: var(--ui-text);
+  background: var(--button-bg);
+  color: var(--button-fg);
+  border-color: transparent;
+}
+.pick-button[aria-pressed='true'] .picker-indicator {
+  color: var(--ui-accent);
+}
+:root .project-binding .binding-icon,
+kbd,
+.executor-badge {
+  background: var(--ui-control);
+  color: var(--ui-muted);
+}
+.theme-mode-switch {
+  background: var(--ui-control);
+}
+:root .card {
+  background: var(--ui-card);
+  border-color: transparent;
+  box-shadow: none;
 }

@@ -1,26 +1,10 @@
-import { fixtureCli } from '../fixtures/cli.js';
-import { extensionBrowserArgs } from './browser-args.js';
-import { test, expect, chromium } from '@playwright/test';
-import { serve } from '@hono/node-server';
-import { Hono } from 'hono';
-import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { randomUUID } from 'node:crypto';
-import { Store } from '../../src/bridge/store.js';
-import { Queue } from '../../src/bridge/queue.js';
-import { createApp } from '../../src/bridge/server.js';
+import { test, expect } from '@playwright/test';
+import { nativeFixture } from '../fixtures/native.js';
 import { agentContext } from '../../src/shared/agent-context.js';
 import { readSelections } from '../../src/shared/contracts.js';
 
 test('nested card children are picked independently with accurate DOM context', async () => {
-  const directory = mkdtempSync(join(tmpdir(), 'pointdom-element-ui-'));
-  const extension = join(directory, 'extension');
-  cpSync(resolve('dist/extension'), extension, { recursive: true });
-  const store = new Store(join(directory, 'state'));
-  const app = new Hono();
-  app.get('/fixture', (c) =>
-    c.html(`<!doctype html><title>Nested card fixture</title>
+  const fixture = await nativeFixture(`<!doctype html><title>Nested card fixture</title>
     <style>body{font:16px system-ui;padding:24px}.card{display:block;width:320px;padding:16px;color:inherit;text-decoration:none}.media{height:140px;background:#ddd}.caption{display:flex;justify-content:space-between;padding:16px}svg{width:24px;height:24px}#privacy,#large{padding:12px}</style>
     <a id="product-card" class="card" href="/should-not-navigate"><div id="card-media" class="media"></div><div id="caption" class="caption"><span id="card-title" class="product-title">皮包光影</span><span id="card-action">做同款 <svg viewBox="0 0 24 24"><path d="M4 12H20M14 6L20 12L14 18" fill="none" stroke="currentColor" stroke-width="2"/></svg></span></div></a>
     <button id="no-events"><span id="passive-text" style="pointer-events:none">独立文字</span></button>
@@ -34,35 +18,8 @@ test('nested card children are picked independently with accurate DOM context', 
     const text = document.createElement('span');text.id='shadow-text';text.textContent='Shadow 文字';button.append(text);root.append(button);
     const large = document.querySelector('#large');for(let i=0;i<80;i++){const span=document.createElement('span');span.textContent='内容'+i;large.append(span);}
     window.fixtureClicked=false;
-    </script>`),
-  );
-  const server = serve({ hostname: '127.0.0.1', port: 0, fetch: app.fetch });
-  if (!server.listening) await new Promise<void>((done) => server.once('listening', done));
-  const address = server.address();
-  if (!address || typeof address === 'string') throw new Error('Missing fixture port');
-  const origin = `http://127.0.0.1:${address.port}`;
-  store.config.projects.push({
-    id: randomUUID(),
-    name: '元素测试',
-    cwd: directory,
-    origins: [origin],
-  });
-  const queue = new Queue(store, fixtureCli(directory));
-  queue.agents.register({
-    projectId: store.config.projects[0]!.id,
-    claim: randomUUID(),
-    client: { name: 'Selection fixture', version: '1' },
-  });
-  app.route('/', createApp(store, queue, address.port));
-  for (const name of ['manifest.json', 'panel.js', 'background.js']) {
-    const path = join(extension, name);
-    writeFileSync(path, readFileSync(path, 'utf8').replaceAll('http://127.0.0.1:4318', origin));
-  }
-  const context = await chromium.launchPersistentContext(join(directory, 'profile'), {
-    channel: 'chromium',
-    headless: true,
-    args: extensionBrowserArgs(extension),
-  });
+    </script>`);
+  const { context, origin } = fixture;
   try {
     const worker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
     const page = await context.newPage();
@@ -72,15 +29,29 @@ test('nested card children are picked independently with accurate DOM context', 
     panel.setDefaultTimeout(5000);
     await panel.goto(`chrome-extension://${new URL(worker.url()).host}/panel.html`);
     await panel.getByRole('button', { name: '高级：手动配对', exact: true }).click();
-    await panel.locator('#token').fill(store.config.token);
+    await panel.locator('#token').fill(fixture.token);
     await panel.locator('#connect').click();
     await page.bringToFront();
+    const picker = panel.locator('#pick');
+    const pickerWidth = await picker.evaluate((element) => element.getBoundingClientRect().width);
+    const idleIcon = await picker.locator('use').getAttribute('href');
+    const chevron = panel.locator('#execution-settings .dropdown-chevron');
+    await expect(chevron).toHaveCSS('width', '12px');
     await panel.locator('#execution-settings').click();
+    await expect(chevron).toHaveAttribute('data-open', 'true');
+    await expect(chevron).toHaveCSS('transform', 'matrix(-1, 0, 0, -1, 0, 0)');
     await panel
       .getByRole('dialog', { name: '执行工具', exact: true })
-      .getByRole('button', { name: '使用 Codex', exact: true })
+      .getByRole('button', { name: '选择 Selection fixture', exact: true })
       .click();
-    await panel.locator('#pick').click();
+    await expect(chevron).toHaveAttribute('data-open', 'false');
+    await expect(chevron).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
+    await picker.click();
+    await expect(picker).toHaveAttribute('aria-pressed', 'true');
+    await expect(picker.locator('use')).not.toHaveAttribute('href', idleIcon!);
+    expect(await picker.evaluate((element) => element.getBoundingClientRect().width)).toBe(
+      pickerWidth,
+    );
     await page.locator('#card-title').click();
     await expect(panel.locator('#selected strong')).toHaveText(['皮包光影']);
     const selections = async () =>
@@ -157,17 +128,18 @@ test('nested card children are picked independently with accurate DOM context', 
       animations: 'disabled',
     });
     await details.press('Escape');
+    const waiting = fixture.wait();
+    await expect(panel.locator('#mcp-state')).toContainText('监听中');
     await panel.locator('#submit').click();
-    await expect.poll(() => store.jobs.length).toBe(1);
-    const job = store.jobs[0]!;
+    await waiting;
+    await expect.poll(() => fixture.jobs().length).toBe(1);
+    const job = fixture.jobs()[0]!;
     expect(job.selections).toHaveLength(8);
     expect(job.selections![0]!.dom).toEqual(selected[0]!.dom);
     expect(agentContext(job).untrustedPageContext[0]!.dom!.html).toContain('card-title');
     expect(JSON.stringify(agentContext(job))).toContain('sanitized DOM excerpt');
     expect(JSON.stringify(agentContext(job))).toContain('仅修改左侧标题');
-    expect(new Store(store.directory).jobs[0]!.selections![5]!.selectorPath).toEqual(
-      shadowSelection.selectorPath,
-    );
+    expect(fixture.jobs()[0]!.selections![5]!.selectorPath).toEqual(shadowSelection.selectorPath);
     await panel.locator('#pick').click();
     await page.locator('#privacy').click({ position: { x: 2, y: 2 } });
     await expect.poll(async () => (await selections()).length).toBe(1);
@@ -202,10 +174,6 @@ test('nested card children are picked independently with accurate DOM context', 
     await panel.getByRole('button', { name: '定位 分组文字', exact: true }).click();
     await expect(panel.locator('#notice')).toContainText('已定位');
   } finally {
-    await context.close();
-    await new Promise<void>((done, reject) =>
-      server.close((error) => (error ? reject(error) : done())),
-    );
-    rmSync(directory, { recursive: true, force: true });
+    await fixture.close();
   }
 });

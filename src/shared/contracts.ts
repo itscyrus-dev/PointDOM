@@ -53,33 +53,19 @@ export function readSelections(value: unknown): Selection[] {
     .safeParse(Array.isArray(value) ? value : value ? [value] : []);
   return parsed.success ? parsed.data : [];
 }
-export const executionSchema = z
-  .object({
-    model: z.string().min(1).max(100).optional(),
-    effort: z.string().min(1).max(30).optional(),
-    serviceTier: z.string().min(1).max(50).optional(),
-    autoCommit: z.boolean().optional(),
-    approvalPolicy: z.enum(['on-request', 'untrusted', 'never']).default('on-request'),
-  })
-  .strict();
-export type Execution = z.infer<typeof executionSchema>;
-export type ModelChoice = {
-  model: string;
-  name: string;
-  isDefault: boolean;
-  efforts: string[];
-  defaultEffort: string;
-  tiers: { id: string; name: string }[];
-};
-export const executorSchema = z.enum(['codex', 'opencode', 'claude', 'trae', 'mcp']);
+export const executorSchema = z.enum([
+  'codex',
+  'opencode',
+  'claude',
+  'trae',
+  'mcp',
+  'codex-session',
+]);
 export type Executor = z.infer<typeof executorSchema>;
-export const agentSettingsSchema = z.object({
-  defaultExecutor: executorSchema,
-  traeAutoSend: z.boolean(),
-});
 export function executorName(executor: Executor = 'codex') {
   return {
     codex: 'Codex',
+    'codex-session': 'Codex · PointDOM',
     opencode: 'OpenCode',
     claude: 'Claude Code',
     trae: 'Trae',
@@ -94,47 +80,29 @@ export const agentConnectionSchema = z.object({
   connectedAt: z.iso.datetime(),
   lastSeenAt: z.iso.datetime(),
   listening: z.boolean().optional(),
+  wakeable: z.boolean().optional(),
 });
 export type AgentConnection = z.infer<typeof agentConnectionSchema>;
 export const taskRecipientSchema = agentConnectionSchema.pick({ id: true, name: true });
 export const submissionSchema = z
   .object({
-    executor: executorSchema.optional(),
+    executor: z.literal('mcp').optional(),
     id: z.string().uuid(),
     projectId: z.string().uuid(),
     recipientId: z.string().uuid().optional(),
+    notificationLanguage: z.enum(['zh-CN', 'en']).optional(),
     instruction: z.string().trim().min(1).max(8000),
     selection: selectionSchema,
     selections: z.array(selectionSchema).min(1).max(10).optional(),
-    execution: executionSchema.optional(),
   })
   .strict();
 export type Submission = z.infer<typeof submissionSchema>;
-export const projectPermissionsSchema = z
-  .object({
-    confirmation: z.enum(['default', 'reduced']),
-    codexNetwork: z.boolean(),
-  })
-  .strict();
-export type ProjectPermissions = z.infer<typeof projectPermissionsSchema>;
-export const defaultProjectPermissions: ProjectPermissions = {
-  confirmation: 'default',
-  codexNetwork: false,
-};
-export const traeConversationSchema = z
-  .object({
-    appId: z.string().regex(/^[\w.-]{1,120}$/),
-    conversation: z.string().trim().min(1).max(300),
-  })
-  .strict();
-export type TraeConversation = z.infer<typeof traeConversationSchema>;
 export const projectSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(80),
   cwd: z.string().min(1),
-  origins: z.array(z.string().url()).min(1),
-  permissions: projectPermissionsSchema.optional(),
-  traeHandoff: traeConversationSchema.optional(),
+  origins: z.array(z.string().url()),
+  localDiscovery: z.boolean().optional(),
   openCodeModel: z
     .string()
     .max(200)
@@ -142,20 +110,6 @@ export const projectSchema = z.object({
     .optional(),
 });
 export type Project = z.infer<typeof projectSchema>;
-export type Approval = {
-  id: string;
-  kind: 'command' | 'files' | 'questions';
-  title: string;
-  details: string;
-  questions?: { id: string; question: string; options: string[] }[];
-};
-export const replySchema = z
-  .object({
-    decision: z.enum(['accept', 'decline']).optional(),
-    answers: z.record(z.string(), z.string().max(4000)).optional(),
-  })
-  .strict();
-export type Reply = z.infer<typeof replySchema>;
 export type JobStatus =
   | 'queued'
   | 'running'
@@ -173,9 +127,9 @@ export const commitSchema = z.object({
   message: z.string().optional(),
   error: z.string().optional(),
 });
-export type Job = Submission & {
+export type Job = Omit<Submission, 'executor'> & {
+  executor?: Executor;
   recipient?: z.infer<typeof taskRecipientSchema>;
-  permissions?: ProjectPermissions;
   delivery?: Delivery;
   agent?: string;
   claim?: string;
@@ -189,20 +143,15 @@ export type Job = Submission & {
   result: string;
   error?: string;
   threadId?: string;
-  approval?: Approval;
+  clientNotification?: boolean;
 };
 export const terminal = (status: JobStatus) =>
   ['completed', 'failed', 'cancelled', 'interrupted'].includes(status);
 
+// Read-only compatibility for historical executor labels and delivery notes.
 export const deliverySchema = z.object({
   target: executorSchema,
-  fingerprint: z.string().length(64),
-  state: z.enum(['cli', 'pending', 'pasted', 'copied', 'blocked', 'uncertain']),
   detail: z.string().max(600).optional(),
-  autoSend: traeConversationSchema.optional(),
-  automatic: z.boolean().optional(),
-  sentAt: z.iso.datetime().optional(),
-  attemptedAt: z.iso.datetime().optional(),
 });
 export type Delivery = z.infer<typeof deliverySchema>;
 
@@ -217,8 +166,9 @@ export const taskProgressSchema = z.object({
 });
 
 export const jobSchema = submissionSchema.extend({
+  executor: executorSchema.optional(),
   recipient: taskRecipientSchema.optional(),
-  permissions: projectPermissionsSchema.optional(),
+  clientNotification: z.boolean().optional(),
   delivery: deliverySchema.optional(),
   agent: z.string().optional(),
   claim: z.string().optional(),
@@ -242,15 +192,10 @@ export const jobSchema = submissionSchema.extend({
   result: z.string(),
   error: z.string().optional(),
   threadId: z.string().optional(),
-  approval: z
-    .object({
-      id: z.string(),
-      kind: z.enum(['command', 'files', 'questions']),
-      title: z.string(),
-      details: z.string(),
-      questions: z
-        .array(z.object({ id: z.string(), question: z.string(), options: z.array(z.string()) }))
-        .optional(),
-    })
-    .optional(),
 });
+
+export const cancellationSchema = z.object({
+  cancelled: z.boolean(),
+  notification: z.enum(['sent', 'unconfirmed', 'manual', 'none']),
+});
+export type Cancellation = z.infer<typeof cancellationSchema>;

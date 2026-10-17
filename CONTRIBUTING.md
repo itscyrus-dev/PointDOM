@@ -1,36 +1,48 @@
 # Contributing
 
-Start every change on a separate `codex/` branch and keep each pull request focused on one problem. Open a PR to `main`; never commit or push directly to `main`, force-push it, or bypass its rules. Merge only after the required `verify` check passes and the branch is up to date. Merged feature branches are deleted automatically. Read [AGENTS.md](AGENTS.md) and [DESIGN.md](DESIGN.md) before making changes. Preserve other contributors' uncommitted work.
+Read [AGENTS.md](AGENTS.md), [design](DESIGN.md) and [architecture](docs/DESKTOP.md).
+Use a focused branch and Conventional Commits. Keep changes reviewable, document
+behavior and preserve compatibility for projects, pairing and existing task history.
 
-Use Conventional Commits: `type(scope): description`. Types include `feat`, `fix`, `docs`, `test`, `refactor` and `chore`. Optional scopes include `extension`, `bridge`, `protocol` and `design`. For example: `fix(extension): preserve selection when reopening panel`.
+## Development
 
-Describe the concrete problem, resulting behavior, validation and limitations in your pull request. Document compatibility changes to protocols and storage. Include isolated test screenshots for UI changes without private content. Do not commit build output, browser profiles, pairing codes, API keys or state from `~/.pagepatch`.
+Install Rust (see rust-toolchain.toml), Node 24 and the pinned pnpm version. Install
+platform Tauri prerequisites, then `pnpm install --frozen-lockfile`.
 
-The default README, detailed repository guides, issue templates and generated MCP/context guidance are English. `README.zh-CN.md` is the supported Simplified Chinese translation; keep its commands, requirements and capability descriptions aligned with `README.md`. Language-navigation labels may be localized. Product UI remains Simplified Chinese/English, and original user/page content must not be translated as a side effect of changing UI language. Follow the [documentation map](README.md#development-and-contributing): keep onboarding in the installation runbook and host-specific details in `docs/agents`, rather than duplicating long instructions across pages.
+- `pnpm desktop:dev`: native desktop development.
+- `pnpm start`: native loopback service, without the desktop shell.
+- `pnpm cli mcp`: native MCP stdio entry.
+- `pnpm desktop:pack`: local unsigned installer for the current supported platform.
 
-## Validation
-
-Run:
+## Checks
 
 ```sh
 pnpm format:check
 pnpm check
+pnpm test:e2e
+pnpm test:desktop
+pnpm desktop:pack
 ```
 
-For changes to the extension/bridge workflow, also run `pnpm test:e2e`. Browser tests use an isolated bridge port and temporary extension copy, so you do not need to stop a running bridge. The fixture site still requires port 5175.
+`pnpm native:check` runs fmt, Clippy and Rust tests with the lockfile. Browser tests
+use temporary state and profiles; never execute paid models or use actual conversations.
+UI fixture screenshots prove rendering, not native OS integration. Keep platform and
+signing limitations explicit. See [release verification](docs/RELEASING.md).
 
-For installer or packaging changes, also run:
+Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). Never
+include tokens, private prompts, page content or signed URLs in logs, issues or PRs.
 
-```sh
-sh -n install.sh
-pnpm release:pack
-pnpm release:verify
-```
+## Compatibility and review
 
-All new tasks are MCP-only. Tests use disposable projects and injected native-delivery fixtures, never paid model calls, the user's agent configuration or real browser profiles. Removed CLI runners and their paid smoke scripts must not be restored as hidden fallbacks.
+CI builds and verifies installers on macOS ARM64, Windows x64 and Linux x64. The
+required `verify` check succeeds only when all three platforms pass. Linux requires
+the WebKitGTK 4.1 and AppIndicator development packages listed in Tauri prerequisites.
+Use `xvfb-run -a` for browser tests on a headless Linux host.
 
-## Community and Releases
+New platform behavior needs disposable fixtures. Preserve migration backups, unknown
+historical fields and exact recipient identity. Cancelled or terminal tasks must
+reject late progress/reports. Configuration saved, MCP connected, listening and
+executing are separate states. Do not fabricate execution or use real model sessions.
 
-By contributing, you confirm that you have the right to provide your changes and agree to distribute them under the project's MIT license. Follow the [Code of Conduct](CODE_OF_CONDUCT.md). Report security concerns privately according to [SECURITY.md](SECURITY.md); use GitHub issue templates for ordinary bugs and feature requests.
-
-See [docs/RELEASING.md](docs/RELEASING.md) for the release process.
+Generate protocol schemas with `pnpm native:contracts` after contract changes and
+commit the result. Update both READMEs when changing setup or supported platforms.

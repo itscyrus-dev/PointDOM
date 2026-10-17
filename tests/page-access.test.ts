@@ -8,8 +8,10 @@ async function fixture(
   changedTab = false,
   origins = [origin],
   grantedOrigin = origin,
+  initialUrl?: string,
 ) {
-  let tab: { id: number; url?: string } = { id: 7 };
+  let tab: { id: number; url?: string } = { id: 7, url: initialUrl };
+  const opened: string[] = [];
   const requested: string[][] = [];
   const injected: number[] = [];
   const activated: number[] = [];
@@ -20,7 +22,7 @@ async function fixture(
     removeListener: (listener: () => void) => permissionListeners.delete(listener),
   };
   const originals = new Map(
-    ['chrome', 'window', 'document', 'fetch'].map((key) => [
+    ['chrome', 'window', 'document', 'fetch', 'location'].map((key) => [
       key,
       Object.getOwnPropertyDescriptor(globalThis, key),
     ]),
@@ -41,7 +43,9 @@ async function fixture(
         onChanged: event,
       },
       tabs: {
+        get: async () => tab,
         query: async () => [tab],
+        create: async ({ url }: { url: string }) => opened.push(url),
         update: async (id: number) => {
           activated.push(id);
         },
@@ -70,7 +74,14 @@ async function fixture(
         },
       },
     },
-    window: { addEventListener() {}, removeEventListener() {} },
+    window: {
+      addEventListener() {},
+      removeEventListener() {},
+      open(url: string, target: string) {
+        assert.equal(target, '_self');
+        opened.push(url);
+      },
+    },
     document: { hidden: false, addEventListener() {}, removeEventListener() {} },
     fetch: async (input: string) =>
       Response.json(
@@ -100,6 +111,16 @@ async function fixture(
     requested,
     injected,
     activated,
+    opened,
+    changeTab(url: string, id = 7) {
+      tab = { id, url };
+    },
+    useBindingSettings() {
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: { search: '?settings=1&bindTabId=7' },
+      });
+    },
     async changeAccess(value: boolean) {
       if (value) allowed.add(`${origin}/*`);
       else allowed.delete(`${origin}/*`);
@@ -115,6 +136,24 @@ async function fixture(
     },
   };
 }
+
+test('binding hands off only the current origin without page data or source access', async () => {
+  const f = await fixture(true, false, [], origin, `${origin}/private?token=secret#value`);
+  try {
+    f.useBindingSettings();
+    await f.controller.bindCurrentPage();
+    assert.deepEqual(f.opened, ['pointdom://bind?origin=http%3A%2F%2Flocalhost%3A5173']);
+    assert.deepEqual(f.requested, []);
+    assert.deepEqual(f.injected, []);
+    f.changeTab('https://other.example/');
+    await assert.rejects(f.controller.bindCurrentPage(), /当前网页已变化/);
+    f.changeTab(`${origin}/other`, 8);
+    await assert.rejects(f.controller.bindCurrentPage(), /请在项目网页/);
+    assert.equal(f.opened.length, 1);
+  } finally {
+    f.dispose();
+  }
+});
 
 test('first access can request the sole linked origin before Chrome exposes the tab URL', async () => {
   const f = await fixture();
