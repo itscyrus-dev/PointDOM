@@ -22,6 +22,14 @@ export async function expectLimeAction(button: Locator) {
 /** A tab's surface conveys selection, never the pointer passing over it. */
 export async function expectTabSurface(tab: Locator, background: string) {
   await tab.page().mouse.move(0, 0);
+  if (
+    background === 'rgba(0, 0, 0, 0)' &&
+    (await tab.evaluate((element) => element.classList.contains('button')))
+  ) {
+    // Check tokens even when the host does not expose the hover media feature.
+    await expect(tab).toHaveCSS('--button-bg-hover', 'transparent');
+    await expect(tab).toHaveCSS('--button-bg-pressed', 'transparent');
+  }
   await expect(tab).toHaveCSS('background-color', background);
   await tab.hover();
   await expect(tab).toHaveCSS('background-color', background);

@@ -2236,7 +2236,7 @@ button[data-pending='true'] {
   --button-bg-hover: var(--ui-accent-hover);
   --button-bg-pressed: var(--ui-accent-pressed);
 }
-.record-tabs .button {
+:root .record-tabs .button {
   --button-bg-hover: transparent;
   --button-bg-pressed: transparent;
 }
@@ -2246,7 +2246,7 @@ button[data-pending='true'] {
   color: var(--ui-selection-ink);
   background: var(--ui-selection);
 }
-.record-tabs button[aria-pressed='true'] {
+:root .record-tabs button[aria-pressed='true'] {
   --button-bg-hover: var(--ui-selection);
   --button-bg-pressed: var(--ui-selection);
 }
