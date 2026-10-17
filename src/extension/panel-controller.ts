@@ -303,12 +303,12 @@ export class PanelController {
           ? 'The active page changed. Try again.'
           : '当前网页已变化，请重试。',
       );
-    await chrome.tabs.create({ url: desktopProjectLink(origin), active: false });
+    window.open(desktopProjectLink(origin), '_self');
     this.notify('在 PointDOM 确认绑定。', 'Confirm the project in PointDOM.');
   }
   async connectDesktop() {
     const url = desktopConnectionLink(chrome.runtime.id, await connectionChallenge(this.nonce));
-    await chrome.tabs.create({ url, active: false });
+    window.open(url, '_self');
     this.patch({ bootstrap: 'waiting' });
     await this.discover();
   }

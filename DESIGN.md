@@ -27,7 +27,7 @@ No second dialog, focus trap, dropdown keyboard system or marketing-style homepa
 Desktop: 16px cards, 9px controls, 13px body, 16px page headings, restrained lime
 branding (#A8FF00). Extension: 14px cards, 9px controls, 13px body, outer spacing 16px.
 App and extension share semantic tokens from `src/shared/ui-theme.json`. Reserve
-fluorescent lime #A8FF00 for primary actions, enabled switches, active element picking and active execution
+fluorescent lime #A8FF00 for primary actions, enabled switches, the active element-picking glyph and active execution
 indicators. Primary action labels use #15181B; hover darkens to #98E600 and press
 to #88CC00. In light mode, navigation, filter selection, neutral tags and secondary action hover
 share #F4F4F5. Navigation uses a quiet neutral selected surface. Unselected navigation

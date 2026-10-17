@@ -2263,13 +2263,16 @@ button[data-pending='true'] {
   background: var(--ui-running);
 }
 
-/* Picking is an active action in both appearances, distinct from neutral filters. */
+/* Keep the picking surface neutral; the active stop glyph carries the brand color. */
 :root .button.pick-button[aria-pressed='true'] {
-  --button-bg: var(--ui-accent);
-  --button-bg-hover: var(--ui-accent);
-  --button-bg-pressed: var(--ui-accent);
-  --button-fg: var(--ui-accent-ink);
-  background: var(--ui-accent);
-  border-color: var(--ui-accent);
-  color: var(--ui-accent-ink);
+  --button-bg: var(--ui-control-hover);
+  --button-bg-hover: var(--ui-control-hover);
+  --button-bg-pressed: var(--ui-control-hover);
+  --button-fg: var(--ink);
+  background: var(--ui-control-hover);
+  border-color: var(--border-strong);
+  color: var(--ink);
+}
+.pick-button[aria-pressed='true'] .picker-indicator {
+  color: var(--ui-accent);
 }

@@ -27,11 +27,15 @@ test('unbound local page shows a prominent binding action in the panel without p
       });
       // Never open the OS scheme handler or request permissions during this test.
       Object.defineProperty(chrome.tabs, 'create', {
-        value: async ({ url, active }: { url: string; active?: boolean }) => {
-          document.documentElement.dataset.handoff = url;
-          document.documentElement.dataset.handoffActive = String(active);
+        value: async () => {
+          throw new Error('Binding must not open a browser tab');
         },
       });
+      window.open = (url, target) => {
+        document.documentElement.dataset.handoff = String(url);
+        document.documentElement.dataset.handoffTarget = String(target);
+        return window;
+      };
       Object.defineProperty(chrome.permissions, 'request', {
         value: async () => {
           throw new Error('Binding must not request page access');
@@ -79,7 +83,7 @@ test('unbound local page shows a prominent binding action in the panel without p
       'data-handoff',
       `pointdom://bind?origin=${encodeURIComponent(origin)}`,
     );
-    await expect(panel.locator('html')).toHaveAttribute('data-handoff-active', 'false');
+    await expect(panel.locator('html')).toHaveAttribute('data-handoff-target', '_self');
     expect(fixture.jobs()).toHaveLength(0);
     linked = true;
     await expect(panel.locator('.fixed-composer')).toBeVisible({ timeout: 10000 });
@@ -105,10 +109,33 @@ for (const platform of ['mac', 'win'] as const) {
         platform,
       );
       const url = `chrome-extension://${id}/panel.html?settings=1`;
+      await panel.addInitScript(() => {
+        Object.defineProperty(chrome.tabs, 'create', {
+          value: async () => {
+            throw new Error('Pairing must not open a browser tab');
+          },
+        });
+        window.open = (url, target) => {
+          document.documentElement.dataset.handoff = String(url);
+          document.documentElement.dataset.handoffTarget = String(target);
+          return window;
+        };
+      });
       await panel.goto(url);
       await expect(panel.locator('#token')).not.toBeVisible();
       await expect(panel.locator('#copy-local-install')).toHaveCount(0);
       await expect(panel.locator('.local-install-guide')).toContainText('PointDOM App');
+      if (platform === 'mac') {
+        const pages = context.pages().length;
+        await panel.getByRole('button', { name: '打开 PointDOM 连接', exact: true }).click();
+        await expect(panel.locator('html')).toHaveAttribute('data-handoff-target', '_self');
+        await expect(panel.locator('html')).toHaveAttribute(
+          'data-handoff',
+          /^pointdom:\/\/connect\?extensionId=[a-p]{32}&challenge=[a-f0-9]{64}$/,
+        );
+        expect(context.pages()).toHaveLength(pages);
+        expect(panel.url()).toBe(url);
+      }
       const challenge = await panel.evaluate(async () => {
         const saved = await chrome.storage.local.get('pointdomConnectionNonce');
         const digest = await crypto.subtle.digest(

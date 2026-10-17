@@ -74,7 +74,14 @@ async function fixture(
         },
       },
     },
-    window: { addEventListener() {}, removeEventListener() {} },
+    window: {
+      addEventListener() {},
+      removeEventListener() {},
+      open(url: string, target: string) {
+        assert.equal(target, '_self');
+        opened.push(url);
+      },
+    },
     document: { hidden: false, addEventListener() {}, removeEventListener() {} },
     fetch: async (input: string) =>
       Response.json(

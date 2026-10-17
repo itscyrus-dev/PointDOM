@@ -138,13 +138,16 @@ test('native Rust service and MCP drive extension annotations, progress and exac
     await page.bringToFront();
     await panel.locator('#pick').click();
     const picker = panel.locator('#pick');
-    for (const appearance of ['浅色', '深色']) {
+    for (const [appearance, background] of [
+      ['浅色', 'rgb(244, 244, 245)'],
+      ['深色', 'rgb(52, 56, 60)'],
+    ]) {
       await panel.getByRole('radio', { name: appearance, exact: true }).click();
       await expect(picker).toHaveAttribute('aria-pressed', 'true');
-      await expect(picker).toHaveCSS('background-color', 'rgb(168, 255, 0)');
-      await expect(picker).toHaveCSS('color', 'rgb(21, 24, 27)');
+      await expect(picker).toHaveCSS('background-color', background!);
+      await expect(picker.locator('.picker-indicator')).toHaveCSS('color', 'rgb(168, 255, 0)');
       await picker.hover();
-      await expect(picker).toHaveCSS('background-color', 'rgb(168, 255, 0)');
+      await expect(picker).toHaveCSS('background-color', background!);
       await panel.mouse.move(0, 0);
     }
     await page.locator('#heading').click();
