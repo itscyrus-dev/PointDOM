@@ -23,6 +23,8 @@ Notable changes to PointDOM. Download installers and checksums from
 
 ### Fixed
 
+- Fit empty task views to their complete card height without an unnecessary scrollbar or clipped setup action.
+
 - Persist cancellation before notifying the original client; prevent late claims or reports from overwriting cancelled tasks.
 - Keep local project identity across development-port changes without granting unrelated origins access.
 - Support Windows executable names, user directories and file persistence; open approved links and extension folders through platform-native handlers.

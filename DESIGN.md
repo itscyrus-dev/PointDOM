@@ -83,7 +83,8 @@ removes the transition. Keep list viewport and native window height stable durin
 expansion, with no forced scrolling when opening or window resizing on animation frames. Show task details only after selection;
 do not reserve an empty detail column. Project filters live above the task list.
 The task list sizes to at most five collapsed cards, including their gaps, and
-shortens the window when fewer cards remain. Extra records and expanded details
+shortens the window when fewer cards remain. Empty task states use their natural
+card height without a list-height cap or internal scrollbar. Extra records and expanded details
 scroll inside that same viewport; screen work-area limits can reduce its height.
 Keep toolbar/footer fixed without a window-level scrollbar. Scroll task records inside
 their bounded list; long details and settings remain scrollable with wheel, touchpad

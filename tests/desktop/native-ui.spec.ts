@@ -942,6 +942,35 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     await expect
       .poll(() => page.evaluate(() => (window as unknown as { fittedHeight: number }).fittedHeight))
       .toBeLessThan(fiveCardWindow);
+    await page.setViewportSize({ width: 400, height: 480 });
+    await page.evaluate(() => {
+      (window as unknown as { fixtureCount: number }).fixtureCount = 0;
+    });
+    const emptyTasks = page.locator('.task-list .empty');
+    await expect(emptyTasks).toBeVisible();
+    await expect
+      .poll(() =>
+        page
+          .locator('.task-list')
+          .evaluate((element) => element.scrollHeight <= element.clientHeight),
+      )
+      .toBe(true);
+    const emptyWindowHeight = await page.evaluate(
+      () => (window as unknown as { fittedHeight: number }).fittedHeight,
+    );
+    await page.setViewportSize({ width: 400, height: emptyWindowHeight });
+    await expect(
+      emptyTasks.getByRole('button', { name: '配置连接', exact: true }),
+    ).toBeInViewport();
+    expect(
+      await emptyTasks.evaluate(
+        (element) =>
+          element.getBoundingClientRect().bottom <=
+          document.querySelector('.app-footer')!.getBoundingClientRect().top,
+      ),
+    ).toBe(true);
+    await expect(page.locator('.task-list')).toHaveCSS('overflow-y', 'auto');
+    await page.screenshot({ path: test.info().outputPath('tasks-empty-fit.png') });
     await page.evaluate(() => {
       delete (window as unknown as { fixtureCount?: number }).fixtureCount;
     });

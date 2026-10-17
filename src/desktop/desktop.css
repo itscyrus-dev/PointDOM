@@ -357,16 +357,16 @@ button:disabled {
   flex-direction: column;
   gap: 6px;
   overflow-x: hidden;
-  overflow-y: scroll;
+  overflow-y: auto;
   min-height: 0;
   margin-inline: -2px -12px;
   padding: 2px 6px 2px 2px;
-  max-height: max(64px, calc(100dvh - var(--task-list-chrome-height, 360px)));
 }
 .task-list > * {
   flex-shrink: 0;
 }
 .task-list:has(.task-entry) {
+  max-height: max(64px, calc(100dvh - var(--task-list-chrome-height, 360px)));
   height: var(--task-list-height, 64px);
 }
 .task-entry {
