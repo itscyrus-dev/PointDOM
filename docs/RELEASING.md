@@ -28,6 +28,8 @@ covered by a platform checksum manifest; publishing generates a combined SHA256S
    all of them. Installer creation, archive verification and release uploads run
    only for a version tag, after the same checks pass. Frontend output is reused
    within each job; Rust caches exclude incremental files and installer bundles.
+   Failed runs save a separate partial cache so they cannot occupy the immutable
+   cache key reserved for a successful, complete build.
 5. After maintainer approval and successful checks, merge the reviewed commit and
    push its matching `v<version>` tag. Publishing needs explicit authorization.
 

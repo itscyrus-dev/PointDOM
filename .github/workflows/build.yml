@@ -61,6 +61,7 @@ jobs:
             !target/**/bundle
           key: rust-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
+            rust-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
             rust-v2-${{ runner.os }}-${{ runner.arch }}-
       - run: pnpm install --frozen-lockfile
       - name: Verify versions
@@ -121,4 +122,4 @@ jobs:
             target
             !target/**/incremental
             !target/**/bundle
-          key: rust-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          key: rust-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-partial-${{ github.run_id }}-${{ github.run_attempt }}
