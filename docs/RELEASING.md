@@ -28,6 +28,10 @@ covered by a platform checksum manifest; publishing generates a combined SHA256S
 5. After maintainer approval and successful checks, merge the reviewed commit and
    push its matching `v<version>` tag. Publishing needs explicit authorization.
 
+Keep the locked `rust-ini` 0.21.1 dependency while using tauri-plugin-deep-link
+2.6.2: rust-ini 0.21.3 adds required ParseOption fields and breaks the plugin's
+Linux build. Recheck Linux compilation before updating this transitive dependency.
+
 ## Publish and recover
 
 Tag pushes invoke Release. Manual dispatch accepts an **existing tag**, checks out
