@@ -23,6 +23,16 @@ PointDOM 将网页元素和修改描述交给本机编程 CLI，或通过 MCP �
 4. 在代码项目目录运行 `pdo link --origin http://localhost:3000`，将 URL 换成真实开发地址。
 5. 打开该网页，在插件中启用网页访问，选择执行工具，选取元素并提交。执行记录和结果显示在批注卡片。
 
+### 使用 curl 安装（macOS）
+
+运行以下命令安装最新发布版本并启动本地服务：
+
+```sh
+curl -fsSL https://github.com/itscyrus-dev/PointDOM/releases/latest/download/install.sh | sh
+```
+
+然后运行 `~/.local/bin/pdo setup` 打开扩展安装向导。加载扩展后，从扩展设置中复制并执行安装命令，授权自动配对。
+
 ## 支持的工具
 
 [Codex](docs/agents/CODEX.md) · [Claude Code](docs/agents/CLAUDE_CODE.md) · [OpenCode](docs/agents/OPENCODE.md) · [Trae](docs/agents/TRAE.md)
