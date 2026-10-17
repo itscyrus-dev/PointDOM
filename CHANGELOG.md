@@ -3,6 +3,12 @@
 Notable changes to PointDOM. Download installers and checksums from
 [GitHub Releases](https://github.com/itscyrus-dev/PointDOM/releases).
 
+## 0.6.1
+
+- Limit CI and release downloads to Apple Silicon macOS.
+- Adapt the monochrome menu-bar icon automatically to light and dark backgrounds.
+- Reduce dependency-update CI queue pressure and separate partial Rust caches.
+
 ## [0.6.0] - 2026-10-17
 
 ### Added

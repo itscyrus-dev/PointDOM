@@ -4,8 +4,6 @@ import { createHash } from 'node:crypto';
 
 export const releaseTargets = {
   'darwin-arm64': { triple: 'aarch64-apple-darwin', installers: ['.dmg'] },
-  'win32-x64': { triple: 'x86_64-pc-windows-msvc', installers: ['.exe'] },
-  'linux-x64': { triple: 'x86_64-unknown-linux-gnu', installers: ['.deb', '.AppImage'] },
 } as const;
 
 export function releaseTarget(platform: string, arch: string) {

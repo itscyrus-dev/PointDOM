@@ -2940,7 +2940,7 @@ dependencies = [
 
 [[package]]
 name = "pointdom-cli"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "pointdom-core",
  "reqwest",
@@ -2950,7 +2950,7 @@ dependencies = [
 
 [[package]]
 name = "pointdom-core"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "axum",
  "chrono",
@@ -2976,7 +2976,7 @@ dependencies = [
 
 [[package]]
 name = "pointdom-desktop"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "pointdom-core",
  "serde",

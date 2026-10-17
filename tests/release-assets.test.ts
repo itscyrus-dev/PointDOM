@@ -13,10 +13,10 @@ import {
   verifyChecksums,
 } from '../scripts/release-utils.js';
 
-test('release platforms include Apple Silicon, Windows and Linux, but no Intel Mac', () => {
+test('release platforms support only Apple Silicon macOS', () => {
   assert.equal(releaseTarget('darwin', 'arm64').triple, 'aarch64-apple-darwin');
-  assert.deepEqual(releaseTarget('win32', 'x64').installers, ['.exe']);
-  assert.deepEqual(releaseTarget('linux', 'x64').installers, ['.deb', '.AppImage']);
+  assert.throws(() => releaseTarget('win32', 'x64'), /Unsupported/);
+  assert.throws(() => releaseTarget('linux', 'x64'), /Unsupported/);
   assert.throws(() => releaseTarget('darwin', 'x64'), /Unsupported/);
   assert.throws(() => releaseTarget('linux', 'arm64'), /Unsupported/);
 });
@@ -46,7 +46,7 @@ test('release manifests reject corruption, duplicate names and path traversal', 
   }
 });
 
-test('publisher requires all platforms and rejects an unexpected or damaged asset', async () => {
+test('publisher requires the macOS assets and rejects an unexpected or damaged asset', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pointdom-publisher-'));
   const script = resolve('scripts/verify-native-release.mjs');
   try {
@@ -65,11 +65,7 @@ test('publisher requires all platforms and rejects an unexpected or damaged asse
     await mkdir(output);
     const version = await releaseVersion();
     for (const { triple, installers } of Object.values(releaseTargets)) {
-      const names = [
-        `pointdom-${version}-${triple}.${triple.includes('windows') ? 'zip' : 'tar.gz'}`,
-        ...installers.map((suffix) => `fixture-${triple}${suffix}`),
-      ];
-      if (triple.includes('apple')) names.push(`pointdom-extension-${version}.zip`);
+      const names = installers.map((suffix) => `fixture-${version}-${triple}${suffix}`);
       for (const name of names) await writeFile(join(output, name), 'fixture');
       await writeFile(
         join(output, `${triple}.sha256`),
@@ -85,22 +81,22 @@ test('publisher requires all platforms and rejects an unexpected or damaged asse
         env: { ...process.env, RELEASE_TAG: `v${version}` },
       });
     run();
-    assert.equal((await readFile(join(output, 'SHA256SUMS'), 'utf8')).trim().split('\n').length, 8);
+    assert.equal((await readFile(join(output, 'SHA256SUMS'), 'utf8')).trim().split('\n').length, 1);
     await writeFile(join(output, 'unexpected.zip'), 'unexpected');
     assert.throws(run);
     await rm(join(output, 'unexpected.zip'));
-    const linux = join(output, 'x86_64-unknown-linux-gnu.sha256');
-    const original = await readFile(linux, 'utf8');
+    const manifest = join(output, 'aarch64-apple-darwin.sha256');
+    const original = await readFile(manifest, 'utf8');
     await writeFile(
-      linux,
+      manifest,
       original
         .split('\n')
-        .filter((line) => !line.endsWith('.deb'))
+        .filter((line) => !line.endsWith('.dmg'))
         .join('\n'),
     );
     assert.throws(run);
-    await writeFile(linux, original);
-    await writeFile(join(output, 'fixture-x86_64-unknown-linux-gnu.deb'), 'corrupted');
+    await writeFile(manifest, original);
+    await writeFile(join(output, `fixture-${version}-aarch64-apple-darwin.dmg`), 'corrupted');
     assert.throws(run);
   } finally {
     await rm(directory, { recursive: true, force: true });

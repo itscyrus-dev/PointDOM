@@ -16,13 +16,11 @@ PointDOM 将网页批注交给你的 MCP 代码客户端处理。选取一个或
 
 ## 安装
 
-从 [Releases](https://github.com/itscyrus-dev/PointDOM/releases/latest) 下载对应安装包和 Chrome 扩展 ZIP。
+从 [Releases](https://github.com/itscyrus-dev/PointDOM/releases/latest) 下载macOS 应用 DMG。
 
-| 平台        | 安装包         | 架构               |
-| ----------- | -------------- | ------------------ |
-| macOS 12+   | DMG            | 仅 Apple Silicon   |
-| Windows 10+ | Setup EXE      | x64                |
-| Linux       | DEB / AppImage | x64，WebKitGTK 4.1 |
+| 平台      | 安装包 | 架构             |
+| --------- | ------ | ---------------- |
+| macOS 12+ | DMG    | 仅 Apple Silicon |
 
 安装包未签名，macOS 版本未公证，不支持 Intel Mac。
 从 0.5 升级前先退出旧服务，再启动 0.6。项目、配对和历史记录会保留并创建私有备份，
@@ -30,14 +28,13 @@ PointDOM 将网页批注交给你的 MCP 代码客户端处理。选取一个或
 
 ## 使用
 
-1. 打开 PointDOM。解压扩展 ZIP，在 `chrome://extensions` 开启“开发者模式”，选择“加载已解压的扩展程序”，然后在 App 中批准 Chrome 连接。
-2. 启动本地开发服务。macOS 在侧栏点击“绑定项目”，确认识别到的源码文件夹；Windows/Linux 在“设置 → 高级”手动添加源码文件夹和网页地址。仅为绑定网页授予 Chrome 权限。
+1. 打开 PointDOM。在 App 设置中打开扩展文件夹，在 `chrome://extensions` 开启“开发者模式”，选择“加载已解压的扩展程序”，然后在 App 中批准 Chrome 连接。
+2. 启动本地开发服务。在侧栏点击“绑定项目”，确认识别到的源码文件夹。仅为绑定网页授予 Chrome 权限。
 3. 在“客户端”配置你的代码客户端，连接通用 MCP 并绑定准确项目。通用 MCP 客户端在监听时接收任务；macOS 的 Codex 桌面对话可在明确授权后接收任务通知。
 4. 选取网页元素，填写整体需求或各元素描述，选择 MCP 接收方并提交。在任务列表查看进度、结果并取消任务。
 
 应用使用 Tauri 2、Rust、React 和 HeroUI 3，安装后不携带 Electron 或 Node 运行时，
-也不会启动模型 CLI。客户端报告不等于独立验证。自动源码发现和 Codex 桌面对话通知
-目前仅支持 macOS；通用 MCP 监听支持以上三种平台。
+也不会启动模型 CLI。客户端报告不等于独立验证。目前仅支持 Apple Silicon macOS，提供自动源码发现、Codex 桌面对话通知和通用 MCP 监听。
 
 ## 开发
 

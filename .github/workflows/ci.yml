@@ -18,7 +18,7 @@ jobs:
     if: always()
     runs-on: ubuntu-22.04
     steps:
-      - name: Require all platforms
+      - name: Require macOS checks
         env:
           RESULT: ${{ needs.platforms.result }}
         run: test "$RESULT" = success

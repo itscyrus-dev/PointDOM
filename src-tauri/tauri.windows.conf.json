@@ -1,8 +1,0 @@
-{
-  "bundle": {
-    "targets": ["nsis"],
-    "resources": {
-      "../dist/native/pointdom": "bin/pointdom.exe"
-    }
-  }
-}
