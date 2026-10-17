@@ -61,7 +61,7 @@ jobs:
             !target/**/bundle
           key: rust-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
-            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+            rust-v2-${{ runner.os }}-${{ runner.arch }}-
       - run: pnpm install --frozen-lockfile
       - name: Verify versions
         run: node --input-type=module -e 'import {releaseVersion} from "./scripts/release-utils.ts"; await releaseVersion(".", process.env.RELEASE_TAG || undefined)'
