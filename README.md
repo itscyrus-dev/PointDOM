@@ -17,13 +17,11 @@ panel or desktop task list. Your client owns source edits, accounts and permissi
 
 ## Install
 
-Download the installer and Chrome extension ZIP from [Releases](https://github.com/itscyrus-dev/PointDOM/releases/latest).
+Download the macOS application DMG from [Releases](https://github.com/itscyrus-dev/PointDOM/releases/latest).
 
-| Platform    | Download       | Architecture       |
-| ----------- | -------------- | ------------------ |
-| macOS 12+   | DMG            | Apple Silicon only |
-| Windows 10+ | Setup EXE      | x64                |
-| Linux       | DEB / AppImage | x64, WebKitGTK 4.1 |
+| Platform  | Download | Architecture       |
+| --------- | -------- | ------------------ |
+| macOS 12+ | DMG      | Apple Silicon only |
 
 Installers are unsigned; macOS builds are not notarized. Intel Macs are not supported.
 For upgrades from 0.5, quit the old service before starting 0.6. Projects, pairing and
@@ -31,15 +29,15 @@ history are preserved with a private backup; interrupted tasks are never replaye
 
 ## Use
 
-1. Open PointDOM. Extract the extension ZIP, enable Developer mode at `chrome://extensions`, and choose **Load unpacked**. Approve the Chrome connection in the app.
-2. Start your development server. On macOS, open the side panel and choose **Bind project**; confirm its verified source folder. Windows/Linux use **Settings → Advanced** to add the folder and address manually. Grant only the linked page's Chrome permission.
+1. Open PointDOM. In Settings, show the bundled extension folder, enable Developer mode at `chrome://extensions`, and choose **Load unpacked**. Approve the Chrome connection in the app.
+2. Start your development server. Open the side panel and choose **Bind project**; confirm its verified source folder. Grant only the linked page's Chrome permission.
 3. Configure your client from **Clients**. Connect its universal MCP entry and bind the exact project. Generic MCP clients receive tasks while listening; explicitly authorized Codex desktop conversations can receive notifications on macOS.
 4. Select page elements, add an overall request or element notes, choose the MCP recipient and submit. Inspect progress, reports and cancellation from the task list.
 
 The app uses Tauri 2, Rust, React and HeroUI 3. Installed builds contain no Electron
 or Node runtime and never launch model CLIs. Client reports are not independent
-verification. Automatic source discovery and Codex desktop notifications are currently
-macOS-only; generic MCP listening works on all three platforms.
+verification. PointDOM currently supports macOS on Apple Silicon, including source discovery,
+Codex desktop notifications and generic MCP listening.
 
 ## Develop
 

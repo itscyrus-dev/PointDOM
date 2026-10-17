@@ -143,12 +143,12 @@ Click the icon to open a 380px round task panel: connection, running/queued coun
 active tasks, recent results and open-main action. A task opens its detail in the
 main window. Right-click provides Open, Tasks, Projects, Clients, Settings, About
 and Quit, separated into navigation and lifecycle groups. The menu opens the requested
-main-window tab and dismisses the task panel. Use a 2x antialiased fixed-color menu-bar icon:
-a dark rounded tile, white curved selection brackets and a white idle center point.
-During execution only the center becomes Radix Blue 9 (#0090FF) and breathes smoothly over a 2.4-second
-cycle at 25fps; the tile and white brackets stay fixed. Reduced motion keeps the
-blue activity point static. Disable template tinting both when creating and updating the icon,
-so system appearance never reverses the dark tile or removes the blue activity point.
+main-window tab and dismisses the task panel. Use a 2x antialiased monochrome macOS template icon: transparent background,
+curved selection brackets and an idle center point. macOS renders it black on a
+light menu bar and white on a dark menu bar. During execution only the center
+breathes smoothly over a 2.4-second cycle at 25fps; the brackets stay fixed.
+Reduced motion keeps the point static. Keep template rendering enabled both when
+creating and updating the icon.
 The app icon shares the selection frame and blue point, with
 a restrained dark surface gradient and subtle edge highlight. The task panel uses a transparent native window
 and transparent document roots behind its clipped 16px rounded surface; CSS rounding

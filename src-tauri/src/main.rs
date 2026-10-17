@@ -559,7 +559,7 @@ fn open_main(app: AppHandle, id: Option<String>) -> Result<(), String> {
     Ok(())
 }
 fn tray_image(frame: usize, active: bool, attention: bool) -> Image<'static> {
-    // A fixed-color 22pt tile at 2x; sample coverage for smooth edges and curves.
+    // A 22pt monochrome template at 2x; macOS chooses the foreground color.
     let size = 44;
     let mut rgba = vec![0u8; size * size * 4];
     let pulse = if active {
@@ -571,17 +571,10 @@ fn tray_image(frame: usize, active: bool, attention: bool) -> Image<'static> {
     for y in 0..size {
         for x in 0..size {
             let mut coverage = 0u16;
-            let mut color = [0u16; 3];
             for sy in 0..4 {
                 for sx in 0..4 {
                     let tx = (x as f64 + (sx as f64 + 0.5) / 4.0) / 2.0;
                     let ty = (y as f64 + (sy as f64 + 0.5) / 4.0) / 2.0;
-                    let qx = (tx - 11.0).abs() - 5.0;
-                    let qy = (ty - 11.0).abs() - 5.0;
-                    let tile_distance = qx.max(0.0).hypot(qy.max(0.0)) + qx.max(qy).min(0.0);
-                    if tile_distance > 5.25 {
-                        continue;
-                    }
                     let px = (tx - 11.0) / 0.65 + 11.0;
                     let py = (ty - 11.0) / 0.65 + 11.0;
                     let top_left_arc =
@@ -597,30 +590,13 @@ fn tray_image(frame: usize, active: bool, attention: bool) -> Image<'static> {
                         || (px - 20.0).hypot(py - py.clamp(13.5, 17.5)) < 1.45;
                     let dot = (tx - 11.0).hypot(ty - 11.0) < dot_radius;
                     let badge = attention && (tx - 18.5).hypot(ty - 3.5) < 0.95;
-                    let shade = ((ty - 0.75) / 20.5).clamp(0.0, 1.0);
-                    let sample = if active && dot {
-                        [0, 144, 255]
-                    } else if bracket || dot || badge {
-                        [255, 255, 255]
-                    } else if tile_distance > 4.95 {
-                        [55, 58, 61]
-                    } else {
-                        [
-                            (45.0 - 26.0 * shade) as u16,
-                            (48.0 - 27.0 * shade) as u16,
-                            (51.0 - 28.0 * shade) as u16,
-                        ]
-                    };
-                    for channel in 0..3 {
-                        color[channel] += sample[channel];
+                    if !(bracket || dot || badge) {
+                        continue;
                     }
                     coverage += 1;
                 }
             }
             let i = (y * size + x) * 4;
-            for channel in 0..3 {
-                rgba[i + channel] = color[channel].checked_div(coverage).unwrap_or(0) as u8;
-            }
             rgba[i + 3] = (coverage * 255 / 16) as u8;
         }
     }
@@ -654,7 +630,7 @@ async fn animate(app: AppHandle, desktop: Arc<Desktop>) {
                     active,
                     attention,
                 )),
-                false,
+                true,
             );
             let _ = tray.set_tooltip(Some(format!(
                 "PointDOM · {running} {} · {pending} {}",
@@ -850,7 +826,7 @@ fn main() {
             let menu = tray_menu(app.handle(), language)?;
             let tray = TrayIconBuilder::with_id("pointdom")
                 .icon(tray_image(0, false, false))
-                .icon_as_template(false)
+                .icon_as_template(true)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -1047,16 +1023,17 @@ mod tests {
         let columns: Vec<_> = (0..44)
             .filter(|x| (0..44).any(|y| image.rgba()[(y * 44 + x) * 4 + 3] > 0))
             .collect();
-        assert_eq!((columns.first(), columns.last()), (Some(&1), Some(&42)));
+        assert!(columns.first().is_some_and(|x| *x < 10));
+        assert!(columns.last().is_some_and(|x| *x > 33));
     }
 
     #[test]
     fn tray_brackets_have_curved_elbows_and_heavier_strokes() {
         let image = tray_image(0, false, false);
-        let red = |x: usize, y: usize| image.rgba()[(y * 44 + x) * 4];
-        assert!(red(8, 8) < 60);
-        assert_eq!(red(11, 11), 255);
-        assert_eq!(red(15, 11), 255);
+        let alpha = |x: usize, y: usize| image.rgba()[(y * 44 + x) * 4 + 3];
+        assert_eq!(alpha(8, 8), 0);
+        assert_eq!(alpha(11, 11), 255);
+        assert_eq!(alpha(15, 11), 255);
     }
 
     #[test]
@@ -1083,24 +1060,24 @@ mod tests {
     }
 
     #[test]
-    fn running_point_is_blue_and_brackets_stay_white() {
+    fn running_mark_is_a_monochrome_template() {
         for frame in 0..60 {
             let image = tray_image(frame, true, false);
             let center = (22 * 44 + 22) * 4;
-            assert_eq!(&image.rgba()[center..center + 4], &[0, 144, 255, 255]);
+            assert_eq!(&image.rgba()[center..center + 4], &[0, 0, 0, 255]);
             let bracket = (10 * 44 + 15) * 4;
-            assert_eq!(&image.rgba()[bracket..bracket + 4], &[255, 255, 255, 255]);
+            assert_eq!(&image.rgba()[bracket..bracket + 4], &[0, 0, 0, 255]);
         }
     }
 
     #[test]
-    fn tray_has_a_dark_tile_and_white_idle_point() {
+    fn tray_has_a_transparent_background_and_opaque_idle_point() {
         let idle = tray_image(0, false, false);
         let center = (22 * 44 + 22) * 4;
-        assert_eq!(&idle.rgba()[center..center + 4], &[255, 255, 255, 255]);
+        assert_eq!(&idle.rgba()[center..center + 4], &[0, 0, 0, 255]);
         let tile = (12 * 44 + 22) * 4;
-        assert!(idle.rgba()[tile] < 60);
-        assert_eq!(idle.rgba()[tile + 3], 255);
+        assert_eq!(idle.rgba()[tile], 0);
+        assert_eq!(idle.rgba()[tile + 3], 0);
         assert_eq!(idle.rgba()[3], 0);
     }
 
