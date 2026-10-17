@@ -24,11 +24,13 @@
     "selection-ink": "#282b30",
     "control-hover": "#f4f4f5",
     "control-pressed": "#f4f4f5",
-    "completed": "#f4f4f5",
-    "completed-ink": "#5d6872",
+    "completed": "#eeeeee",
+    "completed-ink": "#b8b8b8",
     "running": "#eff5e7",
     "running-ink": "#45612b",
     "edge": "#d9dfe1",
-    "online": "#7c985c"
+    "online": "#7c985c",
+    "page": "#ffffff",
+    "card": "#f8f8f8"
   }
 }

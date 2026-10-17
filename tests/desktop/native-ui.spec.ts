@@ -435,7 +435,7 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     await lightTheme.click();
     await expect
       .poll(() => lightTheme.evaluate((element) => getComputedStyle(element).backgroundColor))
-      .toBe('rgb(252, 252, 253)');
+      .toBe('rgb(255, 255, 255)');
     const themeFill = await lightTheme.evaluate(
       (element) => getComputedStyle(element).backgroundColor,
     );
@@ -482,7 +482,11 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
       page.getByRole('tab', { name: '设置', exact: true }),
       'rgba(0, 0, 0, 0)',
     );
-    await expect(page.locator('.summary-grid')).toHaveCSS('border-top-color', 'rgb(217, 223, 225)');
+    await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    for (const card of [page.locator('.summary-grid'), page.locator('.task-card').first()]) {
+      await expect(card).toHaveCSS('background-color', 'rgb(248, 248, 248)');
+      await expect(card).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
+    }
     await page.screenshot({
       path: test.info().outputPath('desktop-light.png'),
       animations: 'disabled',
@@ -789,6 +793,26 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
       (window as unknown as { fixtureCompleted: boolean }).fixtureCompleted = true;
     });
     await expect(page.locator('.task-card[data-status="completed"]')).toHaveCount(5);
+    await page.getByRole('tab', { name: '设置', exact: true }).click();
+    await lightTheme.click();
+    await page.getByRole('tab', { name: '任务', exact: true }).click();
+    await expect(page.locator('.status-completed').first()).toHaveCSS(
+      'background-color',
+      'rgb(238, 238, 238)',
+    );
+    await expect(page.locator('.status-completed').first()).toHaveCSS(
+      'color',
+      'rgb(184, 184, 184)',
+    );
+
+    await page.screenshot({
+      path: test.info().outputPath('desktop-completed-light.png'),
+      animations: 'disabled',
+    });
+    await page.getByRole('tab', { name: '设置', exact: true }).click();
+    await darkTheme.click();
+    await page.getByRole('tab', { name: '任务', exact: true }).click();
+
     const filterFrames = await page.evaluate(async () => {
       const list = document.querySelector('.task-list')!;
       const buttons = [...document.querySelectorAll<HTMLButtonElement>('.filter-controls button')];

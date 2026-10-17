@@ -70,7 +70,7 @@ test('unbound local page shows a prominent binding action in the panel without p
     await expectLimeAction(binding);
     await expect(panel.locator('.project-binding')).toHaveCSS(
       'border-top-color',
-      'rgb(217, 223, 225)',
+      'rgba(0, 0, 0, 0)',
     );
     await panel.screenshot({ path: test.info().outputPath('local-binding-light.png') });
     await panel.getByRole('radio', { name: '深色', exact: true }).click();

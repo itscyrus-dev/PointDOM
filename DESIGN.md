@@ -15,26 +15,27 @@ actual actions and states, not implementation previews or fictional progress.
 Use React, TypeScript and official HeroUI 3 controls. Keep Chrome's native side panel.
 No second dialog, focus trap, dropdown keyboard system or marketing-style homepage.
 
-| Role           | Dark     | Light         |
-| -------------- | -------- | ------------- |
-| Page           | #141516  | #FCFCFD       |
-| Card           | #202224  | #F6F6F7       |
-| Input/selected | #2B2E31  | #EDEDF0       |
-| Text           | #EEEFF0  | #282B30       |
-| Secondary      | #969BA2  | #697078       |
-| Border         | white 6% | near-black 6% |
+| Role           | Dark     | Light   |
+| -------------- | -------- | ------- |
+| Page           | #141516  | #FFFFFF |
+| Card           | #202224  | #F8F8F8 |
+| Input/selected | #2B2E31  | #EDEDF0 |
+| Text           | #EEEFF0  | #282B30 |
+| Secondary      | #969BA2  | #697078 |
+| Card border    | white 6% | none    |
 
 Desktop: 16px cards, 9px controls, 13px body, 16px page headings, restrained lime
 branding (#A8FF00). Extension: 14px cards, 9px controls, 13px body, outer spacing 16px.
 App and extension share semantic tokens from `src/shared/ui-theme.json`. Reserve
 fluorescent lime #A8FF00 for primary actions, enabled switches, the active element-picking glyph and active execution
 indicators. Primary action labels use #15181B; hover darkens to #98E600 and press
-to #88CC00. In light mode, navigation, filter selection, neutral tags and secondary action hover
-share #F4F4F5. Navigation uses a quiet neutral selected surface. Unselected navigation
+to #88CC00. In light mode, navigation, filter selection and secondary action hover use #F4F4F5.
+The page is white, cards use #F8F8F8 without visible borders, and neutral metadata
+tags use #EEEEEE with #B8B8B8 labels per the product reference. Navigation uses a quiet neutral selected surface. Unselected navigation
 and filter tabs have no hover background. Filters and completed badges use neutral
 surfaces with readable labels; running badges use a restrained green tint. Secondary
 actions hover in neutral gray. Never reuse the primary fill for routine selection
-or completion. Check text contrast in both appearances; preserve semantic error and
+or completion. Check interactive and running-state text contrast in both appearances; preserve semantic error and
 warning colors, existing layout and brand artwork.
 
 Thin neutral edges and restrained overlay shadows; no stacked rings, heavy shadows

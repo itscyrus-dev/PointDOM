@@ -15,8 +15,8 @@
 }
 :root[data-theme='light'] {
   color-scheme: light;
-  --page: #fcfcfd;
-  --surface: #f6f6f7;
+  --page: var(--ui-page);
+  --surface: var(--ui-card);
   --input: #ededf0;
   --edge: var(--ui-edge);
   --text: #282b30;
@@ -1347,9 +1347,6 @@ h3 {
 .connection.online:before {
   background: var(--ui-online);
 }
-:root[data-theme='light'] .task-card[data-status='running'] {
-  border-color: var(--accent);
-}
 :root[data-theme='light'] .task-card[data-status='running']:before {
   background-image: linear-gradient(
     110deg,
@@ -1363,4 +1360,15 @@ h3 {
   background: var(--input);
   color: var(--muted);
   opacity: 1;
+}
+
+:root[data-theme='light'] :is(.card, .task-card, .summary-grid, .notice) {
+  background: var(--ui-card);
+  border-color: transparent;
+  box-shadow: none;
+}
+:root[data-theme='light'] .version-badge,
+:root[data-theme='light'] .status:not([class*='status-']) {
+  background: var(--ui-completed);
+  color: var(--ui-completed-ink);
 }

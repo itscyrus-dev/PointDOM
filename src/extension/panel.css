@@ -869,8 +869,8 @@ kbd {
 }
 :root[data-mode='light'] {
   color-scheme: light;
-  --bg: #fcfcfd;
-  --surface: #ffffff;
+  --bg: var(--ui-page);
+  --surface: var(--ui-card);
   --raised: var(--ui-selection);
   --input: #f7f8fa;
   --ink: #191c20;
@@ -2275,4 +2275,16 @@ button[data-pending='true'] {
 }
 .pick-button[aria-pressed='true'] .picker-indicator {
   color: var(--ui-accent);
+}
+
+:root[data-mode='light'] .card {
+  background: var(--ui-card);
+  border-color: transparent;
+  box-shadow: none;
+}
+:root[data-mode='light'] kbd,
+:root[data-mode='light'] .pill:not([class*='status-']),
+:root[data-mode='light'] .executor-badge {
+  background: var(--ui-completed);
+  color: var(--ui-completed-ink);
 }

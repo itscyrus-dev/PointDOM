@@ -229,8 +229,13 @@ test('native Rust service and MCP drive extension annotations, progress and exac
       return [css.color, css.backgroundColor];
     });
     await panel.getByRole('radio', { name: '浅色', exact: true }).click();
-    await expect(completedStatus).toHaveCSS('color', 'rgb(93, 104, 114)');
-    await expect(completedStatus).toHaveCSS('background-color', 'rgb(244, 244, 245)');
+    await expect(completedStatus).toHaveCSS('color', 'rgb(184, 184, 184)');
+    await expect(completedStatus).toHaveCSS('background-color', 'rgb(238, 238, 238)');
+    await expect(panel.locator('html')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    for (const card of [panel.locator('.job'), panel.locator('.compose-box')]) {
+      await expect(card).toHaveCSS('background-color', 'rgb(248, 248, 248)');
+      await expect(card).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
+    }
     await expect(panel.locator('#tab-all')).toHaveCSS('background-color', 'rgb(244, 244, 245)');
     await expect(panel.locator('#tab-all')).toHaveCSS('color', 'rgb(40, 43, 48)');
     await expectTabSurface(panel.locator('#tab-all'), 'rgb(244, 244, 245)');
@@ -252,16 +257,19 @@ test('native Rust service and MCP drive extension annotations, progress and exac
     await panel.locator('#connection-settings').click();
     await expect(panel.locator('#shortcut-pick')).toHaveCSS(
       'background-color',
-      'rgb(244, 244, 245)',
+      'rgb(238, 238, 238)',
     );
+    await expect(panel.locator('#shortcut-pick')).toHaveCSS('color', 'rgb(184, 184, 184)');
     await expect(panel.locator('#shortcut-panel')).toHaveCSS(
       'background-color',
-      'rgb(244, 244, 245)',
+      'rgb(238, 238, 238)',
     );
+    await expect(panel.locator('#shortcut-panel')).toHaveCSS('color', 'rgb(184, 184, 184)');
     await expect(panel.locator('#pairing-status')).toHaveCSS(
       'background-color',
-      'rgb(244, 244, 245)',
+      'rgb(238, 238, 238)',
     );
+    await expect(panel.locator('#pairing-status')).toHaveCSS('color', 'rgb(184, 184, 184)');
     await panel.getByRole('button', { name: '返回批注', exact: true }).click();
 
     await expect(panel.locator('#instruction')).toHaveCSS('background-color', 'rgb(247, 248, 250)');
