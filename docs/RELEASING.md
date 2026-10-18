@@ -4,7 +4,8 @@
 
 Only Apple Silicon macOS is supported. The macos-14 runner builds the
 `aarch64-apple-darwin` application DMG. The CLI and extension remain bundled inside the app.
-SHA256 manifests cover the DMG. Intel Macs,
+A separate `pointdom-extension-<version>.zip` contains the unpacked Chrome extension,
+with manifest.json at the archive root. SHA256 manifests cover both the DMG and ZIP. Intel Macs,
 Windows and Linux are not release targets.
 
 ## Prepare and validate
@@ -31,7 +32,7 @@ Windows and Linux are not release targets.
 
 Tag pushes invoke Release. Manual dispatch accepts an **existing tag**, checks out
 that tag and verifies all four version declarations. The macOS build job uploads verified artifacts. A separate least-privilege publisher checks all target manifests,
-requires every expected installer, rejects collisions/unexpected files and generates
+requires the expected installer and extension ZIP, rejects collisions/unexpected files and generates
 SHA256SUMS before creating a draft release and publishing it.
 
 A failed build never publishes a partial release. A failed upload leaves a draft;

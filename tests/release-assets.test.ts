@@ -1,3 +1,4 @@
+import { zipSync, strToU8 } from 'fflate';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, mkdir, cp, rm } from 'node:fs/promises';
@@ -67,6 +68,25 @@ test('publisher requires the macOS assets and rejects an unexpected or damaged a
     for (const { triple, installers } of Object.values(releaseTargets)) {
       const names = installers.map((suffix) => `fixture-${version}-${triple}${suffix}`);
       for (const name of names) await writeFile(join(output, name), 'fixture');
+      const archive = `pointdom-extension-${version}.zip`;
+      await writeFile(
+        join(output, archive),
+        zipSync({
+          'manifest.json': strToU8(
+            JSON.stringify({
+              manifest_version: 3,
+              version,
+              background: { service_worker: 'worker.js' },
+              side_panel: { default_path: 'panel.html' },
+              icons: { 16: 'icon.png' },
+            }),
+          ),
+          'worker.js': strToU8(''),
+          'panel.html': strToU8(''),
+          'icon.png': strToU8('fixture'),
+        }),
+      );
+      names.push(archive);
       await writeFile(
         join(output, `${triple}.sha256`),
         (
@@ -81,7 +101,7 @@ test('publisher requires the macOS assets and rejects an unexpected or damaged a
         env: { ...process.env, RELEASE_TAG: `v${version}` },
       });
     run();
-    assert.equal((await readFile(join(output, 'SHA256SUMS'), 'utf8')).trim().split('\n').length, 1);
+    assert.equal((await readFile(join(output, 'SHA256SUMS'), 'utf8')).trim().split('\n').length, 2);
     await writeFile(join(output, 'unexpected.zip'), 'unexpected');
     assert.throws(run);
     await rm(join(output, 'unexpected.zip'));
@@ -95,6 +115,43 @@ test('publisher requires the macOS assets and rejects an unexpected or damaged a
         .join('\n'),
     );
     assert.throws(run);
+    await writeFile(
+      manifest,
+      original
+        .split('\n')
+        .filter((line) => !line.endsWith('.zip'))
+        .join('\n'),
+    );
+    assert.throws(run);
+    await writeFile(manifest, original);
+    const archive = `pointdom-extension-${version}.zip`;
+    const validArchive = await readFile(join(output, archive));
+    for (const extensionVersion of ['0.0.0', version]) {
+      await writeFile(
+        join(output, archive),
+        zipSync({
+          'manifest.json': strToU8(
+            JSON.stringify({
+              manifest_version: 3,
+              version: extensionVersion,
+              background: { service_worker: 'missing.js' },
+            }),
+          ),
+        }),
+      );
+      await writeFile(
+        manifest,
+        original.replace(
+          /^[a-f0-9]{64}(?=  pointdom-extension-)/m,
+          await checksum(output, archive),
+        ),
+      );
+      assert.throws(
+        run,
+        extensionVersion === version ? /Missing extension resource/ : /manifest\/version mismatch/,
+      );
+    }
+    await writeFile(join(output, archive), validArchive);
     await writeFile(manifest, original);
     await writeFile(join(output, `fixture-${version}-aarch64-apple-darwin.dmg`), 'corrupted');
     assert.throws(run);
