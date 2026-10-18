@@ -58,6 +58,8 @@ pub struct Job {
     pub selection: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selections: Option<Vec<Value>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wakeup_token_hash: Option<String>,
     pub status: Status,
     pub created_at: String,
     pub updated_at: String,
@@ -139,6 +141,7 @@ impl Job {
         if let Some(o) = value.as_object_mut() {
             o.remove("claim");
             o.remove("threadId");
+            o.remove("wakeupTokenHash");
         }
         value
     }

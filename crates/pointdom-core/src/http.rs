@@ -377,7 +377,12 @@ async fn mcp(
         ("POST", "/api/mcp/connections") => service.register(input, claim).await,
         ("POST", "/api/mcp/connections/wakeup") => {
             service
-                .wakeup(project, claim, text(input, "threadId")?)
+                .wakeup(
+                    project,
+                    claim,
+                    text(input, "threadId")?,
+                    input.get("notificationToken").and_then(Value::as_str),
+                )
                 .await
         }
         ("POST", "/api/mcp/connections/disconnect" | "/api/mcp/connections/detach") => {

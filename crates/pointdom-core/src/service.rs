@@ -257,7 +257,13 @@ impl Service {
             .ok_or(Error::NotFound)
     }
 
-    pub async fn wakeup(&self, project: &str, claim: &str, thread: &str) -> Result<Value> {
+    pub async fn wakeup(
+        &self,
+        project: &str,
+        claim: &str,
+        thread: &str,
+        notification_token: Option<&str>,
+    ) -> Result<Value> {
         uuid(thread)?;
         let p = self.project(project).await?;
         {
@@ -266,9 +272,10 @@ impl Service {
         }
         crate::clients::verify(thread, &p).await?;
         let mut s = self.inner.lock().await;
-        let id = s.authorize_wakeup(&p, claim, thread)?;
+        let id = s.authorize_wakeup(&p, claim, thread, notification_token)?;
+        let restored = s.session(project, claim)?.id == id;
         Ok(
-            json!({"projectId":project,"connectionId":id,"threadId":thread,"wakeable":true,"listening":false}),
+            json!({"projectId":project,"connectionId":id,"threadId":thread,"wakeable":true,"listening":false,"sessionRestored":restored}),
         )
     }
     pub async fn submit(&self, input: Value) -> Result<Value> {
@@ -590,7 +597,13 @@ impl State {
             .ok_or(Error::Conflict("MCP_RECONNECT_REQUIRED"))
     }
     // Called only after the desktop host has verified this exact thread and project.
-    fn authorize_wakeup(&mut self, project: &Project, claim: &str, thread: &str) -> Result<String> {
+    fn authorize_wakeup(
+        &mut self,
+        project: &Project,
+        claim: &str,
+        thread: &str,
+        notification_token: Option<&str>,
+    ) -> Result<String> {
         let mut c = self.session(&project.id, claim)?.clone();
         let previous = c.id.clone();
         let existing = self
@@ -602,6 +615,23 @@ impl State {
             })
             .map(|(id, _)| id.clone());
         let id = existing.unwrap_or_else(|| previous.clone());
+        if id != previous {
+            let Some(token) = notification_token else {
+                // Setup can confirm an existing target, but IDs alone never grant its tasks.
+                return Ok(id);
+            };
+            let expected = hash(token);
+            if !self.store.jobs.iter().any(|j| {
+                j.project_id == project.id
+                    && j.status == Status::Queued
+                    && j.client_notification == Some(true)
+                    && j.thread_id.as_deref() == Some(thread)
+                    && j.recipient.as_ref().is_some_and(|r| r.id == id)
+                    && j.wakeup_token_hash.as_deref() == Some(expected.as_str())
+            }) {
+                return Err(Error::Conflict("INVALID_WAKEUP_TOKEN"));
+            }
+        }
         if id != previous
             && self.store.jobs.iter().any(|j| {
                 j.recipient.as_ref().is_some_and(|r| {
@@ -823,7 +853,10 @@ mod wakeup_lifecycle_tests {
         {
             let mut s = service.inner.lock().await;
             // Host verification is replaced only in this isolated domain fixture.
-            assert_eq!(s.authorize_wakeup(&project, &claim, &thread).unwrap(), id);
+            assert_eq!(
+                s.authorize_wakeup(&project, &claim, &thread, None).unwrap(),
+                id
+            );
             s.detach(&project.id, &claim, false).unwrap();
             s.connections.get_mut(&id).unwrap().seen = Instant::now() - Duration::from_secs(120);
             s.prune();
@@ -834,9 +867,27 @@ mod wakeup_lifecycle_tests {
         let input = submission(&project, &id);
         let task = input["id"].as_str().unwrap();
         service.submit(input.clone()).await.unwrap();
+        {
+            let mut s = service.inner.lock().await;
+            s.store.jobs[0].client_notification = Some(true);
+            s.store.jobs[0].wakeup_token_hash = Some(hash("fixture-token"));
+            assert!(s.store.jobs[0].public().get("wakeupTokenHash").is_none());
+        }
         let fresh = Uuid::new_v4().to_string();
         let fresh_id = register(&service, &project, &fresh).await;
         assert_ne!(fresh_id, id);
+        {
+            let mut s = service.inner.lock().await;
+            assert_eq!(
+                s.authorize_wakeup(&project, &fresh, &thread, None).unwrap(),
+                id
+            );
+            assert_eq!(s.session(&project.id, &fresh).unwrap().id, fresh_id);
+            assert!(
+                s.authorize_wakeup(&project, &fresh, &thread, Some("wrong-token"))
+                    .is_err()
+            );
+        }
         assert!(
             service
                 .task(task, &project.id, &fresh, "read", &json!({}))
@@ -845,7 +896,11 @@ mod wakeup_lifecycle_tests {
         );
         {
             let mut s = service.inner.lock().await;
-            assert_eq!(s.authorize_wakeup(&project, &fresh, &thread).unwrap(), id);
+            assert_eq!(
+                s.authorize_wakeup(&project, &fresh, &thread, Some("fixture-token"))
+                    .unwrap(),
+                id
+            );
             assert!(!s.connections.contains_key(&fresh_id));
         }
         assert_eq!(register(&service, &project, &fresh).await, id);
@@ -867,6 +922,16 @@ mod wakeup_lifecycle_tests {
             .detach(&project.id, &fresh, false)
             .unwrap();
         service.submit(submission(&project, &id)).await.unwrap();
+        let replay = Uuid::new_v4().to_string();
+        register(&service, &project, &replay).await;
+        assert!(
+            service
+                .inner
+                .lock()
+                .await
+                .authorize_wakeup(&project, &replay, &thread, Some("fixture-token"))
+                .is_err()
+        );
         assert_eq!(service.inner.lock().await.store.jobs.len(), 2);
     }
     #[tokio::test]
@@ -876,7 +941,7 @@ mod wakeup_lifecycle_tests {
             .inner
             .lock()
             .await
-            .authorize_wakeup(&project, &claim, &Uuid::new_v4().to_string())
+            .authorize_wakeup(&project, &claim, &Uuid::new_v4().to_string(), None)
             .unwrap();
         drop(service);
         let restored = Service::open(home.path().into(), 14318, "/test/pointdom".into()).unwrap();
@@ -908,7 +973,7 @@ mod wakeup_lifecycle_tests {
             .inner
             .lock()
             .await
-            .authorize_wakeup(&project, &claim, &thread)
+            .authorize_wakeup(&project, &claim, &thread, None)
             .unwrap();
         let input = submission(&project, &id);
         service.submit(input.clone()).await.unwrap();
@@ -919,7 +984,7 @@ mod wakeup_lifecycle_tests {
                 .inner
                 .lock()
                 .await
-                .authorize_wakeup(&project, &other, &Uuid::new_v4().to_string())
+                .authorize_wakeup(&project, &other, &Uuid::new_v4().to_string(), None)
                 .unwrap(),
             other_id
         );
@@ -952,7 +1017,7 @@ mod wakeup_lifecycle_tests {
                 .inner
                 .lock()
                 .await
-                .authorize_wakeup(&project, &fresh, &thread)
+                .authorize_wakeup(&project, &fresh, &thread, Some("fixture-token"))
                 .is_err()
         );
     }
