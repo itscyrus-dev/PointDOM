@@ -31,6 +31,9 @@ for (const entry of await readdir(extension, { recursive: true, withFileTypes: t
   const path = join(entry.parentPath, entry.name);
   files[relative(extension, path).split('\\').join('/')] = new Uint8Array(await readFile(path));
 }
+files['THIRD_PARTY_NOTICES.txt'] = new Uint8Array(
+  await readFile('dist/native/THIRD_PARTY_NOTICES.txt'),
+);
 const archive = `pointdom-extension-${version}.zip`;
 await writeFile(join(output, archive), zipSync(files));
 const names = [name, archive];
