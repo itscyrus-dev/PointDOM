@@ -1,6 +1,8 @@
 # MCP task delivery
 
-PointDOM 0.6 ships a native Rust stdio MCP server. Node is not required at runtime.
+PointDOM exposes a stdio MCP server for coding clients. Codex desktop users can
+follow the [app quickstart](../README.md#get-started) to select and authorize a conversation.
+The protocol details below are for MCP hosts and integration development.
 
 ## Configure
 
@@ -35,7 +37,10 @@ Read CODEX_THREAD_ID from the trusted host; never guess another conversation.
 The native adapter verifies its canonical workspace and queue capability first.
 It uses installed app metadata and notification interfaces only, never exec/resume
 or model overrides. A backend restart can restore an authorized live MCP process
-after verification. A different process does not inherit its authorization.
+after verification. A fresh process must bind the verified project and provide the
+private `notificationToken` from its task notification to `pointdom_enable_wakeup`,
+along with the trusted host's `CODEX_THREAD_ID`. This restores only the same
+explicitly authorized conversation; IDs alone do not restore task access.
 
 ## Execution contract
 

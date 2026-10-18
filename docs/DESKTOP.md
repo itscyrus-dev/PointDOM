@@ -1,20 +1,22 @@
 # Native desktop application
 
-PointDOM 0.6 uses **Tauri 2, Rust, React and HeroUI 3**. The installed application
-contains neither Electron nor a Node runtime. Node 24 and pnpm are build tools only.
-The browser extension submits **MCP tasks only**. No model CLI is detected, started,
-or used as a fallback. Existing CLI task records remain readable as history.
+For installation and the first annotation, start with the [quickstart](../README.md#get-started).
+This guide covers development, native behavior and architecture.
+
+The macOS app uses Tauri 2, Rust, React and HeroUI 3. Node 24 and pnpm are build tools.
+The browser extension delivers annotation tasks through MCP; the selected coding
+client executes them. Historical task records remain readable.
 
 ## Build and run
 
-Prerequisites: Rust 1.90 or newer, Node 24, the pinned pnpm version, and the platform
+Prerequisites: the Rust toolchain pinned in `rust-toolchain.toml`, Node 24, the pinned pnpm version, and the macOS
 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/). macOS requires Xcode
 Command Line Tools. Versions are locked in Cargo.lock and pnpm-lock.yaml.
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm desktop:dev
-# Local unsigned installer for the host platform:
+# Local unsigned macOS installer:
 pnpm desktop:pack
 ```
 
@@ -47,6 +49,9 @@ require separate authorization and credentials.
   in `desktop-settings.json` in the state directory. The Dock remains available to
   reopen the main window when the menu-bar icon is hidden.
 
+The main window and menu-bar panel share the saved light/dark/system theme.
+Theme changes synchronize between windows and are refreshed on focus or visibility.
+
 The menu bar icon opens a compact task panel. Click a task to inspect it in the main
 window. Right-click provides navigation and Quit in the selected language. Running tasks animate the menu icon and
 cards; queued, disconnected and completed states do not animate. System reduced
@@ -63,7 +68,7 @@ select isolated state). Project IDs, pairing token, clients, task records and un
 historical fields are preserved. A private `native-migration-v1` snapshot precedes
 migration. Existing non-MCP execution preferences become MCP; unfinished owned work
 is interrupted, never replayed. A file lock excludes other native writers. File data is flushed before atomic replacement. Unix additionally flushes parent
-directories and sets private modes; Windows inherits the user profile ACLs.
+directories and sets private modes on macOS.
 
 Quit the previous service before starting the native app. A busy port fails visibly;
 the application never kills an unrelated process or writes migration data while it
@@ -112,8 +117,7 @@ write failures, restart recovery and migration. `native-mcp.spec.ts` uses the re
 binary, an independent MCP SDK client and a temporary Chrome profile. Desktop browser
 QA uses supplied fixture state through the IPC boundary; it does not claim native OS
 integration coverage. Native macOS window/tray lifecycle is smoke-tested separately.
-Tauri WebDriver does not support macOS. Windows/Linux native packages are not verified
-by macOS testing.
+Tauri WebDriver does not support macOS. Only Apple Silicon macOS packages are built and released.
 
 ## Compact interface
 
@@ -163,29 +167,21 @@ use current effective origins. Localhost and numeric/IPv6 loopback aliases are
 accepted only when observed; aliases shared by different source directories are
 excluded. A port reused by another project does not inherit its predecessor's binding.
 
-HTTPS-only servers, custom runtimes, containers, SSH/WSL forwarding and unsupported
-platforms require Advanced manual setup when source ownership cannot be verified.
+HTTPS-only servers, custom runtimes, containers and forwarded servers require
+Advanced manual setup when source ownership cannot be verified.
 Discovery never guesses those mappings. `POINTDOM_DISCOVERY_DISABLED=1` disables OS
 observation for isolated native UI smoke tests. Debug builds also accept
 `POINTDOM_DISCOVERY_TEST_PID` to restrict a native smoke run to one disposable
 fixture process; release builds ignore that test selector. Native discovery tests restrict
 observation to disposable fixture processes and source directories.
 
-## Platform support
+## Supported downloads
 
-| Platform                  | Installer      | Project setup                                           | Task reception                                      |
-| ------------------------- | -------------- | ------------------------------------------------------- | --------------------------------------------------- |
-| macOS 12+ Apple Silicon   | DMG            | Verified automatic discovery or manual folder selection | Generic MCP; authorized Codex desktop notifications |
-| Windows 10+ x64           | NSIS EXE       | Manual folder/address entry                             | Generic MCP listening                               |
-| Linux x64 (WebKitGTK 4.1) | DEB / AppImage | Manual folder/address entry                             | Generic MCP listening                               |
+Releases contain the macOS 12+ Apple Silicon DMG,
+`pointdom-extension-<version>.zip` and SHA-256 manifests. The app also bundles the
+extension and native service executable. A separate CLI archive is not distributed.
+Intel Macs, Windows and Linux are not supported. Installers are unsigned and not notarized.
 
-Intel Mac builds are deliberately excluded. Linux desktop/tray behavior depends on
-its desktop environment and AppIndicator support; AppImage may require FUSE 2 or
-extraction. Windows uses the system WebView2 runtime. Installers are unsigned, and
-macOS builds are not notarized. See [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
-
-Download the platform installer and `pointdom-extension-0.6.0.zip` from the same
-release. In Chrome, open `chrome://extensions`, enable Developer mode and load the
-extracted extension directory. On Windows/Linux, open the extension manager manually
-if Chrome is not discoverable by its standard executable name. The CLI archive is
-optional; the desktop application already includes the native service.
+Download the DMG and extension ZIP from the same release. Extract the ZIP, then open
+`chrome://extensions`, enable Developer mode and load the extracted folder. Follow
+the [quickstart](../README.md#get-started) to pair, bind the project and authorize a conversation.
