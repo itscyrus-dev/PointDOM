@@ -161,6 +161,10 @@ pub struct Connection {
     pub connected: bool,
     pub listening: bool,
     pub wakeable: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conversation_title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selection_revision: Option<String>,
     #[serde(skip)]
     pub seen: std::time::Instant,
     #[serde(skip)]
@@ -178,6 +182,10 @@ pub struct Binding {
     pub name: String,
     #[serde(default)]
     pub version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conversation_title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selection_revision: Option<String>,
     #[serde(default, flatten)]
     pub extra: Map<String, Value>,
 }

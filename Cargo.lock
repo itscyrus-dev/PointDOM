@@ -2984,7 +2984,7 @@ dependencies = [
 
 [[package]]
 name = "pointdom-cli"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
  "pointdom-core",
  "reqwest",
@@ -2994,7 +2994,7 @@ dependencies = [
 
 [[package]]
 name = "pointdom-core"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
  "axum",
  "chrono",
@@ -3020,8 +3020,12 @@ dependencies = [
 
 [[package]]
 name = "pointdom-desktop"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
+ "block2",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
  "pointdom-core",
  "serde",
  "serde_json",

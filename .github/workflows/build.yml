@@ -68,6 +68,9 @@ jobs:
           pnpm exec tauri build --no-bundle
       - name: Package native installers
         if: inputs.release-tag != ''
+        env:
+          # Preserve the Finder background, window size and drag-to-install layout on CI.
+          TAURI_BUNDLER_DMG_IGNORE_CI: 'true'
         run: pnpm exec tauri bundle
       - run: pnpm release:pack
         if: inputs.release-tag != ''

@@ -9,6 +9,25 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tokio::sync::Mutex;
 static BINDING: Mutex<()> = Mutex::const_new(());
 
+pub fn conversation_project(link: &str) -> Option<String> {
+    if link.len() > 2048 {
+        return None;
+    }
+    let link = url::Url::parse(link).ok()?;
+    let pairs: Vec<_> = link.query_pairs().collect();
+    (link.scheme() == "pointdom"
+        && link.host_str() == Some("conversation")
+        && link.path().is_empty()
+        && link.username().is_empty()
+        && link.password().is_none()
+        && link.port().is_none()
+        && link.fragment().is_none()
+        && pairs.len() == 1
+        && pairs[0].0 == "projectId"
+        && pointdom_core::service::uuid(&pairs[0].1).is_ok())
+    .then(|| pairs[0].1.to_string())
+}
+
 pub fn origin(link: &str) -> Option<String> {
     if link.len() > 2048 {
         return None;
@@ -121,7 +140,10 @@ pub async fn bind(app: AppHandle, origin: String) {
     let message = format!(
         "{name}\n{}\n→ {origin}\n\n{}",
         path.display(),
-        language.text("确认绑定？", "Bind this project?")
+        language.text(
+            "绑定此项目，并自动配置 Codex MCP。之后选择接收批注的对话并授权连接。",
+            "Bind this project and configure Codex MCP automatically. Then choose and authorize the conversation that will receive annotations."
+        )
     );
     let approved = tauri::async_runtime::spawn_blocking(move || {
         dialog
@@ -129,7 +151,9 @@ pub async fn bind(app: AppHandle, origin: String) {
             .message(message)
             .title(language.text("绑定项目", "Bind project"))
             .buttons(MessageDialogButtons::OkCancelCustom(
-                language.text("绑定", "Bind").into(),
+                language
+                    .text("绑定并配置 Codex", "Bind and configure Codex")
+                    .into(),
                 language.text("取消", "Cancel").into(),
             ))
             .blocking_show()
@@ -149,7 +173,15 @@ pub async fn bind(app: AppHandle, origin: String) {
     };
     match result {
         Ok(project) => {
-            let _ = app.emit("project-bound", project);
+            let codex_setup = match crate::configure_codex(&desktop).await {
+                Ok(true) => "ready",
+                Ok(false) => "saved",
+                Err(_) => "failed",
+            };
+            let _ = app.emit(
+                "project-bound",
+                serde_json::json!({"project": project, "codexSetup": codex_setup}),
+            );
         }
         Err(error) => {
             let message = if error == "DEVELOPMENT_SERVER_CHANGED" {
@@ -176,6 +208,21 @@ pub async fn bind(app: AppHandle, origin: String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn conversation_link_only_opens_a_project_chooser_and_cannot_authorize_a_thread() {
+        let id = "00000000-0000-4000-a000-000000000001";
+        let link = format!("pointdom://conversation?projectId={id}");
+        assert_eq!(conversation_project(&link).as_deref(), Some(id));
+        for invalid in [
+            format!("{link}&threadId={id}"),
+            format!("{link}&projectId={id}"),
+            format!("{link}#fragment"),
+            "pointdom://conversation?projectId=invalid".into(),
+            format!("pointdom://conversation/path?projectId={id}"),
+        ] {
+            assert!(conversation_project(&invalid).is_none());
+        }
+    }
     #[test]
     fn automatic_binding_requires_one_verified_exact_local_origin() {
         let candidate = Candidate {

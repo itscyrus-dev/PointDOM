@@ -3,6 +3,14 @@
 Notable changes to PointDOM. Download installers and checksums from
 [GitHub Releases](https://github.com/itscyrus-dev/PointDOM/releases).
 
+## [0.6.3] - 2026-10-18
+
+- Select a workspace-matched Codex conversation in the app and confirm routing authorization without copying a setup instruction. Synchronize that explicit selection to the extension once while preserving subsequent manual choices and pending submission recipients.
+- Automatically configure Codex MCP during confirmed project setup; retain private notification proof before a fresh MCP session can access a task.
+- Preserve a compact branded drag-to-install layout in macOS DMGs built on CI.
+- Keep the extension recipient menu within narrow panels and distinguish authorized conversations from idle MCP transports.
+- Match the menu-bar icon to the App Logo with contrasting black/white tiles and a blue point only during execution. Use native appearance drawing with system-default caching, retain responsiveness after hiding/showing the icon and remove the extra corner badge.
+
 ## [0.6.2] - 2026-10-18
 
 - Preserve explicitly authorized Codex wakeup targets across idle MCP disconnection and app restart.

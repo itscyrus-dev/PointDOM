@@ -30,7 +30,13 @@ require separate authorization and credentials.
 - **Projects:** start your development server normally, then confirm the discovered
   source directory and website once in the app. Ports update without rebinding.
   **Open website** uses a current verified address. Manual setup is in Settings >
-  Advanced. Copy the Codex instruction and send it once in the intended conversation.
+  Advanced. Select the intended matching Codex conversation using **Connect** and approve the native **Authorize connection** dialog.
+  Binding from the extension offers **Bind and configure Codex** in the native
+  confirmation: save MCP configuration and request a reload, then open the native
+  conversation chooser. Project binding alone does not authorize or choose a conversation.
+  A separate native confirmation revalidates the chosen workspace, persists a wakeable
+  target and synchronizes an explicit selection revision to the extension. It creates
+  no model turn or MCP task access; a later notification supplies private restoration proof.
 - **Clients:** configure Codex MCP explicitly, or copy universal stdio configuration
   into another MCP host. Settings and comments are retained and a private backup is
   created before changing Codex configuration. Conflicting remote entries are refused.

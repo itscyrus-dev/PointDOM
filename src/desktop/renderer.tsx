@@ -5,7 +5,7 @@ import { Toast, ToastQueue } from '@heroui/react/toast';
 import { ToggleButton } from '@heroui/react/toggle-button';
 import { ToggleButtonGroup } from '@heroui/react/toggle-button-group';
 import { UiIcon } from '../shared/ui-icon.js';
-import { wakeupInstruction } from '../shared/mcp-watch.js';
+import { CodexConnection } from './codex-connection.js';
 import { taskTitle, taskDescription } from '../shared/task-title.js';
 import { taskMessage, cancellationMessage } from '../shared/task-message.js';
 import type { QueuedToast, Selection } from 'react-aria-components';
@@ -74,13 +74,7 @@ function Desktop() {
       document.getElementById('manual-project-form')?.scrollIntoView({ block: 'nearest' });
     }
   }, [screen, manualSetup]);
-  const [setupCopy, setSetupCopy] = useState<{ id: string; text: string }>();
-  const [copiedProject, setCopiedProject] = useState('');
-  useEffect(() => {
-    if (!copiedProject) return;
-    const timer = setTimeout(() => setCopiedProject(''), 2000);
-    return () => clearTimeout(timer);
-  }, [copiedProject]);
+  const [connectionProject, setConnectionProject] = useState('');
   const [name, setName] = useState('');
   const [origin, setOrigin] = useState('');
   const [config, setConfig] = useState('');
@@ -132,6 +126,25 @@ function Desktop() {
     };
   }, []);
   useEffect(() => {
+    if (tray) return;
+    let active = true;
+    let dispose: (() => void) | undefined;
+    void listen<string>('choose-conversation', ({ payload }) => {
+      setScreen('projects');
+      setConnectionProject(payload);
+      void refresh();
+    })
+      .then((unlisten) => {
+        if (active) dispose = unlisten;
+        else unlisten();
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+      dispose?.();
+    };
+  }, [refresh, setScreen]);
+  useEffect(() => {
     const media = matchMedia('(prefers-color-scheme: dark)');
     const update = () => {
       const theme = themeMode === 'system' ? (media.matches ? 'dark' : 'light') : themeMode;
@@ -151,16 +164,35 @@ function Desktop() {
     if (tray) return;
     let active = true;
     let dispose: (() => void) | undefined;
-    void listen('project-bound', () => {
-      setScreen('projects');
-      notify(
-        t(
-          '项目已绑定，返回网页允许访问即可。',
-          'Project bound. Return to the page and allow access.',
-        ),
-      );
-      void refresh();
-    })
+    void listen<{ codexSetup?: string; project?: { id: string } }>(
+      'project-bound',
+      ({ payload }) => {
+        setScreen('projects');
+        if (payload.project?.id) setConnectionProject(payload.project.id);
+        notify(
+          payload.codexSetup === 'ready'
+            ? t(
+                '项目已绑定，Codex MCP 已配置。选择下方对话并授权连接。',
+                'Project bound and Codex MCP configured. Choose a conversation below and authorize the connection.',
+              )
+            : payload.codexSetup === 'saved'
+              ? t(
+                  '项目已绑定，MCP 配置已保存。请在 Codex 的 MCP servers 中启用 PointDOM 并点击 Restart，再从插件连接对话。',
+                  'Project bound; MCP configuration saved. Enable PointDOM and click Restart in Codex MCP servers, then connect a conversation from the extension.',
+                )
+              : payload.codexSetup === 'failed'
+                ? t(
+                    '项目已绑定，但 Codex 配置失败。请在“客户端”重试配置。',
+                    'Project bound, but Codex configuration failed. Retry in Clients.',
+                  )
+                : t(
+                    '项目已绑定，返回网页允许访问即可。',
+                    'Project bound. Return to the page and allow access.',
+                  ),
+        );
+        void refresh();
+      },
+    )
       .then((unlisten) => {
         if (active) dispose = unlisten;
         else unlisten();
@@ -833,7 +865,7 @@ function Desktop() {
                               try {
                                 if (await native.removeProject(p.id)) {
                                   if (project === p.id) setProject('');
-                                  if (setupCopy?.id === p.id) setSetupCopy(undefined);
+                                  if (connectionProject === p.id) setConnectionProject('');
                                   notify(t('项目已移除', 'Project removed'));
                                 }
                               } catch (cause) {
@@ -874,41 +906,13 @@ function Desktop() {
                         </Button>
                         <Button
                           variant="secondary"
-                          className="project-copy"
-                          aria-label={t('复制 Codex 连接指令', 'Copy Codex setup instruction')}
-                          onPress={() => {
-                            const text = wakeupInstruction(
-                              language === 'en' ? 'en' : 'zh-CN',
-                              p,
-                              '',
-                            );
-                            void (async () => {
-                              try {
-                                setCopiedProject('');
-                                await navigator.clipboard.writeText(text);
-                                setSetupCopy(undefined);
-                                setCopiedProject(p.id);
-                              } catch {
-                                setSetupCopy({ id: p.id, text });
-                              }
-                            })();
-                          }}
+                          aria-label={t('连接 Codex 对话', 'Connect Codex conversation')}
+                          onPress={() =>
+                            setConnectionProject(connectionProject === p.id ? '' : p.id)
+                          }
                         >
-                          <span className="project-copy-slot" aria-live="polite">
-                            <AnimatePresence initial={false} mode="wait">
-                              <motion.span
-                                className="project-copy-feedback"
-                                key={copiedProject === p.id ? 'copied' : 'copy'}
-                                initial={{ opacity: 0, y: reduceMotion ? 0 : 4 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: reduceMotion ? 0 : -4 }}
-                                transition={{ duration: reduceMotion ? 0 : 0.12 }}
-                              >
-                                <UiIcon name={copiedProject === p.id ? 'check' : 'copy'} />
-                                {copiedProject === p.id ? t('已复制', 'Copied') : t('复制', 'Copy')}
-                              </motion.span>
-                            </AnimatePresence>
-                          </span>
+                          <UiIcon name="clients" />
+                          {t('连接对话', 'Connect')}
                         </Button>
                         <Button
                           variant="secondary"
@@ -922,10 +926,39 @@ function Desktop() {
                           {t('查看', 'View')}
                         </Button>
                       </div>
-                      {setupCopy?.id === p.id ? (
-                        <pre className="config-output" tabIndex={0}>
-                          {setupCopy.text}
-                        </pre>
+                      {state?.agents.find(
+                        (agent) => agent.projectId === p.id && agent.selectionRevision,
+                      ) ? (
+                        <small>
+                          {t('已授权', 'Authorized')} ·{' '}
+                          {
+                            state.agents.find(
+                              (agent) => agent.projectId === p.id && agent.selectionRevision,
+                            )?.conversationTitle
+                          }
+                        </small>
+                      ) : null}
+                      {connectionProject === p.id ? (
+                        <CodexConnection
+                          key={p.id}
+                          projectId={p.id}
+                          t={t}
+                          onConnected={(reloaded) => {
+                            setConnectionProject('');
+                            notify(
+                              reloaded
+                                ? t(
+                                    '对话已授权，返回插件即可提交批注。',
+                                    'Conversation authorized. Return to the extension to submit annotations.',
+                                  )
+                                : t(
+                                    '对话已授权。请在 Codex 的 MCP servers 启用 PointDOM 并点击 Restart，之后无需重复配置。',
+                                    'Conversation authorized. Enable PointDOM and click Restart in Codex MCP servers once.',
+                                  ),
+                            );
+                            void refresh();
+                          }}
+                        />
                       ) : null}
                     </Card>
                   ))}
@@ -1013,7 +1046,7 @@ function Desktop() {
                       <div className="connection-row" key={a.id}>
                         <span className={`connection ${a.connected !== false ? 'online' : ''}`} />
                         <div>
-                          <strong>{a.name}</strong>
+                          <strong>{a.conversationTitle || a.name}</strong>
                           <small>
                             {projectName(a.projectId)} · {a.id.slice(0, 8)}
                           </small>

@@ -33,10 +33,12 @@ contract; it is not required after each task.
 
 ## Use
 
-1. Open PointDOM. In Settings, show the bundled extension folder, enable Developer mode at `chrome://extensions`, and choose **Load unpacked**. Alternatively, extract the release extension ZIP and load its extracted folder. Approve the Chrome connection in the app.
-2. Start your development server. Open the side panel and choose **Bind project**; confirm its verified source folder. Grant only the linked page's Chrome permission.
-3. Configure your client from **Clients**. Connect its universal MCP entry and bind the exact project. Generic MCP clients receive tasks while listening; explicitly authorized Codex desktop conversations can wake for new tasks on macOS, handle them through MCP and end. Their authorized target survives idle MCP disconnection and app restart; each new MCP session must restore that exact conversation before claiming. Interrupted tasks are never replayed.
-4. Select page elements, add an overall request or element notes, choose the MCP recipient and submit. Inspect progress, reports and cancellation from the task list.
+1. Install and open PointDOM. Load the bundled extension folder or extracted release extension ZIP at `chrome://extensions` with Developer mode enabled. In the extension, click **Connect automatically** and allow the connection in the app once.
+2. Start your local project and open its page. Click **Bind project** in the extension, then confirm **Bind and configure Codex** in the app. PointDOM verifies the source folder, saves the Codex MCP configuration and requests a live reload. If Codex cannot reload, enable PointDOM and click Restart in Codex MCP servers. Grant Chrome access only to the linked page.
+3. In the app, click **Connect** on the project, select a matching Codex conversation and confirm **Authorize connection**. PointDOM verifies its workspace again and synchronizes this explicit choice to the extension. No instruction needs to be copied. The extension can also open this chooser with **Choose Codex conversation**.
+4. Return to the extension, select page elements, describe the change and submit. New annotations wake the authorized Codex conversation; each task ends after reporting. Authorization survives idle MCP disconnection and app restart. Interrupted tasks are never replayed.
+
+Other MCP clients use the universal configuration in **Clients** and receive tasks while listening. The extension's recipient menu lists only conversations that can receive work; it never merges recipients by name. An explicit App authorization selects the recipient once; later manual extension choices remain until you authorize a new App selection. Pending submission retries retain their original recipient.
 
 The app uses Tauri 2, Rust, React and HeroUI 3. Installed builds contain no Electron
 or Node runtime and never launch model CLIs. Client reports are not independent

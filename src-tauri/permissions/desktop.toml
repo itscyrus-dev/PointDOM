@@ -6,4 +6,4 @@ commands.allow = ["snapshot", "cancel_job", "open_main", "set_reduced_motion"]
 [[permission]]
 identifier = "desktop-admin"
 description = "User-initiated setup in the main window only."
-commands.allow = ["confirm_discovery", "open_project", "remove_project", "approve_extension", "retry_service", "choose_folder", "add_project", "open_extensions", "reveal_extension", "connect_codex", "mcp_configuration", "open_resource", "set_menu_bar_visibility", "set_language", "fit_main_window"]
+commands.allow = ["confirm_discovery", "open_project", "remove_project", "approve_extension", "retry_service", "choose_folder", "add_project", "open_extensions", "reveal_extension", "connect_codex", "codex_conversations", "authorize_codex_conversation", "mcp_configuration", "open_resource", "set_menu_bar_visibility", "set_language", "fit_main_window"]

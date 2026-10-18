@@ -267,14 +267,33 @@ async fn set_menu_bar_visibility(
 ) -> Result<(), String> {
     main_only(&window)?;
     let tray = app.tray_by_id("pointdom").ok_or("TRAY_UNAVAILABLE")?;
+    let service = desktop.service.lock().await.clone();
+    let active = if let Some(service) = service {
+        service
+            .inner
+            .lock()
+            .await
+            .store
+            .jobs
+            .iter()
+            .any(|job| job.status == Status::Running)
+    } else {
+        false
+    };
     let mut preferences = desktop.preferences.lock().await;
     let mut next = preferences.clone();
     next.show_menu_bar_icon = visible;
     tray.set_visible(visible)
         .map_err(|_| "TRAY_UPDATE_FAILED")?;
+    if visible {
+        set_tray_image(&tray, 0, active).map_err(|_| "TRAY_UPDATE_FAILED")?;
+    }
     if next.save(&desktop.directory).is_err() {
         tray.set_visible(preferences.show_menu_bar_icon)
             .map_err(|_| "TRAY_RESTORE_FAILED")?;
+        if preferences.show_menu_bar_icon {
+            set_tray_image(&tray, 0, active).map_err(|_| "TRAY_RESTORE_FAILED")?;
+        }
         return Err("PREFERENCES_SAVE_FAILED".into());
     }
     *preferences = next;
@@ -509,6 +528,9 @@ async fn connect_codex(
     desktop: State<'_, Arc<Desktop>>,
 ) -> Result<bool, String> {
     main_only(&window)?;
+    configure_codex(&desktop).await
+}
+async fn configure_codex(desktop: &Desktop) -> Result<bool, String> {
     let home = pointdom_core::store::user_home().map_err(|e| e.to_string())?;
     let directory = std::env::var_os("CODEX_HOME")
         .map(PathBuf::from)
@@ -520,6 +542,80 @@ async fn connect_codex(
     )
     .map_err(|e| e.to_string())?;
     Ok(pointdom_core::clients::reload_codex_mcp().await.is_ok())
+}
+#[tauri::command]
+async fn codex_conversations(
+    window: WebviewWindow,
+    desktop: State<'_, Arc<Desktop>>,
+    project_id: String,
+    cursor: Option<String>,
+) -> Result<Value, String> {
+    main_only(&window)?;
+    let service = desktop
+        .service
+        .lock()
+        .await
+        .clone()
+        .ok_or("SERVICE_OFFLINE")?;
+    let project = service
+        .project(&project_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    pointdom_core::clients::conversations(&project, cursor.as_deref())
+        .await
+        .map_err(|e| e.to_string())
+}
+#[tauri::command]
+async fn authorize_codex_conversation(
+    window: WebviewWindow,
+    app: AppHandle,
+    desktop: State<'_, Arc<Desktop>>,
+    project_id: String,
+    thread_id: String,
+) -> Result<Option<Value>, String> {
+    main_only(&window)?;
+    let service = desktop
+        .service
+        .lock()
+        .await
+        .clone()
+        .ok_or("SERVICE_OFFLINE")?;
+    let project = service
+        .project(&project_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let conversation = pointdom_core::clients::conversation(&thread_id, &project)
+        .await
+        .map_err(|e| e.to_string())?;
+    let language = desktop.preferences.lock().await.language();
+    let message = format!("{}\n{}\n\n{} · {}\n\n{}",
+        project.name, project.cwd, conversation.title, thread_id,
+        language.text(
+            "配置 PointDOM MCP，将此项目的新批注发送到这个 Codex 对话，并在有任务时自动唤醒。此选择也会同步到插件。",
+            "Configure PointDOM MCP, send this project’s new annotations to this Codex conversation and wake it when needed. This choice also updates the extension."
+        ));
+    let approved = tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .message(message)
+            .title(language.text("连接 Codex 对话", "Connect Codex conversation"))
+            .buttons(MessageDialogButtons::OkCancelCustom(
+                language.text("授权连接", "Authorize connection").into(),
+                language.text("取消", "Cancel").into(),
+            ))
+            .blocking_show()
+    })
+    .await
+    .map_err(|_| "DIALOG_FAILED")?;
+    if !approved {
+        return Ok(None);
+    }
+    let reloaded = configure_codex(&desktop).await?;
+    let mut result = service
+        .authorize_codex(&project_id, &thread_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    result["mcpReloaded"] = json!(reloaded);
+    Ok(Some(result))
 }
 #[tauri::command]
 fn mcp_configuration(
@@ -558,8 +654,8 @@ fn open_main(app: AppHandle, id: Option<String>) -> Result<(), String> {
     }
     Ok(())
 }
-fn tray_image(frame: usize, active: bool, attention: bool) -> Image<'static> {
-    // A 22pt monochrome template at 2x; macOS chooses the foreground color.
+fn tray_image(frame: usize, active: bool, dark: bool) -> Image<'static> {
+    // A 22pt Logo at 2x; color is retained so only the running point turns blue.
     let size = 44;
     let mut rgba = vec![0u8; size * size * 4];
     let pulse = if active {
@@ -567,46 +663,156 @@ fn tray_image(frame: usize, active: bool, attention: bool) -> Image<'static> {
     } else {
         0.0
     };
-    let dot_radius = 2.4 + 0.35 * pulse;
+    let dot_radius = (3.5 + 0.5 * pulse) * 22.0 / 32.0;
     for y in 0..size {
         for x in 0..size {
             let mut coverage = 0u16;
+            let mut color = [0u16; 3];
             for sy in 0..4 {
                 for sx in 0..4 {
                     let tx = (x as f64 + (sx as f64 + 0.5) / 4.0) / 2.0;
                     let ty = (y as f64 + (sy as f64 + 0.5) / 4.0) / 2.0;
-                    let px = (tx - 11.0) / 0.65 + 11.0;
-                    let py = (ty - 11.0) / 0.65 + 11.0;
+                    // Match logoFrame in src/extension/brand.ts at its original 32px scale.
+                    let px = tx * 32.0 / 22.0;
+                    let py = ty * 32.0 / 22.0;
                     let top_left_arc =
-                        px <= 4.5 && py <= 4.5 && ((px - 4.5).hypot(py - 4.5) - 2.5).abs() < 1.45;
-                    let bottom_right_arc = px >= 17.5
-                        && py >= 17.5
-                        && ((px - 17.5).hypot(py - 17.5) - 2.5).abs() < 1.45;
+                        px <= 9.0 && py <= 9.0 && ((px - 9.0).hypot(py - 9.0) - 1.5).abs() < 1.375;
+                    let bottom_right_arc = px >= 23.0
+                        && py >= 23.0
+                        && ((px - 23.0).hypot(py - 23.0) - 1.5).abs() < 1.375;
                     let bracket = top_left_arc
                         || bottom_right_arc
-                        || (px - px.clamp(4.5, 8.5)).hypot(py - 2.0) < 1.45
-                        || (px - 2.0).hypot(py - py.clamp(4.5, 8.5)) < 1.45
-                        || (px - px.clamp(13.5, 17.5)).hypot(py - 20.0) < 1.45
-                        || (px - 20.0).hypot(py - py.clamp(13.5, 17.5)) < 1.45;
+                        || (px - px.clamp(9.0, 13.0)).hypot(py - 7.5) < 1.375
+                        || (px - 7.5).hypot(py - py.clamp(9.0, 13.0)) < 1.375
+                        || (px - px.clamp(19.0, 23.0)).hypot(py - 24.5) < 1.375
+                        || (px - 24.5).hypot(py - py.clamp(19.0, 23.0)) < 1.375;
                     let dot = (tx - 11.0).hypot(ty - 11.0) < dot_radius;
-                    let badge = attention && (tx - 18.5).hypot(ty - 3.5) < 0.95;
-                    if !(bracket || dot || badge) {
+                    let tile = (px - px.clamp(8.0, 24.0)).hypot(py - py.clamp(8.0, 24.0)) <= 7.0;
+                    if !tile {
                         continue;
+                    }
+                    let foreground = if dark { [0, 0, 0] } else { [255, 255, 255] };
+                    let background = if dark { [255, 255, 255] } else { [0, 0, 0] };
+                    let sample = if dot && active {
+                        [0, 144, 255]
+                    } else if bracket || dot {
+                        foreground
+                    } else {
+                        background
+                    };
+                    for channel in 0..3 {
+                        color[channel] += sample[channel];
                     }
                     coverage += 1;
                 }
             }
             let i = (y * size + x) * 4;
+            for channel in 0..3 {
+                rgba[i + channel] = color[channel].checked_div(coverage).unwrap_or(0) as u8;
+            }
             rgba[i + 3] = (coverage * 255 / 16) as u8;
         }
     }
     Image::new_owned(rgba, size as u32, size as u32)
 }
+#[cfg(target_os = "macos")]
+fn native_tray_image(frame: usize, active: bool) -> objc2::rc::Retained<objc2_app_kit::NSImage> {
+    use block2::RcBlock;
+    use objc2::runtime::Bool;
+    use objc2_app_kit::{NSAppearance, NSBezierPath, NSColor, NSImage, NSLineCapStyle};
+    use objc2_foundation::{NSArray, NSPoint, NSRect, NSSize, NSString};
+    let draw = RcBlock::new(move |_: NSRect| {
+        let light = NSString::from_str("NSAppearanceNameAqua");
+        let dark = NSString::from_str("NSAppearanceNameDarkAqua");
+        let dark = NSAppearance::currentDrawingAppearance()
+            .bestMatchFromAppearancesWithNames(&NSArray::from_slice(&[&*light, &*dark]))
+            .is_some_and(|name| name == dark);
+        let black = NSColor::blackColor();
+        let white = NSColor::whiteColor();
+        let (background, foreground) = if dark {
+            (&white, &black)
+        } else {
+            (&black, &white)
+        };
+        let scale = 22.0 / 32.0;
+        let point = |x, y| NSPoint::new(x * scale, y * scale);
+        let rect = |x, y, w, h| NSRect::new(point(x, y), NSSize::new(w * scale, h * scale));
+        background.setFill();
+        NSBezierPath::bezierPathWithRoundedRect_xRadius_yRadius(
+            rect(1.0, 1.0, 30.0, 30.0),
+            7.0 * scale,
+            7.0 * scale,
+        )
+        .fill();
+        // The same 32px logoFrame path as src/extension/brand.ts, with circular elbows.
+        foreground.setStroke();
+        let path = NSBezierPath::bezierPath();
+        path.setLineWidth(2.75 * scale);
+        path.setLineCapStyle(NSLineCapStyle::Round);
+        path.moveToPoint(point(7.5, 13.0));
+        path.lineToPoint(point(7.5, 9.0));
+        path.curveToPoint_controlPoint1_controlPoint2(
+            point(9.0, 7.5),
+            point(7.5, 8.171573),
+            point(8.171573, 7.5),
+        );
+        path.lineToPoint(point(13.0, 7.5));
+        path.moveToPoint(point(19.0, 24.5));
+        path.lineToPoint(point(23.0, 24.5));
+        path.curveToPoint_controlPoint1_controlPoint2(
+            point(24.5, 23.0),
+            point(23.828427, 24.5),
+            point(24.5, 23.828427),
+        );
+        path.lineToPoint(point(24.5, 19.0));
+        path.stroke();
+        let pulse = if active {
+            (1.0 - (frame as f64 * std::f64::consts::TAU / 60.0).cos()) / 2.0
+        } else {
+            0.0
+        };
+        let radius = 3.5 + 0.5 * pulse;
+        if active {
+            NSColor::colorWithSRGBRed_green_blue_alpha(0.0, 144.0 / 255.0, 1.0, 1.0).setFill();
+        } else {
+            foreground.setFill();
+        }
+        NSBezierPath::bezierPathWithOvalInRect(rect(
+            16.0 - radius,
+            16.0 - radius,
+            radius * 2.0,
+            radius * 2.0,
+        ))
+        .fill();
+        Bool::YES
+    });
+    // Keep AppKit’s default cache so repainting does not discard completed image frames.
+    let image = NSImage::imageWithSize_flipped_drawingHandler(NSSize::new(22.0, 22.0), true, &draw);
+    image.setTemplate(false);
+    image
+}
+fn set_tray_image(tray: &tauri::tray::TrayIcon, frame: usize, active: bool) -> tauri::Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        tray.with_inner_tray_icon(move |inner| {
+            if let Some(button) =
+                objc2::MainThreadMarker::new().and_then(|mtm| inner.ns_status_item()?.button(mtm))
+            {
+                button.setImage(Some(&native_tray_image(frame, active)));
+            }
+        })
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        tray.set_icon_with_as_template(Some(tray_image(frame, active, false)), false)
+    }
+}
 async fn animate(app: AppHandle, desktop: Arc<Desktop>) {
     let mut frame = 0;
+    let mut last_image = None;
     loop {
         let service = desktop.service.lock().await.clone();
-        let (running, pending, attention) = if let Some(service) = service {
+        let (running, pending) = if let Some(service) = service {
             let s = service.inner.lock().await;
             (
                 s.store
@@ -615,23 +821,20 @@ async fn animate(app: AppHandle, desktop: Arc<Desktop>) {
                     .filter(|j| j.status == Status::Running)
                     .count(),
                 s.store.jobs.iter().filter(|j| !j.status.terminal()).count(),
-                s.store.jobs.iter().any(|j| j.status == Status::Failed),
             )
         } else {
-            (0, 0, true)
+            (0, 0)
         };
         let language = desktop.preferences.lock().await.language();
         if let Some(tray) = app.tray_by_id("pointdom") {
             let active = running > 0;
             let animated = active && !desktop.reduced.load(Ordering::Relaxed);
-            let _ = tray.set_icon_with_as_template(
-                Some(tray_image(
-                    if animated { frame } else { 0 },
-                    active,
-                    attention,
-                )),
-                true,
-            );
+            let image_state = (if animated { frame } else { 0 }, active);
+            if last_image != Some(image_state)
+                && set_tray_image(&tray, image_state.0, image_state.1).is_ok()
+            {
+                last_image = Some(image_state);
+            }
             let _ = tray.set_tooltip(Some(format!(
                 "PointDOM · {running} {} · {pending} {}",
                 language.text("执行中", "running"),
@@ -650,6 +853,17 @@ fn connection(app: AppHandle, url: String) {
     tauri::async_runtime::spawn(async move {
         if let Some(origin) = project_binding::origin(&url) {
             project_binding::bind(app, origin).await;
+            return;
+        }
+        if let Some(project_id) = project_binding::conversation_project(&url) {
+            let desktop = app.state::<Arc<Desktop>>();
+            let Some(service) = desktop.service.lock().await.clone() else {
+                return;
+            };
+            if service.project(&project_id).await.is_ok() {
+                let _ = open_main(app.clone(), None);
+                let _ = app.emit("choose-conversation", project_id);
+            }
             return;
         }
         let parsed = match url::Url::parse(&url) {
@@ -755,6 +969,8 @@ fn main() {
             open_resource,
             reveal_extension,
             connect_codex,
+            codex_conversations,
+            authorize_codex_conversation,
             mcp_configuration,
             cancel_job,
             set_reduced_motion,
@@ -826,7 +1042,7 @@ fn main() {
             let menu = tray_menu(app.handle(), language)?;
             let tray = TrayIconBuilder::with_id("pointdom")
                 .icon(tray_image(0, false, false))
-                .icon_as_template(true)
+                .icon_as_template(false)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -889,6 +1105,7 @@ fn main() {
                     }
                 })
                 .build(app)?;
+            set_tray_image(&tray, 0, false)?;
             tray.set_visible(show_menu_bar_icon)?;
             tauri::async_runtime::spawn(animate(handle.clone(), desktop));
             let links = handle.clone();
@@ -1017,74 +1234,112 @@ mod tests {
     }
 
     #[test]
-    fn tray_mark_uses_retina_pixels_and_fills_the_status_image() {
-        let image = tray_image(0, false, false);
-        assert_eq!((image.width(), image.height()), (44, 44));
-        let columns: Vec<_> = (0..44)
-            .filter(|x| (0..44).any(|y| image.rgba()[(y * 44 + x) * 4 + 3] > 0))
-            .collect();
-        assert!(columns.first().is_some_and(|x| *x < 10));
-        assert!(columns.last().is_some_and(|x| *x > 33));
-    }
-
-    #[test]
-    fn tray_brackets_have_curved_elbows_and_heavier_strokes() {
-        let image = tray_image(0, false, false);
-        let alpha = |x: usize, y: usize| image.rgba()[(y * 44 + x) * 4 + 3];
-        assert_eq!(alpha(8, 8), 0);
-        assert_eq!(alpha(11, 11), 255);
-        assert_eq!(alpha(15, 11), 255);
-    }
-
-    #[test]
-    fn running_tray_keeps_frame_visible_and_only_pulses_the_center() {
-        let small = tray_image(0, true, false);
-        let large = tray_image(30, true, false);
-        assert_ne!(small.rgba(), large.rgba());
-        for y in 0..44 {
-            for x in 0..44 {
-                if (x as f64 - 21.5).hypot(y as f64 - 21.5) > 8.0 {
-                    let i = (y * 44 + x) * 4 + 3;
-                    assert_eq!(&small.rgba()[i - 3..=i], &large.rgba()[i - 3..=i]);
+    fn tray_logo_inverts_tile_and_mark_but_only_running_point_is_blue() {
+        let pixel = |image: &Image<'_>, x: usize, y: usize| {
+            image.rgba()[(y * 44 + x) * 4..(y * 44 + x) * 4 + 4].to_vec()
+        };
+        for dark in [false, true] {
+            let idle = tray_image(0, false, dark);
+            let running = tray_image(0, true, dark);
+            let foreground = if dark {
+                vec![0, 0, 0, 255]
+            } else {
+                vec![255, 255, 255, 255]
+            };
+            let background = if dark {
+                vec![255, 255, 255, 255]
+            } else {
+                vec![0, 0, 0, 255]
+            };
+            assert_eq!((idle.width(), idle.height()), (44, 44));
+            assert_eq!(pixel(&idle, 22, 22), foreground);
+            assert_eq!(pixel(&idle, 15, 10), foreground);
+            assert_eq!(pixel(&idle, 22, 10), background);
+            assert_eq!(pixel(&idle, 37, 7), background);
+            assert_eq!(pixel(&idle, 20, 10), background);
+            assert_eq!(pixel(&idle, 0, 0), vec![0, 0, 0, 0]);
+            assert_eq!(pixel(&running, 22, 22), vec![0, 144, 255, 255]);
+            assert_eq!(pixel(&running, 15, 10), foreground);
+            assert_eq!(pixel(&running, 22, 10), background);
+            assert!(idle.rgba().chunks_exact(4).any(|p| p[3] > 0 && p[3] < 255));
+            for frame in 0..60 {
+                assert_eq!(tray_image(frame, false, dark).rgba(), idle.rgba());
+                let animated = tray_image(frame, true, dark);
+                for y in 0..44 {
+                    for x in 0..44 {
+                        if (x as f64 - 21.5).hypot(y as f64 - 21.5) > 8.0 {
+                            assert_eq!(pixel(&animated, x, y), pixel(&running, x, y));
+                        }
+                    }
                 }
             }
-        }
-        for frame in 0..60 {
-            let image = tray_image(frame, true, false);
-            assert_eq!(image.rgba()[(22 * 44 + 22) * 4 + 3], 255);
-            assert_eq!(
-                tray_image(frame, false, false).rgba(),
-                tray_image(0, false, false).rgba()
-            );
+            assert_ne!(running.rgba(), tray_image(30, true, dark).rgba());
         }
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
-    fn running_mark_is_a_monochrome_template() {
-        for frame in 0..60 {
-            let image = tray_image(frame, true, false);
-            let center = (22 * 44 + 22) * 4;
-            assert_eq!(&image.rgba()[center..center + 4], &[0, 0, 0, 255]);
-            let bracket = (10 * 44 + 15) * 4;
-            assert_eq!(&image.rgba()[bracket..bracket + 4], &[0, 0, 0, 255]);
-        }
-    }
-
-    #[test]
-    fn tray_has_a_transparent_background_and_opaque_idle_point() {
-        let idle = tray_image(0, false, false);
-        let center = (22 * 44 + 22) * 4;
-        assert_eq!(&idle.rgba()[center..center + 4], &[0, 0, 0, 255]);
-        let tile = (12 * 44 + 22) * 4;
-        assert_eq!(idle.rgba()[tile], 0);
-        assert_eq!(idle.rgba()[tile + 3], 0);
-        assert_eq!(idle.rgba()[3], 0);
-    }
-
-    #[test]
-    fn tray_edges_have_antialiasing() {
-        let image = tray_image(0, false, false);
-        assert!(image.rgba().chunks_exact(4).any(|p| p[3] > 0 && p[3] < 255));
+    #[expect(
+        clippy::unwrap_used,
+        reason = "Test fixtures must fail if AppKit cannot produce the requested native image or pixel"
+    )]
+    fn native_tray_redraws_the_same_image_in_each_appearance_without_a_timer() {
+        use block2::RcBlock;
+        use objc2_app_kit::{NSAppearance, NSBitmapImageRep, NSImageCacheMode};
+        use objc2_foundation::NSString;
+        objc2::rc::autoreleasepool(|_| {
+            for active in [false, true] {
+                let image = native_tray_image(0, active);
+                assert_eq!(image.cacheMode(), NSImageCacheMode::Default);
+                for dark in [false, false, true, true, false, true] {
+                    let appearance = NSAppearance::appearanceNamed(&NSString::from_str(if dark {
+                        "NSAppearanceNameDarkAqua"
+                    } else {
+                        "NSAppearanceNameAqua"
+                    }))
+                    .unwrap();
+                    appearance.performAsCurrentDrawingAppearance(&RcBlock::new(|| {
+                        // Render the same source into fresh contexts: TIFF serialization itself caches data.
+                        let source = image.clone();
+                        let surface = objc2_app_kit::NSImage::imageWithSize_flipped_drawingHandler(
+                            image.size(),
+                            false,
+                            &RcBlock::new(move |rect: objc2_foundation::NSRect| {
+                                source.drawInRect(rect);
+                                objc2::runtime::Bool::YES
+                            }),
+                        );
+                        let data = surface.TIFFRepresentation().unwrap();
+                        let bitmap = NSBitmapImageRep::imageRepWithData(&data).unwrap();
+                        let center = bitmap
+                            .colorAtX_y(bitmap.pixelsWide() / 2, bitmap.pixelsHigh() / 2)
+                            .unwrap();
+                        assert_eq!(center.alphaComponent(), 1.0);
+                        if active {
+                            assert!(center.blueComponent() > 0.95);
+                            assert!(center.redComponent() < 0.05);
+                        } else {
+                            assert!(
+                                (center.redComponent() - if dark { 0.0 } else { 1.0 }).abs() < 0.05
+                            );
+                        }
+                        let bracket = bitmap
+                            .colorAtX_y(bitmap.pixelsWide() / 4, bitmap.pixelsHigh() / 4)
+                            .unwrap();
+                        assert!(
+                            (bracket.redComponent() - if dark { 0.0 } else { 1.0 }).abs() < 0.05
+                        );
+                        let tile = bitmap
+                            .colorAtX_y(bitmap.pixelsWide() / 2, bitmap.pixelsHigh() / 8)
+                            .unwrap();
+                        assert!((tile.redComponent() - if dark { 1.0 } else { 0.0 }).abs() < 0.05);
+                        assert_eq!(tile.alphaComponent(), 1.0);
+                        assert_eq!(bracket.alphaComponent(), 1.0);
+                        assert_eq!(bitmap.colorAtX_y(0, 0).unwrap().alphaComponent(), 0.0);
+                    }));
+                }
+            }
+        });
     }
 
     #[tokio::test]

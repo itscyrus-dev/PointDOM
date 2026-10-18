@@ -1248,6 +1248,8 @@ button[data-pending='true'] {
   inset: auto;
   z-index: 20;
   width: min(260px, calc(100vw - 24px));
+  min-width: 0;
+  max-width: calc(100vw - 24px);
   padding: 0;
   background: var(--surface);
   color: var(--ink);
@@ -1255,7 +1257,8 @@ button[data-pending='true'] {
   border-radius: var(--card-radius);
   box-shadow: 0 12px 32px var(--shadow);
   max-height: calc(100dvh - 32px);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 .popover__dialog {
   padding: 16px;
@@ -2143,6 +2146,8 @@ button[data-pending='true'] {
 /* Compact CLI menu: one selection entry point, detected tools only. */
 .execution-popover .popover__dialog {
   padding: 10px;
+  min-width: 0;
+  max-width: 100%;
 }
 .execution-popover .popover__heading {
   margin-bottom: 6px;
@@ -2150,7 +2155,11 @@ button[data-pending='true'] {
 }
 .execution-popover .client-directory {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
+}
+.execution-popover .client-directory > li {
+  min-width: 0;
 }
 .execution-popover .client-entry {
   min-height: 36px;
@@ -2160,7 +2169,19 @@ button[data-pending='true'] {
 .execution-popover .client-select {
   min-height: 36px;
   padding: 6px 10px;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  max-width: 100%;
+  gap: 2px;
+}
+.execution-popover .client-name,
+.execution-popover .client-status {
+  max-width: 100%;
+}
+.execution-popover .client-status {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .execution-popover .cli-detect {
   margin-top: 4px;
@@ -2198,6 +2219,25 @@ button[data-pending='true'] {
 }
 .mcp-settings .button {
   justify-self: start;
+}
+.mcp-setup {
+  gap: 8px;
+  padding: 14px;
+}
+.mcp-setup h2,
+.mcp-setup p {
+  margin: 0;
+}
+.mcp-setup h2 {
+  font-size: 14px;
+}
+.mcp-setup p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.mcp-setup .button {
+  align-self: start;
 }
 
 .project-binding {

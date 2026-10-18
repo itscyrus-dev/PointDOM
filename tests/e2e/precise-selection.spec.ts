@@ -40,10 +40,10 @@ test('nested card children are picked independently with accurate DOM context', 
     await panel.locator('#execution-settings').click();
     await expect(chevron).toHaveAttribute('data-open', 'true');
     await expect(chevron).toHaveCSS('transform', 'matrix(-1, 0, 0, -1, 0, 0)');
-    await panel
-      .getByRole('dialog', { name: '执行工具', exact: true })
-      .getByRole('button', { name: '选择 Selection fixture', exact: true })
-      .click();
+    await expect(panel.getByRole('dialog', { name: '接收批注的对话', exact: true })).toContainText(
+      '还没有可接收批注的对话',
+    );
+    await panel.keyboard.press('Escape');
     await expect(chevron).toHaveAttribute('data-open', 'false');
     await expect(chevron).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
     await picker.click();
@@ -129,6 +129,8 @@ test('nested card children are picked independently with accurate DOM context', 
     });
     await details.press('Escape');
     const waiting = fixture.wait();
+    await panel.locator('#execution-settings').click();
+    await panel.getByRole('button', { name: '选择 Selection fixture', exact: true }).click();
     await expect(panel.locator('#mcp-state')).toContainText('监听中');
     await panel.locator('#submit').click();
     await waiting;

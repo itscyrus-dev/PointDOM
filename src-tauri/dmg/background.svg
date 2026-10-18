@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400" fill="none">
+  <title>PointDOM drag-to-install background</title>
+  <defs>
+    <linearGradient id="surface" x1="320" y1="0" x2="320" y2="400" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fcfcfc" />
+      <stop offset="1" stop-color="#f9f9f9" />
+    </linearGradient>
+  </defs>
+  <rect width="640" height="400" fill="url(#surface)" />
+  <g
+    font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', sans-serif"
+    text-anchor="middle"
+  >
+    <text x="320" y="64" fill="#202020" font-size="29" font-weight="600" letter-spacing="-0.8">
+      PointDOM
+    </text>
+    <text x="320" y="97" fill="#646464" font-size="14">Drag PointDOM to Applications</text>
+    <text x="320" y="120" fill="#646464" font-size="13">
+      将 PointDOM 拖入 Applications 即可安装
+    </text>
+    <text x="320" y="366" fill="#646464" font-size="12">
+      安装完成后可弹出此磁盘 · Eject this disk when finished
+    </text>
+  </g>
+  <path
+    d="M298 214H342M334 206L342 214L334 222"
+    stroke="#0090ff"
+    stroke-width="2.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path d="M64 338H576" stroke="#e8e8e8" />
+</svg>

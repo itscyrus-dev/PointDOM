@@ -212,6 +212,28 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
                   (window as unknown as { fixtureReloadSuccess?: boolean }).fixtureReloadSuccess !==
                   false
                 );
+              if (command === 'codex_conversations') {
+                if (
+                  (window as unknown as { fixtureConversationError?: boolean })
+                    .fixtureConversationError
+                )
+                  throw Error('Fixture metadata unavailable');
+                return {
+                  conversations: [
+                    { id: '00000000-0000-4000-a000-000000000099', title: 'Fixture conversation' },
+                  ],
+                  nextCursor: args.cursor ? null : 'fixture-next-page',
+                };
+              }
+              if (command === 'authorize_codex_conversation') {
+                (window as unknown as { lastNative: unknown }).lastNative = { command, args };
+                if (
+                  (window as unknown as { fixtureCancelAuthorization?: boolean })
+                    .fixtureCancelAuthorization
+                )
+                  return null;
+                return { connection: { id: running.recipient.id }, mcpReloaded: true };
+              }
               if (command === 'confirm_discovery') discovered = true;
               if (command === 'remove_project') {
                 const fixture = window as unknown as {
@@ -618,44 +640,49 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
         );
       }),
     ).toBe(true);
-    const copyButton = page.getByRole('button', { name: '复制 Codex 连接指令', exact: true });
-    await copyButton.hover();
+    const connectButton = page.getByRole('button', { name: '连接 Codex 对话', exact: true });
+    await connectButton.hover();
     await expect(page.getByRole('tooltip')).toHaveCount(0);
-    const copyBounds = await copyButton.boundingBox();
-    await page.evaluate(() =>
-      Object.defineProperty(navigator, 'clipboard', {
-        configurable: true,
-        value: {
-          writeText: async (text: string) => {
-            (window as unknown as { copiedText: string }).copiedText = text;
-          },
-        },
-      }),
-    );
-    await copyButton.click();
-    await expect(copyButton).toContainText('已复制');
-    await expect(copyButton.locator('use')).toHaveAttribute('href', 'gravity.svg#check');
-    expect(await copyButton.boundingBox()).toEqual(copyBounds);
-    expect(
-      await page.evaluate(() => (window as unknown as { copiedText: string }).copiedText),
-    ).toContain(project.cwd);
-    await expect(page.locator('.app-toast')).toHaveCount(0);
-    await page.screenshot({
-      path: test.info().outputPath('projects-copied-compact.png'),
-      animations: 'disabled',
+    await connectButton.click();
+    const picker = page.getByRole('region', { name: '连接 Codex 对话', exact: true });
+    await expect(picker).toContainText('Fixture conversation');
+    await page.getByRole('button', { name: '加载更多', exact: true }).click();
+    await expect(page.getByRole('button', { name: '加载更多', exact: true })).toHaveCount(0);
+    await page.evaluate(() => {
+      (window as unknown as { fixtureCancelAuthorization: boolean }).fixtureCancelAuthorization =
+        true;
     });
-    await expect(copyButton).toContainText('复制', { timeout: 4000 });
-    await expect(copyButton.locator('use')).toHaveAttribute('href', 'gravity.svg#copy');
-    expect(await copyButton.boundingBox()).toEqual(copyBounds);
+    await picker.getByRole('button', { name: /Fixture conversation/ }).click();
+    await expect(picker).toBeVisible();
+    await page.evaluate(() => {
+      (window as unknown as { fixtureCancelAuthorization: boolean }).fixtureCancelAuthorization =
+        false;
+    });
+    await picker.getByRole('button', { name: /Fixture conversation/ }).click();
+    await expect(picker).toHaveCount(0);
+    expect(
+      await page.evaluate(() => (window as unknown as { lastNative: unknown }).lastNative),
+    ).toEqual({
+      command: 'authorize_codex_conversation',
+      args: { projectId: project.id, threadId: '00000000-0000-4000-a000-000000000099' },
+    });
+    await expect(page.locator('.app-toast:not([aria-hidden="true"])')).toContainText('对话已授权');
+    await page.evaluate(() => {
+      (window as unknown as { fixtureConversationError: boolean }).fixtureConversationError = true;
+    });
+    await connectButton.click();
+    await expect(picker.getByRole('alert')).toContainText('无法读取或连接对话');
+    await page.evaluate(() => {
+      (window as unknown as { fixtureConversationError: boolean }).fixtureConversationError = false;
+    });
+    await picker.getByRole('button', { name: '刷新对话', exact: true }).click();
+    await expect(picker).toContainText('Fixture conversation');
+    await connectButton.click();
     await page.setViewportSize({ width: 460, height: 640 });
-    await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { value: undefined }));
     await page.getByRole('button', { name: '打开网页', exact: true }).click();
     expect(
       await page.evaluate(() => (window as unknown as { lastNative: unknown }).lastNative),
     ).toEqual({ command: 'open_project', args: { id: project.id } });
-    await page.getByRole('button', { name: '复制 Codex 连接指令', exact: true }).click();
-    await expect(page.locator('.config-output')).toContainText(project.cwd);
-    await expect(page.locator('.config-output')).toContainText(project.id);
     await page.getByRole('tab', { name: '设置', exact: true }).click();
     await page.getByRole('button', { name: '手动添加项目', exact: true }).click();
     const addAction = page.locator('#manual-project-form button[type="submit"]');
@@ -797,6 +824,20 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
       (window as unknown as { fixtureEmit: (event: string) => void }).fixtureEmit('project-bound'),
     );
     await expect(page.locator('.app-toast')).toContainText('项目已绑定');
+    for (const [codexSetup, message] of [
+      ['ready', 'Codex MCP 已配置'],
+      ['saved', 'MCP 配置已保存'],
+      ['failed', 'Codex 配置失败'],
+    ]) {
+      await page.evaluate(
+        (codexSetup) =>
+          (
+            window as unknown as { fixtureEmit: (event: string, payload: unknown) => void }
+          ).fixtureEmit('project-bound', { codexSetup }),
+        codexSetup,
+      );
+      await expect(page.locator('.app-toast:not([aria-hidden="true"])')).toContainText(message!);
+    }
     await page.getByRole('tab', { name: '关于' }).click();
     await expect(page.locator('.app-toast')).toHaveCount(0);
     await expect(page.getByRole('tablist')).toBeInViewport();
