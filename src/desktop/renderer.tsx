@@ -665,7 +665,7 @@ function Desktop() {
                 </Card>
                 <Card className="metric">
                   <span>{t('客户端连接', 'Connections')}</span>
-                  <strong>{state?.agents.length || 0}</strong>
+                  <strong>{state?.agents.filter((a) => a.connected !== false).length || 0}</strong>
                 </Card>
               </section>
               <div className="task-workspace">
@@ -1007,11 +1007,11 @@ function Desktop() {
                   </small>
                 </Card>
                 <Card className="panel-card">
-                  <h2>{t('当前连接', 'Live connections')}</h2>
+                  <h2>{t('客户端', 'Clients')}</h2>
                   {state?.agents.length ? (
                     state.agents.map((a) => (
                       <div className="connection-row" key={a.id}>
-                        <span className="connection online" />
+                        <span className={`connection ${a.connected !== false ? 'online' : ''}`} />
                         <div>
                           <strong>{a.name}</strong>
                           <small>

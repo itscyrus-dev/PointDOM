@@ -216,7 +216,7 @@ pub async fn verify(thread: &str, project: &Project) -> Result<()> {
     }
     Ok(())
 }
-async fn notify(thread: &str, job: &Job, project: &Project) -> Result<()> {
+async fn notify(thread: &str, job: &Job, project: &Project, token: &str) -> Result<()> {
     verify(thread, project).await?;
     let elements = job
         .selections
@@ -230,6 +230,11 @@ async fn notify(thread: &str, job: &Job, project: &Project) -> Result<()> {
         .collect::<Vec<_>>()
         .join(" ");
     let preview = preview.chars().take(160).collect::<String>();
+    let recipient = job
+        .recipient
+        .as_ref()
+        .map(|r| r.id.as_str())
+        .ok_or(Error::Client)?;
     let message = if job
         .extra
         .get("notificationLanguage")
@@ -237,12 +242,12 @@ async fn notify(thread: &str, job: &Job, project: &Project) -> Result<()> {
         == Some("en")
     {
         format!(
-            "PointDOM: {preview}\nTask: {}. Read the full request via MCP, then finish and end this turn.",
+            "PointDOM: {preview}\nTask: {}; recipient: {recipient}. Bind your trusted workspace, then restore this conversation with pointdom_enable_wakeup using only the host CODEX_THREAD_ID and notificationToken: {token}. Keep this credential private. Verify the recipient matches before reading and claiming the task via MCP. Report and end this turn.",
             job.id
         )
     } else {
         format!(
-            "PointDOM：{preview}\n任务：{}。通过 MCP 读取完整要求并处理，完成后结束本轮。",
+            "PointDOM：{preview}\n任务：{}；接收方：{recipient}。绑定真实目录，再用宿主 CODEX_THREAD_ID 调用 pointdom_enable_wakeup，传入 notificationToken: {token} 恢复本对话授权；凭证仅用于本次恢复，不要展示或记录；核对接收方一致后，通过 MCP 读取并领取任务，回报后结束本轮。",
             job.id
         )
     };
@@ -323,7 +328,13 @@ pub async fn notifications(service: Service) {
                     .as_ref()
                     .and_then(|r| s.connections.get(&r.id))
                     .is_some_and(|c| c.thread == job.thread_id && c.wakeable);
+                let token = format!(
+                    "{}{}",
+                    uuid::Uuid::new_v4().simple(),
+                    uuid::Uuid::new_v4().simple()
+                );
                 let mut jobs = s.store.jobs.clone();
+                jobs[i].wakeup_token_hash = Some(hash(&token));
                 jobs[i].client_notification = Some(true);
                 if !valid {
                     jobs[i].finish(Status::Failed);
@@ -333,7 +344,7 @@ pub async fn notifications(service: Service) {
                 }
                 let job = jobs[i].clone();
                 match s.persist_jobs(jobs) {
-                    Ok(()) if valid => project.map(|p| (job, p)),
+                    Ok(()) if valid => project.map(|p| (job, p, token)),
                     Ok(()) => None,
                     Err(_) => {
                         service.stop.cancel();
@@ -344,21 +355,21 @@ pub async fn notifications(service: Service) {
                 None
             }
         };
-        if let Some((job, project)) = next {
+        if let Some((job, project, token)) = next {
             let service = service.clone();
             tokio::spawn(async move {
-                deliver(service, job, project).await;
+                deliver(service, job, project, token).await;
             });
             continue;
         }
         tokio::select! {_ = service.stop.cancelled()=>break,_=service.changed.notified()=>{},_ = tokio::time::sleep(Duration::from_secs(15))=>{}}
     }
 }
-async fn deliver(service: Service, job: Job, project: Project) {
+async fn deliver(service: Service, job: Job, project: Project, token: String) {
     let Some(thread) = job.thread_id.as_deref() else {
         return;
     };
-    let delivered = tokio::select! {r=notify(thread,&job,&project)=>r.is_ok(),_=service.stop.cancelled()=>false};
+    let delivered = tokio::select! {r=notify(thread,&job,&project,&token)=>r.is_ok(),_=service.stop.cancelled()=>false};
     {
         let mut s = service.inner.lock().await;
         let mut jobs = s.store.jobs.clone();

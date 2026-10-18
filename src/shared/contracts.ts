@@ -79,6 +79,7 @@ export const agentConnectionSchema = z.object({
   version: z.string().max(80),
   connectedAt: z.iso.datetime(),
   lastSeenAt: z.iso.datetime(),
+  connected: z.boolean().optional(),
   listening: z.boolean().optional(),
   wakeable: z.boolean().optional(),
 });

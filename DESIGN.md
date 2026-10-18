@@ -171,7 +171,21 @@ Do not repeat the product name/tagline. Keep settings back/close discoverable an
 preserve pairing drafts and descriptions on reconnect failures.
 
 The execution picker lists only live MCP recipients for the current project. Distinguish
-same-name sessions by short ID. Connected does not imply listening. Enable submission
+same-name sessions by short ID. Connected does not imply listening.
+An explicitly authorized project/conversation remains an idle, wakeable recipient
+when its MCP process exits or the app restarts; do not describe it as connected or
+listening. EOF detaches the private session without revoking the authorization.
+Legacy disconnect messages and transport detach preserve it; explicit
+`/api/mcp/connections/revoke` removes it. Never revoke merely because a task ended. A new MCP session must bind the exact workspace,
+restore the same host-verified conversation with pointdom_enable_wakeup, proving receipt
+of its queued notification with a private random notificationToken, and check
+the notified recipient before claiming. Merely registering a fresh session never
+inherits a saved recipient. IDs alone cannot grant task access. Persist only the
+notification token hash, hide it from public task data, and never replay a delivered
+notification to recover an ambiguous attempt. Reject changes to a conversation's active task ownership.
+Revalidate the host conversation and source folder before each notification. Queue
+one notification, handle it through MCP, report and end; never keep waiting after
+a task. Restoring availability does not replay old notifications or interrupted work. Enable submission
 only for an actual waiting/wakeable recipient or one already running its previous task.
 No CLI options, discovery, managed model sessions or fallback actions. Keep historical
 executor labels readable without restoring old execution controls.

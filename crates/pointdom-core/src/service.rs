@@ -13,6 +13,7 @@ use uuid::Uuid;
 pub struct State {
     pub store: Store,
     pub connections: BTreeMap<String, Connection>,
+    sessions: BTreeMap<String, String>,
     pub grants: BTreeMap<String, (String, Instant)>,
     pub local_origins: BTreeMap<String, (Vec<String>, Instant)>,
     pub pairing_requests: BTreeMap<String, (String, Instant)>,
@@ -27,10 +28,46 @@ pub struct Service {
 }
 impl Service {
     pub fn open(directory: PathBuf, port: u16, mcp_binary: PathBuf) -> Result<Self> {
+        let store = Store::open(directory)?;
+        let connections = store
+            .bindings
+            .iter()
+            .filter(|(_, b)| {
+                store
+                    .config
+                    .projects
+                    .iter()
+                    .any(|p| !p.removed() && p.id == b.project_id && p.cwd == b.cwd)
+            })
+            .map(|(id, b)| {
+                (
+                    id.clone(),
+                    Connection {
+                        id: id.clone(),
+                        project_id: b.project_id.clone(),
+                        name: if b.name.is_empty() {
+                            "codex-mcp-client".into()
+                        } else {
+                            b.name.clone()
+                        },
+                        version: b.version.clone(),
+                        connected_at: now(),
+                        last_seen_at: now(),
+                        connected: false,
+                        listening: false,
+                        wakeable: true,
+                        seen: Instant::now(),
+                        waiting: None,
+                        thread: Some(b.thread_id.clone()),
+                    },
+                )
+            })
+            .collect();
         Ok(Self {
             inner: Arc::new(Mutex::new(State {
-                store: Store::open(directory)?,
-                connections: BTreeMap::new(),
+                store,
+                connections,
+                sessions: BTreeMap::new(),
                 grants: BTreeMap::new(),
                 pairing_requests: BTreeMap::new(),
                 local_origins: BTreeMap::new(),
@@ -152,10 +189,11 @@ impl Service {
         if !clean(name, 160) || !clean(version, 80) {
             return Err(Error::Invalid("INVALID_CLIENT"));
         }
-        let id = connection_id(project, claim);
+        let mut id = connection_id(project, claim);
         let binding = {
             let mut s = self.inner.lock().await;
             s.prune();
+            id = s.sessions.get(&id).cloned().unwrap_or(id);
             if !s
                 .store
                 .config
@@ -178,12 +216,14 @@ impl Service {
                     version: version.into(),
                     connected_at: now(),
                     last_seen_at: now(),
+                    connected: true,
                     listening: false,
                     wakeable: false,
                     seen: Instant::now(),
                     waiting: None,
                     thread: None,
                 });
+            c.connected = true;
             c.seen = Instant::now();
             c.last_seen_at = now();
             if s.connections.get(&id).is_some_and(|c| c.wakeable) {
@@ -217,7 +257,13 @@ impl Service {
             .ok_or(Error::NotFound)
     }
 
-    pub async fn wakeup(&self, project: &str, claim: &str, thread: &str) -> Result<Value> {
+    pub async fn wakeup(
+        &self,
+        project: &str,
+        claim: &str,
+        thread: &str,
+        notification_token: Option<&str>,
+    ) -> Result<Value> {
         uuid(thread)?;
         let p = self.project(project).await?;
         {
@@ -226,24 +272,11 @@ impl Service {
         }
         crate::clients::verify(thread, &p).await?;
         let mut s = self.inner.lock().await;
-        let c = s.session(project, claim)?;
-        let id = c.id.clone();
-        let mut bindings = s.store.bindings.clone();
-        bindings.insert(
-            id.clone(),
-            Binding {
-                project_id: project.into(),
-                thread_id: thread.into(),
-                cwd: p.cwd,
-            },
-        );
-        crate::store::atomic(&s.store.directory, "wakeup-bindings.json", &bindings)?;
-        s.store.bindings = bindings;
-        if let Some(c) = s.connections.get_mut(&id) {
-            c.wakeable = true;
-            c.thread = Some(thread.into());
-        }
-        Ok(json!({"connectionId":id,"threadId":thread,"wakeable":true,"listening":false}))
+        let id = s.authorize_wakeup(&p, claim, thread, notification_token)?;
+        let restored = s.session(project, claim)?.id == id;
+        Ok(
+            json!({"projectId":project,"connectionId":id,"threadId":thread,"wakeable":true,"listening":false,"sessionRestored":restored}),
+        )
     }
     pub async fn submit(&self, input: Value) -> Result<Value> {
         let schema: Value = serde_json::from_str(include_str!("../contracts/submission.json"))?;
@@ -539,8 +572,17 @@ impl Service {
 }
 impl State {
     pub fn prune(&mut self) {
-        self.connections
-            .retain(|_, c| c.seen.elapsed() < Duration::from_secs(45));
+        self.connections.retain(|id, c| {
+            if c.seen.elapsed() >= Duration::from_secs(45) {
+                c.connected = false;
+                c.listening = false;
+                c.waiting = None;
+            }
+            (c.wakeable && self.store.bindings.contains_key(id))
+                || c.seen.elapsed() < Duration::from_secs(45)
+        });
+        self.sessions
+            .retain(|_, id| self.connections.contains_key(id));
         self.grants.retain(|_, (_, until)| *until > Instant::now());
         self.pairing_requests
             .retain(|_, (_, until)| *until > Instant::now());
@@ -548,9 +590,110 @@ impl State {
     pub fn session(&mut self, project: &str, claim: &str) -> Result<&mut Connection> {
         self.prune();
         uuid(claim)?;
+        let key = connection_id(project, claim);
+        let id = self.sessions.get(&key).unwrap_or(&key);
         self.connections
-            .get_mut(&connection_id(project, claim))
+            .get_mut(id)
             .ok_or(Error::Conflict("MCP_RECONNECT_REQUIRED"))
+    }
+    // Called only after the desktop host has verified this exact thread and project.
+    fn authorize_wakeup(
+        &mut self,
+        project: &Project,
+        claim: &str,
+        thread: &str,
+        notification_token: Option<&str>,
+    ) -> Result<String> {
+        let mut c = self.session(&project.id, claim)?.clone();
+        let previous = c.id.clone();
+        let existing = self
+            .store
+            .bindings
+            .iter()
+            .find(|(_, b)| {
+                b.project_id == project.id && b.thread_id == thread && b.cwd == project.cwd
+            })
+            .map(|(id, _)| id.clone());
+        let id = existing.unwrap_or_else(|| previous.clone());
+        if id != previous {
+            let Some(token) = notification_token else {
+                // Setup can confirm an existing target, but IDs alone never grant its tasks.
+                return Ok(id);
+            };
+            let expected = hash(token);
+            if !self.store.jobs.iter().any(|j| {
+                j.project_id == project.id
+                    && j.status == Status::Queued
+                    && j.client_notification == Some(true)
+                    && j.thread_id.as_deref() == Some(thread)
+                    && j.recipient.as_ref().is_some_and(|r| r.id == id)
+                    && j.wakeup_token_hash.as_deref() == Some(expected.as_str())
+            }) {
+                return Err(Error::Conflict("INVALID_WAKEUP_TOKEN"));
+            }
+        }
+        if id != previous
+            && self.store.jobs.iter().any(|j| {
+                j.recipient.as_ref().is_some_and(|r| {
+                    r.id == previous && !j.status.terminal()
+                        || r.id == id && matches!(j.status, Status::Running | Status::Waiting)
+                })
+            })
+        {
+            return Err(Error::Conflict("PROJECT_BUSY"));
+        }
+        if c.thread.as_deref().is_some_and(|old| old != thread) {
+            return Err(Error::Conflict("CLIENT_CONNECTION_CHANGED"));
+        }
+        let mut bindings = self.store.bindings.clone();
+        bindings.insert(
+            id.clone(),
+            Binding {
+                project_id: project.id.clone(),
+                thread_id: thread.into(),
+                cwd: project.cwd.clone(),
+                name: c.name.clone(),
+                version: c.version.clone(),
+                extra: bindings
+                    .get(&id)
+                    .map(|b| b.extra.clone())
+                    .unwrap_or_default(),
+            },
+        );
+        crate::store::atomic(&self.store.directory, "wakeup-bindings.json", &bindings)?;
+        self.store.bindings = bindings;
+        self.connections.remove(&previous);
+        self.sessions
+            .retain(|_, target| target != &id && target != &previous);
+        self.sessions
+            .insert(connection_id(&project.id, claim), id.clone());
+        c.id = id.clone();
+        c.wakeable = true;
+        c.thread = Some(thread.into());
+        self.connections.insert(id.clone(), c);
+        Ok(id)
+    }
+    pub fn detach(&mut self, project: &str, claim: &str, revoke: bool) -> Result<()> {
+        let id = self.session(project, claim)?.id.clone();
+        if revoke {
+            let mut bindings = self.store.bindings.clone();
+            bindings.remove(&id);
+            crate::store::atomic(&self.store.directory, "wakeup-bindings.json", &bindings)?;
+            self.store.bindings = bindings;
+            self.connections.remove(&id);
+            self.sessions.retain(|_, target| target != &id);
+        } else {
+            self.sessions.remove(&connection_id(project, claim));
+            if let Some(c) = self.connections.get_mut(&id) {
+                c.connected = false;
+                c.listening = false;
+                c.waiting = None;
+                if !c.wakeable {
+                    self.connections.remove(&id);
+                }
+            }
+        }
+        Ok(())
     }
     pub fn persist_jobs(&mut self, jobs: Vec<Job>) -> Result<()> {
         crate::store::atomic(&self.store.directory, "jobs.json", &jobs)?;
@@ -667,5 +810,253 @@ mod cancellation_tests {
                 Status::Cancelled
             );
         }
+    }
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "Fixture setup and assertions fail immediately"
+)]
+mod wakeup_lifecycle_tests {
+    use super::*;
+
+    async fn fixture() -> (
+        tempfile::TempDir,
+        tempfile::TempDir,
+        Service,
+        Project,
+        String,
+        String,
+    ) {
+        let home = tempfile::tempdir().unwrap();
+        let source = tempfile::tempdir().unwrap();
+        let service = Service::open(home.path().into(), 14318, "/test/pointdom".into()).unwrap();
+        let project = service
+            .add_project(source.path(), "Fixture", "http://localhost:3000")
+            .await
+            .unwrap();
+        let claim = Uuid::new_v4().to_string();
+        let id = register(&service, &project, &claim).await;
+        (home, source, service, project, claim, id)
+    }
+    async fn register(service: &Service, project: &Project, claim: &str) -> String {
+        service.register(&json!({"projectId":project.id,"claim":claim,"client":{"name":"fixture-codex","version":"1"}}), claim).await.unwrap()["connection"]["id"].as_str().unwrap().into()
+    }
+    fn submission(project: &Project, recipient: &str) -> Value {
+        json!({"id":Uuid::new_v4(),"projectId":project.id,"recipientId":recipient,"instruction":"Fixture only","selection":{"url":"http://localhost:3000/","title":"Fixture","selector":"h1","label":"Heading","tag":"h1","viewport":{"width":800,"height":600},"rect":{"x":0,"y":0,"width":100,"height":20},"styles":{}}})
+    }
+    #[tokio::test]
+    async fn idle_authorization_survives_detach_and_new_session_must_restore_exact_recipient() {
+        let (_home, _source, service, project, claim, id) = fixture().await;
+        let thread = Uuid::new_v4().to_string();
+        {
+            let mut s = service.inner.lock().await;
+            // Host verification is replaced only in this isolated domain fixture.
+            assert_eq!(
+                s.authorize_wakeup(&project, &claim, &thread, None).unwrap(),
+                id
+            );
+            s.detach(&project.id, &claim, false).unwrap();
+            s.connections.get_mut(&id).unwrap().seen = Instant::now() - Duration::from_secs(120);
+            s.prune();
+            assert!(s.connections[&id].wakeable);
+            assert!(!s.connections[&id].listening);
+            assert!(!s.connections[&id].connected);
+        }
+        let input = submission(&project, &id);
+        let task = input["id"].as_str().unwrap();
+        service.submit(input.clone()).await.unwrap();
+        {
+            let mut s = service.inner.lock().await;
+            s.store.jobs[0].client_notification = Some(true);
+            s.store.jobs[0].wakeup_token_hash = Some(hash("fixture-token"));
+            assert!(s.store.jobs[0].public().get("wakeupTokenHash").is_none());
+        }
+        let fresh = Uuid::new_v4().to_string();
+        let fresh_id = register(&service, &project, &fresh).await;
+        assert_ne!(fresh_id, id);
+        {
+            let mut s = service.inner.lock().await;
+            assert_eq!(
+                s.authorize_wakeup(&project, &fresh, &thread, None).unwrap(),
+                id
+            );
+            assert_eq!(s.session(&project.id, &fresh).unwrap().id, fresh_id);
+            assert!(
+                s.authorize_wakeup(&project, &fresh, &thread, Some("wrong-token"))
+                    .is_err()
+            );
+        }
+        assert!(
+            service
+                .task(task, &project.id, &fresh, "read", &json!({}))
+                .await
+                .is_err()
+        );
+        {
+            let mut s = service.inner.lock().await;
+            assert_eq!(
+                s.authorize_wakeup(&project, &fresh, &thread, Some("fixture-token"))
+                    .unwrap(),
+                id
+            );
+            assert!(!s.connections.contains_key(&fresh_id));
+        }
+        assert_eq!(register(&service, &project, &fresh).await, id);
+        service
+            .task(
+                task,
+                &project.id,
+                &fresh,
+                "claim",
+                &json!({"agent":"fixture"}),
+            )
+            .await
+            .unwrap();
+        service.task(task, &project.id, &fresh, "report", &json!({"outcome":"completed","summary":"Fixture","files":[],"verification":"Fixture only"})).await.unwrap();
+        service
+            .inner
+            .lock()
+            .await
+            .detach(&project.id, &fresh, false)
+            .unwrap();
+        service.submit(submission(&project, &id)).await.unwrap();
+        let replay = Uuid::new_v4().to_string();
+        register(&service, &project, &replay).await;
+        assert!(
+            service
+                .inner
+                .lock()
+                .await
+                .authorize_wakeup(&project, &replay, &thread, Some("fixture-token"))
+                .is_err()
+        );
+        assert_eq!(service.inner.lock().await.store.jobs.len(), 2);
+    }
+    #[tokio::test]
+    async fn restart_restores_only_authorized_target_and_explicit_revocation_is_durable() {
+        let (home, _source, service, project, claim, id) = fixture().await;
+        service
+            .inner
+            .lock()
+            .await
+            .authorize_wakeup(&project, &claim, &Uuid::new_v4().to_string(), None)
+            .unwrap();
+        drop(service);
+        let restored = Service::open(home.path().into(), 14318, "/test/pointdom".into()).unwrap();
+        let snapshot = restored.snapshot().await;
+        assert_eq!(snapshot["agents"][0]["id"], id);
+        assert_eq!(snapshot["agents"][0]["connected"], false);
+        assert_eq!(snapshot["agents"][0]["listening"], false);
+        assert_eq!(snapshot["agents"][0]["wakeable"], true);
+        restored
+            .inner
+            .lock()
+            .await
+            .detach(&project.id, &claim, true)
+            .unwrap();
+        drop(restored);
+        let revoked = Service::open(home.path().into(), 14318, "/test/pointdom".into()).unwrap();
+        assert!(
+            revoked.snapshot().await["agents"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+    }
+    #[tokio::test]
+    async fn legacy_mcp_exit_detaches_but_explicit_revoke_removes_saved_authorization() {
+        use axum::{
+            body::Body,
+            http::{Request, StatusCode},
+        };
+        use tower::ServiceExt;
+        let (_home, _source, service, project, claim, id) = fixture().await;
+        service
+            .inner
+            .lock()
+            .await
+            .authorize_wakeup(&project, &claim, &Uuid::new_v4().to_string(), None)
+            .unwrap();
+        let token = service.inner.lock().await.store.config.token.clone();
+        for (action, retained) in [("disconnect", true), ("revoke", false)] {
+            let body = json!({"projectId":project.id,"claim":claim});
+            let request = Request::builder()
+                .method("POST")
+                .uri(format!("/api/mcp/connections/{action}"))
+                .header("host", "127.0.0.1:14318")
+                .header("authorization", format!("Bearer {token}"))
+                .header("x-pagepatch-mcp", "1")
+                .header("x-pointdom-session", &claim)
+                .header("content-type", "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap();
+            let response = crate::http::router(service.clone())
+                .oneshot(request)
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(
+                service.inner.lock().await.store.bindings.contains_key(&id),
+                retained
+            );
+        }
+    }
+    #[tokio::test]
+    async fn another_thread_cannot_restore_an_existing_recipient_or_take_running_work() {
+        let (_home, _source, service, project, claim, id) = fixture().await;
+        let thread = Uuid::new_v4().to_string();
+        service
+            .inner
+            .lock()
+            .await
+            .authorize_wakeup(&project, &claim, &thread, None)
+            .unwrap();
+        let input = submission(&project, &id);
+        service.submit(input.clone()).await.unwrap();
+        let other = Uuid::new_v4().to_string();
+        let other_id = register(&service, &project, &other).await;
+        assert_eq!(
+            service
+                .inner
+                .lock()
+                .await
+                .authorize_wakeup(&project, &other, &Uuid::new_v4().to_string(), None)
+                .unwrap(),
+            other_id
+        );
+        assert!(
+            service
+                .task(
+                    input["id"].as_str().unwrap(),
+                    &project.id,
+                    &other,
+                    "claim",
+                    &json!({"agent":"fixture"})
+                )
+                .await
+                .is_err()
+        );
+        service
+            .task(
+                input["id"].as_str().unwrap(),
+                &project.id,
+                &claim,
+                "claim",
+                &json!({"agent":"fixture"}),
+            )
+            .await
+            .unwrap();
+        let fresh = Uuid::new_v4().to_string();
+        register(&service, &project, &fresh).await;
+        assert!(
+            service
+                .inner
+                .lock()
+                .await
+                .authorize_wakeup(&project, &fresh, &thread, Some("fixture-token"))
+                .is_err()
+        );
     }
 }

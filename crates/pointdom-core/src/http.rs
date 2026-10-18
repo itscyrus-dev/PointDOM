@@ -377,15 +377,22 @@ async fn mcp(
         ("POST", "/api/mcp/connections") => service.register(input, claim).await,
         ("POST", "/api/mcp/connections/wakeup") => {
             service
-                .wakeup(project, claim, text(input, "threadId")?)
+                .wakeup(
+                    project,
+                    claim,
+                    text(input, "threadId")?,
+                    input.get("notificationToken").and_then(Value::as_str),
+                )
                 .await
         }
-        ("POST", "/api/mcp/connections/disconnect") => {
+        (
+            "POST",
+            "/api/mcp/connections/disconnect"
+            | "/api/mcp/connections/detach"
+            | "/api/mcp/connections/revoke",
+        ) => {
             let mut s = service.inner.lock().await;
-            let id = connection_id(project, claim);
-            s.connections.remove(&id);
-            s.store.bindings.remove(&id);
-            s.store.save_bindings()?;
+            s.detach(project, claim, path.ends_with("/revoke"))?;
             service.changed.notify_waiters();
             Ok(json!({"ok":true}))
         }
