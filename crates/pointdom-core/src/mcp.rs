@@ -238,7 +238,7 @@ pub async fn serve(directory: PathBuf, port: u16) -> Result<()> {
     for p in projects {
         let _ = session
             .request(
-                "/connections/disconnect",
+                "/connections/detach",
                 Some(json!({"projectId":p,"claim":session.claim})),
             )
             .await;

@@ -230,6 +230,11 @@ async fn notify(thread: &str, job: &Job, project: &Project) -> Result<()> {
         .collect::<Vec<_>>()
         .join(" ");
     let preview = preview.chars().take(160).collect::<String>();
+    let recipient = job
+        .recipient
+        .as_ref()
+        .map(|r| r.id.as_str())
+        .ok_or(Error::Client)?;
     let message = if job
         .extra
         .get("notificationLanguage")
@@ -237,12 +242,12 @@ async fn notify(thread: &str, job: &Job, project: &Project) -> Result<()> {
         == Some("en")
     {
         format!(
-            "PointDOM: {preview}\nTask: {}. Read the full request via MCP, then finish and end this turn.",
+            "PointDOM: {preview}\nTask: {}; recipient: {recipient}. Bind your trusted workspace, then restore this conversation with pointdom_enable_wakeup using only the host CODEX_THREAD_ID. Verify the recipient matches before reading and claiming the task via MCP. Report and end this turn.",
             job.id
         )
     } else {
         format!(
-            "PointDOM：{preview}\n任务：{}。通过 MCP 读取完整要求并处理，完成后结束本轮。",
+            "PointDOM：{preview}\n任务：{}；接收方：{recipient}。绑定真实目录，再用宿主 CODEX_THREAD_ID 调用 pointdom_enable_wakeup 恢复本对话授权；核对接收方一致后，通过 MCP 读取并领取任务，回报后结束本轮。",
             job.id
         )
     };

@@ -28,3 +28,13 @@ test('initial Codex setup includes exact project identity without inventing a re
   assert.ok(instruction.includes('CODEX_THREAD_ID'));
   assert.ok(instruction.includes('Never guess a thread ID'));
 });
+
+test('wakeup reconnect verifies the restored recipient after authorization instead of rejecting a fresh session', () => {
+  const project = { id: 'fixture', cwd: '/fixture/source', name: 'Fixture', origins: [] };
+  const en = wakeupInstruction('en', project, 'saved-recipient');
+  const zh = wakeupInstruction('zh-CN', project, 'saved-recipient');
+  assert.match(en, /enable or restore the same recipient; verify its returned connectionId/);
+  assert.match(zh, /启用或恢复同一接收方，核对其返回的 connectionId/);
+  for (const instruction of [en, zh])
+    assert.ok(instruction.includes('"connectionId":"saved-recipient"'));
+});

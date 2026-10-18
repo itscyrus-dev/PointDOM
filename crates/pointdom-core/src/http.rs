@@ -380,12 +380,9 @@ async fn mcp(
                 .wakeup(project, claim, text(input, "threadId")?)
                 .await
         }
-        ("POST", "/api/mcp/connections/disconnect") => {
+        ("POST", "/api/mcp/connections/disconnect" | "/api/mcp/connections/detach") => {
             let mut s = service.inner.lock().await;
-            let id = connection_id(project, claim);
-            s.connections.remove(&id);
-            s.store.bindings.remove(&id);
-            s.store.save_bindings()?;
+            s.detach(project, claim, path.ends_with("/disconnect"))?;
             service.changed.notify_waiters();
             Ok(json!({"ok":true}))
         }

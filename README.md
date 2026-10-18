@@ -31,7 +31,7 @@ history are preserved with a private backup; interrupted tasks are never replaye
 
 1. Open PointDOM. In Settings, show the bundled extension folder, enable Developer mode at `chrome://extensions`, and choose **Load unpacked**. Alternatively, extract the release extension ZIP and load its extracted folder. Approve the Chrome connection in the app.
 2. Start your development server. Open the side panel and choose **Bind project**; confirm its verified source folder. Grant only the linked page's Chrome permission.
-3. Configure your client from **Clients**. Connect its universal MCP entry and bind the exact project. Generic MCP clients receive tasks while listening; explicitly authorized Codex desktop conversations can receive notifications on macOS.
+3. Configure your client from **Clients**. Connect its universal MCP entry and bind the exact project. Generic MCP clients receive tasks while listening; explicitly authorized Codex desktop conversations can wake for new tasks on macOS, handle them through MCP and end. Their authorized target survives idle MCP disconnection and app restart; each new MCP session must restore that exact conversation before claiming. Interrupted tasks are never replayed.
 4. Select page elements, add an overall request or element notes, choose the MCP recipient and submit. Inspect progress, reports and cancellation from the task list.
 
 The app uses Tauri 2, Rust, React and HeroUI 3. Installed builds contain no Electron

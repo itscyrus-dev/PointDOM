@@ -3,6 +3,13 @@
 Notable changes to PointDOM. Download installers and checksums from
 [GitHub Releases](https://github.com/itscyrus-dev/PointDOM/releases).
 
+## [0.6.2] - 2026-10-18
+
+- Preserve explicitly authorized Codex wakeup targets across idle MCP disconnection and app restart.
+- Restore the same verified conversation and recipient in a fresh MCP session before claiming a task; complete the task and end without continuous listening.
+- Distinguish idle wakeable targets from live MCP connections; keep explicit revocation and prevent takeover of running work.
+- Publish a standalone Chrome extension ZIP alongside the Apple Silicon macOS DMG, with dependency notices and SHA-256 checksums.
+
 ## 0.6.1
 
 - Limit CI and release downloads to Apple Silicon macOS.

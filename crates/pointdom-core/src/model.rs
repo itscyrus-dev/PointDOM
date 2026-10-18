@@ -155,6 +155,7 @@ pub struct Connection {
     pub version: String,
     pub connected_at: String,
     pub last_seen_at: String,
+    pub connected: bool,
     pub listening: bool,
     pub wakeable: bool,
     #[serde(skip)]
@@ -170,6 +171,12 @@ pub struct Binding {
     pub project_id: String,
     pub thread_id: String,
     pub cwd: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub version: String,
+    #[serde(default, flatten)]
+    pub extra: Map<String, Value>,
 }
 pub fn hash(value: &str) -> String {
     use sha2::{Digest, Sha256};
