@@ -1394,7 +1394,7 @@ function Panel() {
   const jobs = filter === 'all' ? projectJobs : active;
   const connectionLabel =
     state.connection === 'connected'
-      ? t('已连接', 'Connected')
+      ? t('服务已连接', 'Service connected')
       : state.connection === 'connecting'
         ? t('连接中', 'Connecting')
         : t('未连接', 'Offline');

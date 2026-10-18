@@ -116,7 +116,7 @@ test('native Rust service and MCP drive extension annotations, progress and exac
     await panel.getByRole('button', { name: '高级：手动配对', exact: true }).click();
     await panel.locator('#token').fill(token);
     await panel.locator('#connect').click();
-    await expect(panel.locator('#connection')).toContainText('已连接');
+    await expect(panel.locator('#connection')).toContainText('服务已连接');
     await page.bringToFront();
     await panel.reload();
     await page.bringToFront();

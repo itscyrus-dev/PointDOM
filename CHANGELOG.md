@@ -3,6 +3,13 @@
 Notable changes to PointDOM. Download installers and checksums from
 [GitHub Releases](https://github.com/itscyrus-dev/PointDOM/releases).
 
+## [0.6.4] - 2026-10-18
+
+- Recognize Codex desktop conversations tagged as `vscode` as well as `appServer`, while retaining exact workspace checks and explicit native authorization.
+- Make Refresh conversations a filled neutral button with loading feedback and duplicate-click prevention.
+- Reduce the native macOS menu-bar logo to 18pt while preserving adaptive light/dark drawing and the running blue point.
+- Clarify that the extension connection label reports the local service connection, separately from conversation authorization.
+
 ## [0.6.3] - 2026-10-18
 
 - Select a workspace-matched Codex conversation in the app and confirm routing authorization without copying a setup instruction. Synchronize that explicit selection to the extension once while preserving subsequent manual choices and pending submission recipients.

@@ -207,6 +207,8 @@ pub struct CodexConversation {
     pub title: String,
 }
 
+const DESKTOP_THREAD_SOURCES: [&str; 2] = ["appServer", "vscode"];
+
 fn conversation_summary(
     value: &Value,
     project: &Project,
@@ -218,7 +220,9 @@ fn conversation_summary(
     let cwd = value["cwd"].as_str().ok_or(Error::Client)?;
     if actual != std::path::Path::new(&project.cwd)
         || state.is_some_and(|s| !local_thread(s, id))
-        || value["source"] != "appServer"
+        || !value["source"]
+            .as_str()
+            .is_some_and(|source| DESKTOP_THREAD_SOURCES.contains(&source))
         || value["ephemeral"] == true
         || value["archived"] == true
         || (std::fs::canonicalize(cwd).ok().as_ref() != Some(&actual)
@@ -250,7 +254,7 @@ pub async fn conversations(project: &Project, cursor: Option<&str>) -> Result<Va
     }
     let value: Value = serde_json::from_str(&run(
         &["app-server", "--stdio"], project,
-        Some(("thread/list", json!({"limit":50,"cursor":cursor,"archived":false,"sourceKinds":["appServer"],"sortKey":"updated_at","useStateDbOnly":true}))),
+        Some(("thread/list", json!({"limit":50,"cursor":cursor,"archived":false,"sourceKinds":DESKTOP_THREAD_SOURCES,"sortKey":"updated_at","useStateDbOnly":true}))),
     ).await?)?;
     let items = value["data"].as_array().ok_or(Error::Client)?;
     let state = host_state();
@@ -659,6 +663,28 @@ mod conversation_tests {
             assert!(message.contains("CODEX_THREAD_ID") && message.contains("notificationToken"));
             assert!(!message.contains("PRIVATE_"));
         }
+    }
+    #[test]
+    fn desktop_picker_accepts_desktop_vscode_source_and_keeps_workspace_checks() {
+        let source = tempfile::tempdir().unwrap();
+        let other = tempfile::tempdir().unwrap();
+        let project = Project {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: "Fixture".into(),
+            cwd: source
+                .path()
+                .canonicalize()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .into(),
+            origins: vec![],
+            extra: Default::default(),
+        };
+        let mut thread = json!({"id":uuid::Uuid::new_v4(),"cwd":project.cwd,"source":"vscode","name":"Desktop fixture"});
+        assert!(conversation_summary(&thread, &project, None).is_ok());
+        thread["cwd"] = json!(other.path());
+        assert!(conversation_summary(&thread, &project, None).is_err());
     }
     #[test]
     fn desktop_picker_requires_exact_workspace_and_bounded_display_metadata() {

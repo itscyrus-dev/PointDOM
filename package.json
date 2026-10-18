@@ -1,6 +1,6 @@
 {
   "name": "pointdom",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "private": true,
   "type": "module",
   "description": "Browser annotations delivered to your coding client over MCP",

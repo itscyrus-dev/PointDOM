@@ -118,6 +118,7 @@ completion never navigates. Support keyboard tab navigation and reduced motion.
   states separately. Browser binding never grants conversation authorization.
   Project cards keep Open, Connect and View on one compact row, without hover
   tooltips. Connect opens an inline conversation picker using official controls;
+  Refresh uses a filled neutral button with a loading label and disabled state;
   authorization uses a native confirmation. Remove uses native
   confirmation and refuses projects with pending tasks. Persist a removed marker,
   revoke active access, and retain source files, metadata and task history. Discovery
@@ -157,7 +158,7 @@ Click the icon to open a 380px round task panel: connection, running/queued coun
 active tasks, recent results and open-main action. A task opens its detail in the
 main window. Right-click provides Open, Tasks, Projects, Clients, Settings, About
 and Quit, separated into navigation and lifecycle groups. The menu opens the requested
-main-window tab and dismisses the task panel. Use a 2x antialiased menu-bar Logo with its rounded tile and original selection-frame
+main-window tab and dismisses the task panel. Use an 18pt antialiased menu-bar Logo with its rounded tile and original selection-frame
 and center-point proportions from `src/extension/brand.ts`. For a light menu bar,
 use a black tile with white brackets and a white idle point; for a dark menu bar,
 use a white tile with black brackets and a black idle point. Draw with AppKit’s current drawing appearance in a native image callback using the
@@ -291,7 +292,7 @@ purchase action or billing backend is shown. Keep this distinct from task execut
 ## Product copy and appearance controls
 
 Keep page headings and descriptions terse and action-oriented. Empty states say
-“No tasks” rather than a slogan; the footer says “Service connected” or “Service
+“No tasks” rather than a slogan; the desktop footer and extension connection label say “Service connected” or “Service
 offline” (服务已连接 / 服务未连接). Keep setup steps and actionable recovery details.
 The composer footer shows one concise client state. The primary Codex path uses the native conversation chooser and no copied instruction. Generic MCP setup remains available for other hosts. Avoid repeated unavailable/help paragraphs. Notification recovery retains exact project/recipient scope, host thread identity, private notification proof and the task-only lifecycle.
 Keep settings terse: a short section heading, row label and control. Theme and

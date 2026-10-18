@@ -734,7 +734,7 @@ fn native_tray_image(frame: usize, active: bool) -> objc2::rc::Retained<objc2_ap
         } else {
             (&black, &white)
         };
-        let scale = 22.0 / 32.0;
+        let scale = 18.0 / 32.0;
         let point = |x, y| NSPoint::new(x * scale, y * scale);
         let rect = |x, y, w, h| NSRect::new(point(x, y), NSSize::new(w * scale, h * scale));
         background.setFill();
@@ -787,7 +787,7 @@ fn native_tray_image(frame: usize, active: bool) -> objc2::rc::Retained<objc2_ap
         Bool::YES
     });
     // Keep AppKit’s default cache so repainting does not discard completed image frames.
-    let image = NSImage::imageWithSize_flipped_drawingHandler(NSSize::new(22.0, 22.0), true, &draw);
+    let image = NSImage::imageWithSize_flipped_drawingHandler(NSSize::new(18.0, 18.0), true, &draw);
     image.setTemplate(false);
     image
 }
@@ -1291,6 +1291,7 @@ mod tests {
             for active in [false, true] {
                 let image = native_tray_image(0, active);
                 assert_eq!(image.cacheMode(), NSImageCacheMode::Default);
+                assert_eq!(image.size(), objc2_foundation::NSSize::new(18.0, 18.0));
                 for dark in [false, false, true, true, false, true] {
                     let appearance = NSAppearance::appearanceNamed(&NSString::from_str(if dark {
                         "NSAppearanceNameDarkAqua"
