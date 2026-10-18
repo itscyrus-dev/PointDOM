@@ -16,7 +16,7 @@ PointDOM 将网页批注交给你的 MCP 代码客户端处理。选取一个或
 
 ## 安装
 
-从 [Releases](https://github.com/itscyrus-dev/PointDOM/releases/latest) 下载macOS 应用 DMG。
+从 [Releases](https://github.com/itscyrus-dev/PointDOM/releases/latest) 下载 macOS 应用 DMG 和 `pointdom-extension-<version>.zip` 浏览器扩展。
 
 | 平台      | 安装包 | 架构             |
 | --------- | ------ | ---------------- |
@@ -28,7 +28,7 @@ PointDOM 将网页批注交给你的 MCP 代码客户端处理。选取一个或
 
 ## 使用
 
-1. 打开 PointDOM。在 App 设置中打开扩展文件夹，在 `chrome://extensions` 开启“开发者模式”，选择“加载已解压的扩展程序”，然后在 App 中批准 Chrome 连接。
+1. 打开 PointDOM。在 App 设置中打开扩展文件夹，在 `chrome://extensions` 开启“开发者模式”，选择“加载已解压的扩展程序”，也可以解压 Release 中的扩展 ZIP，加载解压后的文件夹，然后在 App 中批准 Chrome 连接。
 2. 启动本地开发服务。在侧栏点击“绑定项目”，确认识别到的源码文件夹。仅为绑定网页授予 Chrome 权限。
 3. 在“客户端”配置你的代码客户端，连接通用 MCP 并绑定准确项目。通用 MCP 客户端在监听时接收任务；macOS 的 Codex 桌面对话可在明确授权后接收任务通知。
 4. 选取网页元素，填写整体需求或各元素描述，选择 MCP 接收方并提交。在任务列表查看进度、结果并取消任务。

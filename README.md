@@ -17,7 +17,7 @@ panel or desktop task list. Your client owns source edits, accounts and permissi
 
 ## Install
 
-Download the macOS application DMG from [Releases](https://github.com/itscyrus-dev/PointDOM/releases/latest).
+Download the macOS application DMG and `pointdom-extension-<version>.zip` from [Releases](https://github.com/itscyrus-dev/PointDOM/releases/latest).
 
 | Platform  | Download | Architecture       |
 | --------- | -------- | ------------------ |
@@ -29,7 +29,7 @@ history are preserved with a private backup; interrupted tasks are never replaye
 
 ## Use
 
-1. Open PointDOM. In Settings, show the bundled extension folder, enable Developer mode at `chrome://extensions`, and choose **Load unpacked**. Approve the Chrome connection in the app.
+1. Open PointDOM. In Settings, show the bundled extension folder, enable Developer mode at `chrome://extensions`, and choose **Load unpacked**. Alternatively, extract the release extension ZIP and load its extracted folder. Approve the Chrome connection in the app.
 2. Start your development server. Open the side panel and choose **Bind project**; confirm its verified source folder. Grant only the linked page's Chrome permission.
 3. Configure your client from **Clients**. Connect its universal MCP entry and bind the exact project. Generic MCP clients receive tasks while listening; explicitly authorized Codex desktop conversations can receive notifications on macOS.
 4. Select page elements, add an overall request or element notes, choose the MCP recipient and submit. Inspect progress, reports and cancellation from the task list.
