@@ -24,7 +24,7 @@ Windows and Linux are not release targets.
    `node scripts/generate-dmg-background.mjs` after editing its SVG source.
 4. Create a PR. The shared build workflow runs format, types, unit/native tests,
    generated-contract drift checks, browser/renderer integration and release-mode
-   native compilation on Apple Silicon macOS. The protected `verify` gate requires
+   native compilation on Apple Silicon macOS. The `verify` gate requires
    these checks. Installer creation, archive verification and release uploads run
    only for a version tag, after the same checks pass. Frontend output is reused
    within each job; Rust caches exclude incremental files and installer bundles.
