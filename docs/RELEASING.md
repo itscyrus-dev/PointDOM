@@ -22,14 +22,14 @@ Windows and Linux are not release targets.
    `TAURI_BUNDLER_DMG_IGNORE_CI=true` on the packaging step; otherwise Tauri skips
    Finder customization. Regenerate background artwork on macOS with
    `node scripts/generate-dmg-background.mjs` after editing its SVG source.
-4. Create a PR. The shared build workflow runs format, types, unit/native tests,
-   generated-contract drift checks, browser/renderer integration and release-mode
-   native compilation on Apple Silicon macOS. The `verify` gate requires
-   these checks. Installer creation, archive verification and release uploads run
-   only for a version tag, after the same checks pass. Frontend output is reused
-   within each job; Rust caches exclude incremental files and installer bundles.
-   Failed runs save a separate partial cache so they cannot occupy the immutable
-   cache key reserved for a successful, complete build.
+4. Create a PR. Markdown-only guide changes run formatting and local-link checks on Ubuntu.
+   Any code, workflow or packaged-asset change runs format, types, unit/native tests,
+   generated-contract drift checks, browser/renderer integration and native debug linking
+   on Apple Silicon macOS. Main pushes compile optimized release binaries; version tags
+   repeat the complete checks and build the installers. The `verify` gate requires the
+   selected path to succeed and rejects failed or cancelled checks. Frontend output is
+   reused within each job. Rust dependency caching excludes workspace binaries, stale
+   artifacts and incremental output; only successful main builds save the shared cache.
 5. After maintainer approval and successful checks, merge the reviewed commit and
    push its matching `v<version>` tag. Publishing needs explicit authorization.
 

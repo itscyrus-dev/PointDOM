@@ -34,19 +34,12 @@ jobs:
           node-version: '24'
           cache: pnpm
       - run: rustup toolchain install 1.97.1 --profile minimal --component rustfmt,clippy
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: native_cache
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-            !target/**/incremental
-            !target/**/bundle
-          key: rust-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
-          restore-keys: |
-            rust-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-
-            rust-v2-${{ runner.os }}-${{ runner.arch }}-
+          shared-key: macos-arm64
+          cache-bin: false
+          # PRs and tags restore the dependency cache maintained by successful main builds.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: pnpm install --frozen-lockfile
       - name: Verify versions
         run: node --input-type=module -e 'import {releaseVersion} from "./scripts/release-utils.ts"; await releaseVersion(".", process.env.RELEASE_TAG || undefined)'
@@ -62,7 +55,13 @@ jobs:
           pnpm exec playwright test
           pnpm test:desktop
       # pnpm check already built the extension and renderer used by these tests.
+      - name: Link native binaries for pull requests
+        if: github.event_name == 'pull_request'
+        run: |
+          node scripts/desktop/build.mjs --debug
+          pnpm exec tauri build --debug --no-bundle
       - name: Build native release binaries
+        if: github.event_name != 'pull_request'
         run: |
           node scripts/desktop/build.mjs
           pnpm exec tauri build --no-bundle
@@ -94,14 +93,3 @@ jobs:
             test-results/**/local-binding-light.png
           if-no-files-found: ignore
           retention-days: 7
-      - name: Preserve compiled dependencies after failed checks
-        if: failure() && steps.native_cache.outcome == 'success' && steps.native_cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-            !target/**/incremental
-            !target/**/bundle
-          key: rust-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-partial-${{ github.run_id }}-${{ github.run_attempt }}
