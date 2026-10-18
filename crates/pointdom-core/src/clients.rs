@@ -232,7 +232,11 @@ fn conversation_summary(
         .unwrap_or("Codex")
         .chars()
         .filter(|c| !c.is_control())
-        .take(160)
+        .scan(0, |units, c| {
+            // Match the extension's JavaScript string-length bound without splitting a code point.
+            *units += c.len_utf16();
+            (*units <= 160).then_some(c)
+        })
         .collect::<String>();
     Ok(CodexConversation {
         id: id.into(),
@@ -703,5 +707,9 @@ mod conversation_tests {
                 .count(),
             160
         );
+        thread["name"] = json!("🙂".repeat(160));
+        let title = conversation_summary(&thread, &p, None).unwrap().title;
+        assert_eq!(title.encode_utf16().count(), 160);
+        assert_eq!(title.chars().count(), 80);
     }
 }
