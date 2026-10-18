@@ -126,7 +126,7 @@ for (const platform of ['mac', 'win'] as const) {
       await expect(panel.locator('.local-install-guide')).toContainText('PointDOM App');
       if (platform === 'mac') {
         const pages = context.pages().length;
-        await panel.getByRole('button', { name: '打开 PointDOM 连接', exact: true }).click();
+        await panel.getByRole('button', { name: '自动连接', exact: true }).click();
         await expect(panel.locator('html')).toHaveAttribute('data-handoff-target', '_self');
         await expect(panel.locator('html')).toHaveAttribute(
           'data-handoff',

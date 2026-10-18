@@ -30,7 +30,7 @@ async fn send(child: &mut Child, value: Value) -> Result<()> {
     input.flush().await?;
     Ok(())
 }
-async fn run(args: &[&str], project: &Project, thread: Option<&str>) -> Result<String> {
+async fn run(args: &[&str], project: &Project, request: Option<(&str, Value)>) -> Result<String> {
     let mut child = Command::new(executable()?)
         .args(args)
         .current_dir(&project.cwd)
@@ -43,7 +43,7 @@ async fn run(args: &[&str], project: &Project, thread: Option<&str>) -> Result<S
     let stdout = child.stdout.take().ok_or(Error::Client)?;
     let mut process = Process(child);
     tokio::time::timeout(Duration::from_secs(15), async {
-        if let Some(thread) = thread {
+        if let Some((method, params)) = request {
             send(
                 &mut process.0,
                 json!({
@@ -69,7 +69,7 @@ async fn run(args: &[&str], project: &Project, thread: Option<&str>) -> Result<S
                         send(
                             &mut process.0,
                             json!({
-                                "id": 2, "method": "thread/read", "params": {"threadId": thread}
+                                "id": 2, "method": method, "params": params
                             }),
                         )
                         .await?;
@@ -175,14 +175,12 @@ fn host_project_contains(state: &Value, thread: &str, actual: &std::path::Path) 
         })
 }
 
-fn attached_workspace(thread: &str, actual: &std::path::Path) -> bool {
+fn host_state() -> Option<Value> {
     let home = std::env::var_os("CODEX_HOME")
         .map(PathBuf::from)
         .or_else(|| crate::store::user_home().ok().map(|p| p.join(".codex")));
-    let Some(path) = home.map(|p| p.join(".codex-global-state.json")) else {
-        return false;
-    };
-    let state = std::fs::File::open(path).ok().and_then(|file| {
+    let path = home.map(|p| p.join(".codex-global-state.json"))?;
+    std::fs::File::open(path).ok().and_then(|file| {
         let mut bytes = Vec::new();
         std::io::Read::read_to_end(
             &mut std::io::Read::take(file, 8 * 1024 * 1024 + 1),
@@ -192,21 +190,100 @@ fn attached_workspace(thread: &str, actual: &std::path::Path) -> bool {
         (bytes.len() <= 8 * 1024 * 1024)
             .then(|| serde_json::from_slice::<Value>(&bytes).ok())
             .flatten()
-    });
-    state.is_some_and(|state| host_project_contains(&state, thread, actual))
+    })
+}
+fn local_thread(state: &Value, thread: &str) -> bool {
+    !state["thread-project-membership-host-ids"][thread]
+        .as_str()
+        .is_some_and(|host| host != "local")
+        && !(state["thread-project-assignments"][thread]["projectId"].is_string()
+            && state["thread-project-assignments"][thread]["projectKind"] != "local")
 }
 
-pub async fn verify(thread: &str, project: &Project) -> Result<()> {
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexConversation {
+    pub id: String,
+    pub title: String,
+}
+
+fn conversation_summary(
+    value: &Value,
+    project: &Project,
+    state: Option<&Value>,
+) -> Result<CodexConversation> {
+    let id = value["id"].as_str().ok_or(Error::Client)?;
+    crate::service::uuid(id)?;
+    let actual = std::fs::canonicalize(&project.cwd)?;
+    let cwd = value["cwd"].as_str().ok_or(Error::Client)?;
+    if actual != std::path::Path::new(&project.cwd)
+        || state.is_some_and(|s| !local_thread(s, id))
+        || value["source"] != "appServer"
+        || value["ephemeral"] == true
+        || value["archived"] == true
+        || (std::fs::canonicalize(cwd).ok().as_ref() != Some(&actual)
+            && !state.is_some_and(|s| host_project_contains(s, id, &actual)))
+    {
+        return Err(Error::Conflict("CLIENT_PROJECT_MISMATCH"));
+    }
+    let title = value["name"]
+        .as_str()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or("Codex")
+        .chars()
+        .filter(|c| !c.is_control())
+        .scan(0, |units, c| {
+            // Match the extension's JavaScript string-length bound without splitting a code point.
+            *units += c.len_utf16();
+            (*units <= 160).then_some(c)
+        })
+        .collect::<String>();
+    Ok(CodexConversation {
+        id: id.into(),
+        title,
+    })
+}
+
+pub async fn conversations(project: &Project, cursor: Option<&str>) -> Result<Value> {
+    if cursor.is_some_and(|s| s.len() > 2048) {
+        return Err(Error::Invalid("INVALID_CURSOR"));
+    }
+    let value: Value = serde_json::from_str(&run(
+        &["app-server", "--stdio"], project,
+        Some(("thread/list", json!({"limit":50,"cursor":cursor,"archived":false,"sourceKinds":["appServer"],"sortKey":"updated_at","useStateDbOnly":true}))),
+    ).await?)?;
+    let items = value["data"].as_array().ok_or(Error::Client)?;
+    let state = host_state();
+    let conversations: Vec<_> = items
+        .iter()
+        .take(50)
+        .filter_map(|item| conversation_summary(item, project, state.as_ref()).ok())
+        .collect();
+    Ok(json!({"conversations":conversations,"nextCursor":value["nextCursor"].as_str()}))
+}
+
+async fn verified_thread(thread: &str, project: &Project) -> Result<Value> {
     crate::service::uuid(thread)?;
     let actual = std::fs::canonicalize(&project.cwd)?;
     if actual != std::path::Path::new(&project.cwd) {
         return Err(Error::Conflict("CLIENT_PROJECT_MOVED"));
     }
-    let value: Value =
-        serde_json::from_str(&run(&["app-server", "--stdio"], project, Some(thread)).await?)?;
+    let value: Value = serde_json::from_str(
+        &run(
+            &["app-server", "--stdio"],
+            project,
+            Some(("thread/read", json!({"threadId":thread}))),
+        )
+        .await?,
+    )?;
     let cwd = value["thread"]["cwd"].as_str().ok_or(Error::Client)?;
+    let state = host_state();
     if value["thread"]["id"] != thread
-        || (std::fs::canonicalize(cwd)? != actual && !attached_workspace(thread, &actual))
+        || state.as_ref().is_some_and(|s| !local_thread(s, thread))
+        || (std::fs::canonicalize(cwd)? != actual
+            && !state
+                .as_ref()
+                .is_some_and(|s| host_project_contains(s, thread, &actual)))
     {
         return Err(Error::Conflict("CLIENT_PROJECT_MISMATCH"));
     }
@@ -214,10 +291,19 @@ pub async fn verify(thread: &str, project: &Project) -> Result<()> {
     if !help.contains("--thread") || !help.contains("--message") {
         return Err(Error::Invalid("CLIENT_WAKEUP_UNSUPPORTED"));
     }
-    Ok(())
+    Ok(value["thread"].clone())
 }
-async fn notify(thread: &str, job: &Job, project: &Project, token: &str) -> Result<()> {
-    verify(thread, project).await?;
+
+pub async fn conversation(thread: &str, project: &Project) -> Result<CodexConversation> {
+    let value = verified_thread(thread, project).await?;
+    let state = host_state();
+    conversation_summary(&value, project, state.as_ref())
+}
+
+pub async fn verify(thread: &str, project: &Project) -> Result<()> {
+    verified_thread(thread, project).await.map(|_| ())
+}
+fn notification_message(job: &Job, project: &Project, token: &str) -> Result<String> {
     let elements = job
         .selections
         .as_deref()
@@ -235,6 +321,7 @@ async fn notify(thread: &str, job: &Job, project: &Project, token: &str) -> Resu
         .as_ref()
         .map(|r| r.id.as_str())
         .ok_or(Error::Client)?;
+    let scope = json!({"projectId":project.id,"path":project.cwd});
     let message = if job
         .extra
         .get("notificationLanguage")
@@ -242,15 +329,20 @@ async fn notify(thread: &str, job: &Job, project: &Project, token: &str) -> Resu
         == Some("en")
     {
         format!(
-            "PointDOM: {preview}\nTask: {}; recipient: {recipient}. Bind your trusted workspace, then restore this conversation with pointdom_enable_wakeup using only the host CODEX_THREAD_ID and notificationToken: {token}. Keep this credential private. Verify the recipient matches before reading and claiming the task via MCP. Report and end this turn.",
+            "PointDOM: {preview}\nProject: {scope}\nTask: {}; recipient: {recipient}. Bind this verified project path only if it matches your trusted host workspace, then restore this conversation with pointdom_enable_wakeup using only the host CODEX_THREAD_ID and notificationToken: {token}. Keep this credential private. Verify the recipient matches before reading and claiming the task via MCP. Report and end this turn.",
             job.id
         )
     } else {
         format!(
-            "PointDOM：{preview}\n任务：{}；接收方：{recipient}。绑定真实目录，再用宿主 CODEX_THREAD_ID 调用 pointdom_enable_wakeup，传入 notificationToken: {token} 恢复本对话授权；凭证仅用于本次恢复，不要展示或记录；核对接收方一致后，通过 MCP 读取并领取任务，回报后结束本轮。",
+            "PointDOM：{preview}\n项目：{scope}\n任务：{}；接收方：{recipient}。核对宿主工作区后绑定上述源码目录，再用宿主 CODEX_THREAD_ID 调用 pointdom_enable_wakeup，传入 notificationToken: {token} 恢复本对话授权；凭证仅用于本次恢复，不要展示或记录；核对接收方一致后，通过 MCP 读取并领取任务，回报后结束本轮。",
             job.id
         )
     };
+    Ok(message)
+}
+async fn notify(thread: &str, job: &Job, project: &Project, token: &str) -> Result<()> {
+    verify(thread, project).await?;
+    let message = notification_message(job, project, token)?;
     run(
         &["queue", "--thread", thread, "--message", &message],
         project,
@@ -532,5 +624,92 @@ mod reload_tests {
     #[tokio::test]
     async fn unrelated_reply_is_not_refresh_confirmation() {
         assert!(fixture(json!({"id":3,"result":{}})).await.is_err());
+    }
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "Disposable metadata fixture setup and assertions"
+)]
+mod conversation_tests {
+    use super::*;
+    #[test]
+    fn first_notification_contains_verified_scope_but_not_page_context() {
+        let project = Project {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: "Fixture".into(),
+            cwd: "/fixture/source".into(),
+            origins: vec![],
+            extra: Default::default(),
+        };
+        let mut job: Job = serde_json::from_value(json!({
+            "id": uuid::Uuid::new_v4(), "projectId":project.id,"instruction":"Fixture change",
+            "selection":{"title":"PRIVATE_PAGE_TITLE","selector":"PRIVATE_SELECTOR","dom":"PRIVATE_DOM"},
+            "status":"queued","createdAt":now(),"updatedAt":now(),
+            "recipient":{"id":uuid::Uuid::new_v4(),"name":"Codex"}
+        })).unwrap();
+        for language in ["zh-CN", "en"] {
+            job.extra
+                .insert("notificationLanguage".into(), json!(language));
+            let message = notification_message(&job, &project, &"a".repeat(64)).unwrap();
+            assert!(
+                message.contains(&json!({"projectId":project.id,"path":project.cwd}).to_string())
+            );
+            assert!(message.contains("CODEX_THREAD_ID") && message.contains("notificationToken"));
+            assert!(!message.contains("PRIVATE_"));
+        }
+    }
+    #[test]
+    fn desktop_picker_requires_exact_workspace_and_bounded_display_metadata() {
+        let source = tempfile::tempdir().unwrap();
+        let other = tempfile::tempdir().unwrap();
+        let cwd = source.path().canonicalize().unwrap();
+        let p = Project {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: "Fixture".into(),
+            cwd: cwd.to_str().unwrap().into(),
+            origins: vec![],
+            extra: Default::default(),
+        };
+        let id = uuid::Uuid::new_v4().to_string();
+        let mut thread = json!({"id":id,"cwd":cwd,"source":"appServer","name":"<title>\nFixture","ephemeral":false,"preview":"PRIVATE_PROMPT","turns":["PRIVATE_TURN"]});
+        let item = conversation_summary(&thread, &p, None).unwrap();
+        assert_eq!(item.title, "<title>Fixture");
+        assert!(!serde_json::to_string(&item).unwrap().contains("PRIVATE"));
+        thread["cwd"] = json!(other.path());
+        assert!(conversation_summary(&thread, &p, None).is_err());
+        let mut state = json!({
+            "thread-project-assignments": {&id: {"projectKind":"local","projectId":"project"}},
+            "thread-project-membership-host-ids": {&id:"local"},
+            "local-projects": {"project":{"id":"project","rootPaths":[cwd]}}
+        });
+        assert!(conversation_summary(&thread, &p, Some(&state)).is_ok());
+        state["thread-project-membership-host-ids"][&id] = json!("remote");
+        assert!(conversation_summary(&thread, &p, Some(&state)).is_err());
+        thread["cwd"] = json!(cwd);
+        assert!(conversation_summary(&thread, &p, Some(&state)).is_err());
+        for (key, value) in [
+            ("source", json!({"subAgent":"fixture"})),
+            ("ephemeral", json!(true)),
+            ("archived", json!(true)),
+        ] {
+            let mut invalid = thread.clone();
+            invalid[key] = value;
+            assert!(conversation_summary(&invalid, &p, None).is_err());
+        }
+        thread["name"] = json!("x".repeat(1000));
+        assert_eq!(
+            conversation_summary(&thread, &p, None)
+                .unwrap()
+                .title
+                .chars()
+                .count(),
+            160
+        );
+        thread["name"] = json!("🙂".repeat(160));
+        let title = conversation_summary(&thread, &p, None).unwrap().title;
+        assert_eq!(title.encode_utf16().count(), 160);
+        assert_eq!(title.chars().count(), 80);
     }
 }

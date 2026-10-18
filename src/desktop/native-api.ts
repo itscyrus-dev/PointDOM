@@ -38,6 +38,16 @@ export const native = {
   openExtensions: () => invoke<void>('open_extensions'),
   revealExtension: () => invoke<void>('reveal_extension'),
   connectCodex: () => invoke<boolean>('connect_codex'),
+  codexConversations: (projectId: string, cursor?: string) =>
+    invoke<{ conversations: { id: string; title: string }[]; nextCursor: string | null }>(
+      'codex_conversations',
+      { projectId, cursor: cursor ?? null },
+    ),
+  authorizeCodex: (projectId: string, threadId: string) =>
+    invoke<{ connection: AgentConnection; mcpReloaded: boolean } | null>(
+      'authorize_codex_conversation',
+      { projectId, threadId },
+    ),
   configuration: () => invoke<string>('mcp_configuration'),
   cancel: (id: string) => invoke<Cancellation>('cancel_job', { id }),
   openMain: (id?: string) => invoke<void>('open_main', { id: id || null }),

@@ -56,6 +56,8 @@ impl Service {
                         connected: false,
                         listening: false,
                         wakeable: true,
+                        conversation_title: b.conversation_title.clone(),
+                        selection_revision: b.selection_revision.clone(),
                         seen: Instant::now(),
                         waiting: None,
                         thread: Some(b.thread_id.clone()),
@@ -219,6 +221,8 @@ impl Service {
                     connected: true,
                     listening: false,
                     wakeable: false,
+                    conversation_title: None,
+                    selection_revision: None,
                     seen: Instant::now(),
                     waiting: None,
                     thread: None,
@@ -277,6 +281,15 @@ impl Service {
         Ok(
             json!({"projectId":project,"connectionId":id,"threadId":thread,"wakeable":true,"listening":false,"sessionRestored":restored}),
         )
+    }
+    /// Native shell only: call after explicit user confirmation, never from HTTP/MCP.
+    pub async fn authorize_codex(&self, project: &str, thread: &str) -> Result<Value> {
+        let p = self.project(project).await?;
+        let conversation = crate::clients::conversation(thread, &p).await?;
+        let mut state = self.inner.lock().await;
+        let id = state.authorize_native(&p, &conversation.id, &conversation.title)?;
+        self.changed.notify_waiters();
+        Ok(json!({"connection":state.connections.get(&id)}))
     }
     pub async fn submit(&self, input: Value) -> Result<Value> {
         let schema: Value = serde_json::from_str(include_str!("../contracts/submission.json"))?;
@@ -646,6 +659,8 @@ impl State {
             return Err(Error::Conflict("CLIENT_CONNECTION_CHANGED"));
         }
         let mut bindings = self.store.bindings.clone();
+        c.conversation_title = bindings.get(&id).and_then(|b| b.conversation_title.clone());
+        c.selection_revision = bindings.get(&id).and_then(|b| b.selection_revision.clone());
         bindings.insert(
             id.clone(),
             Binding {
@@ -654,6 +669,8 @@ impl State {
                 cwd: project.cwd.clone(),
                 name: c.name.clone(),
                 version: c.version.clone(),
+                conversation_title: c.conversation_title.clone(),
+                selection_revision: c.selection_revision.clone(),
                 extra: bindings
                     .get(&id)
                     .map(|b| b.extra.clone())
@@ -671,6 +688,84 @@ impl State {
         c.wakeable = true;
         c.thread = Some(thread.into());
         self.connections.insert(id.clone(), c);
+        Ok(id)
+    }
+    fn authorize_native(&mut self, project: &Project, thread: &str, title: &str) -> Result<String> {
+        if !self
+            .store
+            .config
+            .projects
+            .iter()
+            .any(|p| !p.removed() && p.id == project.id && p.cwd == project.cwd)
+        {
+            return Err(Error::Conflict("CLIENT_PROJECT_MISMATCH"));
+        }
+        let id = self
+            .store
+            .bindings
+            .iter()
+            .find(|(_, b)| {
+                b.project_id == project.id && b.cwd == project.cwd && b.thread_id == thread
+            })
+            .map(|(id, _)| id.clone())
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
+        if !self.connections.contains_key(&id) && self.connections.len() >= 256 {
+            return Err(Error::Conflict("TOO_MANY_CONNECTIONS"));
+        }
+        let revision = Uuid::new_v4().to_string();
+        let mut bindings = self.store.bindings.clone();
+        for binding in bindings.values_mut().filter(|b| b.project_id == project.id) {
+            binding.selection_revision = None;
+        }
+        let extra = bindings
+            .get(&id)
+            .map(|b| b.extra.clone())
+            .unwrap_or_default();
+        bindings.insert(
+            id.clone(),
+            Binding {
+                project_id: project.id.clone(),
+                thread_id: thread.into(),
+                cwd: project.cwd.clone(),
+                name: "Codex".into(),
+                version: String::new(),
+                conversation_title: Some(title.into()),
+                selection_revision: Some(revision.clone()),
+                extra,
+            },
+        );
+        crate::store::atomic(&self.store.directory, "wakeup-bindings.json", &bindings)?;
+        self.store.bindings = bindings;
+        for connection in self
+            .connections
+            .values_mut()
+            .filter(|c| c.project_id == project.id)
+        {
+            connection.selection_revision = None;
+        }
+        let c = self
+            .connections
+            .entry(id.clone())
+            .or_insert_with(|| Connection {
+                id: id.clone(),
+                project_id: project.id.clone(),
+                name: "Codex".into(),
+                version: String::new(),
+                connected_at: now(),
+                last_seen_at: now(),
+                connected: false,
+                listening: false,
+                wakeable: true,
+                conversation_title: None,
+                selection_revision: None,
+                seen: Instant::now(),
+                waiting: None,
+                thread: Some(thread.into()),
+            });
+        c.conversation_title = Some(title.into());
+        c.selection_revision = Some(revision);
+        c.wakeable = true;
+        c.thread = Some(thread.into());
         Ok(id)
     }
     pub fn detach(&mut self, project: &str, claim: &str, revoke: bool) -> Result<()> {
@@ -845,6 +940,95 @@ mod wakeup_lifecycle_tests {
     }
     fn submission(project: &Project, recipient: &str) -> Value {
         json!({"id":Uuid::new_v4(),"projectId":project.id,"recipientId":recipient,"instruction":"Fixture only","selection":{"url":"http://localhost:3000/","title":"Fixture","selector":"h1","label":"Heading","tag":"h1","viewport":{"width":800,"height":600},"rect":{"x":0,"y":0,"width":100,"height":20},"styles":{}}})
+    }
+    #[tokio::test]
+    async fn native_authorization_is_durable_but_new_mcp_session_still_needs_notification_proof() {
+        let (home, _source, service, project, claim, anonymous) = fixture().await;
+        let thread = Uuid::new_v4().to_string();
+        let id = service
+            .inner
+            .lock()
+            .await
+            .authorize_native(&project, &thread, "Fixture conversation")
+            .unwrap();
+        assert_ne!(id, anonymous);
+        let revision;
+        {
+            let mut state = service.inner.lock().await;
+            let connection = &state.connections[&id];
+            assert!(connection.wakeable);
+            assert!(!connection.connected && !connection.listening);
+            revision = connection.selection_revision.clone();
+            assert!(revision.is_some());
+            assert_eq!(state.session(&project.id, &claim).unwrap().id, anonymous);
+        }
+        service.submit(submission(&project, &id)).await.unwrap();
+        {
+            let mut state = service.inner.lock().await;
+            assert_eq!(
+                state
+                    .authorize_wakeup(&project, &claim, &thread, None)
+                    .unwrap(),
+                id
+            );
+            assert_eq!(state.session(&project.id, &claim).unwrap().id, anonymous);
+            let token = "a".repeat(64);
+            state.store.jobs[0].wakeup_token_hash = Some(hash(&token));
+            state.store.jobs[0].thread_id = Some(thread.clone());
+            state.store.jobs[0].client_notification = Some(true);
+            assert!(
+                state
+                    .authorize_wakeup(&project, &claim, &thread, Some(&"b".repeat(64)))
+                    .is_err()
+            );
+            assert_eq!(
+                state
+                    .authorize_wakeup(&project, &claim, &thread, Some(&token))
+                    .unwrap(),
+                id
+            );
+            assert_eq!(state.connections[&id].selection_revision, revision);
+            assert_eq!(
+                state.connections[&id].conversation_title.as_deref(),
+                Some("Fixture conversation")
+            );
+        }
+        drop(service);
+        let reopened = Service::open(home.path().into(), 14318, "/test/pointdom".into()).unwrap();
+        let state = reopened.inner.lock().await;
+        assert_eq!(state.connections[&id].selection_revision, revision);
+        assert!(!state.connections[&id].connected && !state.connections[&id].listening);
+    }
+    #[tokio::test]
+    async fn native_choice_changes_only_future_selection_and_preserves_existing_ownership() {
+        let (_home, _source, service, project, claim, id) = fixture().await;
+        let thread = Uuid::new_v4().to_string();
+        let mut state = service.inner.lock().await;
+        state
+            .authorize_wakeup(&project, &claim, &thread, None)
+            .unwrap();
+        let first = state.authorize_native(&project, &thread, "First").unwrap();
+        assert_eq!(first, id);
+        let revision = state.connections[&id].selection_revision.clone();
+        let second = state
+            .authorize_native(&project, &Uuid::new_v4().to_string(), "Second")
+            .unwrap();
+        assert_ne!(first, second);
+        assert!(state.connections[&first].selection_revision.is_none());
+        assert_ne!(state.connections[&second].selection_revision, revision);
+        assert_eq!(state.session(&project.id, &claim).unwrap().id, first);
+        assert_eq!(
+            state.connections[&first].thread.as_deref(),
+            Some(thread.as_str())
+        );
+        let mut removed = project.clone();
+        removed.cwd = "/wrong/workspace".into();
+        assert!(
+            state
+                .authorize_native(&removed, &thread, "Invalid")
+                .is_err()
+        );
+        assert_eq!(state.store.bindings.len(), 2);
     }
     #[tokio::test]
     async fn idle_authorization_survives_detach_and_new_session_must_restore_exact_recipient() {

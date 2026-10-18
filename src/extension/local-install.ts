@@ -1,4 +1,6 @@
 export type InstallPlatform = 'mac' | 'win';
+export const desktopConversationLink = (projectId: string) =>
+  `pointdom://conversation?projectId=${encodeURIComponent(projectId)}`;
 export const newConnectionNonce = () =>
   Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) =>
     byte.toString(16).padStart(2, '0'),

@@ -17,6 +17,11 @@ Windows and Linux are not release targets.
 3. Run `pnpm desktop:pack`, then `pnpm release:pack` and `pnpm release:verify` on
    the native host. Packaging consumes the release binary and installers; it never
    substitutes a debug executable. Check dependency notices and archive boundaries.
+   Mount the candidate DMG without installing it and verify the compact window,
+   bilingual background and app-to-Applications drag layout. CI must keep
+   `TAURI_BUNDLER_DMG_IGNORE_CI=true` on the packaging step; otherwise Tauri skips
+   Finder customization. Regenerate background artwork on macOS with
+   `node scripts/generate-dmg-background.mjs` after editing its SVG source.
 4. Create a PR. The shared build workflow runs format, types, unit/native tests,
    generated-contract drift checks, browser/renderer integration and release-mode
    native compilation on Apple Silicon macOS. The protected `verify` gate requires

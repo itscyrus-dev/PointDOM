@@ -5,7 +5,7 @@ import { elementType, shortLabel, styleGroups } from './element-info.js';
 import { checkLatestRelease } from './release-check.js';
 import { logoFrame, logoDot } from './brand.js';
 import { formatTaskDuration } from './task-duration.js';
-import { canReceiveMcp } from './panel-controller.js';
+import { availableMcpRecipients, canReceiveMcp } from './panel-controller.js';
 import { isLocalDevelopmentUrl } from './site-scope.js';
 import { executorName } from '../shared/contracts.js';
 import {
@@ -257,24 +257,31 @@ function HeaderPreferences({ preferences }: { preferences: Preferences }) {
 function ExecutionSettings({ state }: { state: PanelState }) {
   const t = useContext(Locale);
   const [open, setOpen] = useState(false);
+  const recipients = availableMcpRecipients(state);
+  const selected = recipients.find((agent) => agent.id === state.recipientId);
+  const name = (value: string) => (/^codex(?:-mcp-client)?$/i.test(value) ? 'Codex' : value);
   return (
     <Popover isOpen={open} onOpenChange={setOpen}>
       <Button
         id="execution-settings"
         className="quiet execution-trigger"
-        aria-label={t('选择执行方式', 'Choose execution mode')}
+        aria-label={t('选择接收对话', 'Choose recipient conversation')}
       >
         <span id="execution-summary">
-          {state.agents.find((agent) => agent.id === state.recipientId)?.name ||
-            t('选择 MCP 客户端', 'Choose MCP client')}
+          {selected
+            ? selected.conversationTitle || name(selected.name)
+            : t('选择对话', 'Choose conversation')}
         </span>
         <Chevron data-open={open} />
       </Button>
       <Popover.Content className="execution-popover" placement="bottom end">
         <Popover.Dialog>
-          <Popover.Heading>{t('执行工具', 'Execution tool')}</Popover.Heading>
-          <ul className="client-directory" aria-label={t('MCP 连接', 'MCP connections')}>
-            {state.agents.map((agent) => (
+          <Popover.Heading>{t('接收批注的对话', 'Annotation recipient')}</Popover.Heading>
+          <ul
+            className="client-directory"
+            aria-label={t('可接收任务的对话', 'Available conversations')}
+          >
+            {recipients.map((agent) => (
               <li key={agent.id}>
                 <Button
                   className="quiet client-select"
@@ -286,8 +293,8 @@ function ExecutionSettings({ state }: { state: PanelState }) {
                   }}
                 >
                   <strong className="client-name">
-                    {agent.name}
-                    {state.agents.filter((a) => a.name === agent.name).length > 1
+                    {agent.conversationTitle || name(agent.name)}
+                    {recipients.filter((a) => name(a.name) === name(agent.name)).length > 1
                       ? ` · ${agent.id.slice(0, 6)}`
                       : ''}
                   </strong>
@@ -297,18 +304,18 @@ function ExecutionSettings({ state }: { state: PanelState }) {
                       : agent.listening
                         ? t('监听中', 'Listening')
                         : agent.wakeable
-                          ? t('有任务时唤醒', 'Wakes on task')
+                          ? t('有批注时自动唤醒', 'Wakes for new annotations')
                           : t('未监听', 'Not listening')}
                   </small>
                 </Button>
               </li>
             ))}
           </ul>
-          {state.agents.length === 0 ? (
+          {recipients.length === 0 ? (
             <p className="mcp-empty">
               {t(
-                '暂无 MCP 连接，请先在客户端配置 PointDOM。',
-                'No MCP connections. Configure PointDOM in your client first.',
+                '还没有可接收批注的对话。先在下方连接 Codex 对话。',
+                'No conversation is ready. Connect a Codex conversation below.',
               )}
             </p>
           ) : null}
@@ -478,6 +485,20 @@ function Composer({ state }: { state: PanelState }) {
         </small>
         <small id="page-origin">{state.origin ? new URL(state.origin).host : ''}</small>
       </div>
+      {state.connection === 'connected' && availableMcpRecipients(state).length === 0 ? (
+        <Card className="mcp-setup">
+          <h2>{t('连接 Codex 对话', 'Connect a Codex conversation')}</h2>
+          <p>
+            {t(
+              '在 App 选择此项目的 Codex 对话并授权一次。之后有批注自动唤醒，完成即结束。',
+              'Choose and authorize this project’s Codex conversation in the app once. New annotations wake it; each task ends after reporting.',
+            )}
+          </p>
+          <Button className="primary" onPress={() => controller.chooseCodexConversation()}>
+            {t('选择 Codex 对话', 'Choose Codex conversation')}
+          </Button>
+        </Card>
+      ) : null}
       <div className="composer-title">
         <h1>{t('新建批注', 'New annotation')}</h1>
         <div className="selection-actions">
@@ -639,7 +660,7 @@ function Composer({ state }: { state: PanelState }) {
             (state.recipientId && !state.agents.some((a) => a.id === state.recipientId))
               ? t('已断开', 'Disconnected')
               : !state.recipientId
-                ? t('选择客户端', 'Select a client')
+                ? t('请选择接收对话', 'Choose a recipient conversation')
                 : state.jobs.some(
                       (j) =>
                         j.executor === 'mcp' &&
@@ -653,7 +674,8 @@ function Composer({ state }: { state: PanelState }) {
                       ? t('按任务唤醒', 'Task wakeup enabled')
                       : t('未监听', 'Not listening')}
           </small>
-          {!state.agents.some((a) => a.id === state.recipientId && a.wakeable) ? (
+          {availableMcpRecipients(state).length > 0 &&
+          !state.agents.some((a) => a.id === state.recipientId && a.wakeable) ? (
             <AsyncButton className="quiet" run={() => controller.copyWatchInstruction()}>
               {state.agents.some((a) => a.id === state.recipientId && /codex/i.test(a.name))
                 ? t('复制唤醒指令', 'Copy wakeup instruction')
@@ -1117,7 +1139,7 @@ function ConnectionSettings({ state, locked = false }: { state: PanelState; lock
             </p>
             {state.installPlatform === 'mac' ? (
               <AsyncButton className="primary" run={() => controller.connectDesktop()}>
-                {t('打开 PointDOM 连接', 'Open PointDOM to connect')}
+                {t('自动连接', 'Connect automatically')}
               </AsyncButton>
             ) : null}
             <small>
@@ -1440,7 +1462,7 @@ function Panel() {
                 <Icon name="clients" />
                 {state.connection === 'connected'
                   ? t('绑定项目', 'Bind project')
-                  : t('连接 App', 'Connect app')}
+                  : t('自动连接', 'Connect automatically')}
               </AsyncButton>
               <NoticeBox notice={state.notice} id="binding-notice" />
             </Card>

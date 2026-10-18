@@ -6,6 +6,7 @@ import {
   connectionChallenge,
   desktopConnectionLink,
   desktopProjectLink,
+  desktopConversationLink,
   type InstallPlatform,
 } from './local-install.js';
 import { z } from 'zod';
@@ -94,6 +95,7 @@ export class PanelController {
   private discovering = false;
   private explicitProject = { origin: '', id: '' };
   private recipients = new Map<string, string>();
+  private nativeSelections = new Map<string, string>();
   private retry: Submission | null = null;
   private syncVersion = 0;
   private pickerVersion = 0;
@@ -216,7 +218,11 @@ export class PanelController {
     await navigator.clipboard.writeText(
       (mode === 'wakeup' || (recipient && /codex/i.test(recipient.name))
         ? wakeupInstruction
-        : watchInstruction)(this.state.preferences.language, project, recipient?.id || ''),
+        : watchInstruction)(
+        this.state.preferences.language,
+        project,
+        mode === 'wakeup' && !recipient?.wakeable ? '' : recipient?.id || '',
+      ),
     );
     this.notify('在客户端项目对话中发送一次。', 'Send once in your client project conversation.');
   }
@@ -312,6 +318,14 @@ export class PanelController {
     this.patch({ bootstrap: 'waiting' });
     await this.discover();
   }
+  chooseCodexConversation() {
+    if (!this.state.projectId) return;
+    window.open(desktopConversationLink(this.state.projectId), '_self');
+    this.notify(
+      '在 App 选择 Codex 对话并授权连接。',
+      'Choose and authorize a Codex conversation in the app.',
+    );
+  }
   private async discover() {
     if (
       !this.running ||
@@ -397,9 +411,26 @@ export class PanelController {
         // Older bridges may ignore the query. Never expose their foreign-project records.
         const jobs = incoming.filter((job) => job.projectId === projectId);
         if (JSON.stringify(jobs) !== JSON.stringify(this.state.jobs)) this.patch({ jobs });
-        this.patch({
-          agents: agents.filter((a) => a.projectId === projectId),
-        });
+        const scopedAgents = agents.filter((a) => a.projectId === projectId);
+        this.patch({ agents: scopedAgents });
+        const chosen = scopedAgents.find((a) => a.selectionRevision);
+        if (
+          chosen?.selectionRevision &&
+          this.nativeSelections.get(projectId) !== chosen.selectionRevision &&
+          !this.retry &&
+          !this.state.submitting
+        ) {
+          // This revision represents an explicit choice confirmed in the native app.
+          this.nativeSelections.set(projectId, chosen.selectionRevision);
+          this.recipients.set(projectId, chosen.id);
+          this.patch({ recipientId: chosen.id });
+          await chrome.storage.local
+            .set({
+              pointdomNativeSelections: Object.fromEntries(this.nativeSelections),
+              pointdomRecipients: Object.fromEntries(this.recipients),
+            })
+            .catch(this.fail);
+        }
         return;
       } catch (error) {
         if (!this.running) return;
@@ -571,12 +602,19 @@ export class PanelController {
         'pointdomPreferences',
         'pointdomConnectionNonce',
         'pointdomRecipients',
+        'pointdomNativeSelections',
       ]);
       const savedRecipients = z
         .record(z.string().uuid(), z.string().uuid())
         .safeParse(data.pointdomRecipients);
       this.recipients = new Map(
         Object.entries(savedRecipients.success ? savedRecipients.data : {}),
+      );
+      const nativeSelections = z
+        .record(z.string().uuid(), z.string().uuid())
+        .safeParse(data.pointdomNativeSelections);
+      this.nativeSelections = new Map(
+        Object.entries(nativeSelections.success ? nativeSelections.data : {}),
       );
       // The worker serializes initial creation across automatic setup and side-panel views.
       const shared = z
@@ -928,17 +966,25 @@ export class PanelController {
 }
 export const controller = new PanelController();
 
+export function availableMcpRecipients(state: PanelState) {
+  return state.agents.filter(
+    (agent) =>
+      agent.projectId === state.projectId &&
+      (agent.listening ||
+        agent.wakeable ||
+        state.jobs.some(
+          (job) =>
+            job.projectId === state.projectId &&
+            job.executor === 'mcp' &&
+            job.recipient?.id === agent.id &&
+            job.status === 'running',
+        )),
+  );
+}
+
 export function canReceiveMcp(state: PanelState) {
   return (
     state.connection === 'connected' &&
-    state.agents.some(
-      (a) =>
-        a.id === state.recipientId &&
-        (a.listening ||
-          a.wakeable ||
-          state.jobs.some(
-            (j) => j.executor === 'mcp' && j.recipient?.id === a.id && j.status === 'running',
-          )),
-    )
+    availableMcpRecipients(state).some((agent) => agent.id === state.recipientId)
   );
 }

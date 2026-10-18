@@ -82,6 +82,8 @@ export const agentConnectionSchema = z.object({
   connected: z.boolean().optional(),
   listening: z.boolean().optional(),
   wakeable: z.boolean().optional(),
+  conversationTitle: z.string().max(160).optional(),
+  selectionRevision: z.string().uuid().optional(),
 });
 export type AgentConnection = z.infer<typeof agentConnectionSchema>;
 export const taskRecipientSchema = agentConnectionSchema.pick({ id: true, name: true });

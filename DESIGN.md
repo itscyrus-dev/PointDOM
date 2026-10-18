@@ -3,7 +3,7 @@
 ## Product
 
 Minimize learning cost. The app owns setup; the extension owns annotation. Keep
-Chrome permission prompts in Chrome and client authorization in the client.
+Chrome permission prompts in Chrome and model permissions in the coding client. PointDOM routing authorization requires an explicit native confirmation.
 
 PointDOM connects browser annotations to an explicitly selected MCP coding client.
 The desktop app manages projects, connections and task visibility. Clients own code
@@ -110,11 +110,15 @@ completion never navigates. Support keyboard tab navigation and reduced motion.
   expired, changed-owner or ambiguous endpoints cannot authorize submissions.
   Accept exact loopback hosts only, never URL prefix matching or all-local-port grants.
   Show manual folder/address entry only under Settings > Advanced. Preserve drafts.
-  Copy the project-scoped Codex instruction for the user to send in their intended
-  conversation; never choose a recipient or fabricate a host connection.
-  Project cards keep Open, Copy and View on one compact row, without hover
-  tooltips. Copy confirms inline with a check for two seconds, without changing
-  button geometry; reduced motion removes its transition. Remove uses native
+  Let the user select a matching Codex conversation in the app and confirm routing
+  authorization in a native dialog; never pick one automatically or fabricate a host connection.
+  Browser-originated binding confirms both the verified project and automatic Codex
+  MCP configuration in one native dialog. Save configuration through the same
+  installer as Clients and request a live reload; report saved, refreshed and failed
+  states separately. Browser binding never grants conversation authorization.
+  Project cards keep Open, Connect and View on one compact row, without hover
+  tooltips. Connect opens an inline conversation picker using official controls;
+  authorization uses a native confirmation. Remove uses native
   confirmation and refuses projects with pending tasks. Persist a removed marker,
   revoke active access, and retain source files, metadata and task history. Discovery
   hides removed source directories; adding them again in Advanced requires explicit
@@ -137,18 +141,33 @@ completion never navigates. Support keyboard tab navigation and reduced motion.
   at a time; retain product names and the language selector's native language names.
   Do not expose bearer tokens.
 
+## macOS disk image
+
+Use a compact 640 × 420px Finder window with the unchanged app icon on the left,
+Applications on the right and a Blue 9 drag arrow between them. The background uses
+Gray 1–2, Gray 12 headings and Gray 11 bilingual installation instructions. Keep the
+icons interactive; do not bake copies of them into the background. Commit the 2x PNG
+rendered from `src-tauri/dmg/background.svg` by `scripts/generate-dmg-background.mjs`.
+Preserve Finder customization on CI with `TAURI_BUNDLER_DMG_IGNORE_CI=true`; verify
+the mounted disk image's saved layout rather than only its archive contents.
+
 ## Menu bar
 
 Click the icon to open a 380px round task panel: connection, running/queued counts,
 active tasks, recent results and open-main action. A task opens its detail in the
 main window. Right-click provides Open, Tasks, Projects, Clients, Settings, About
 and Quit, separated into navigation and lifecycle groups. The menu opens the requested
-main-window tab and dismisses the task panel. Use a 2x antialiased monochrome macOS template icon: transparent background,
-curved selection brackets and an idle center point. macOS renders it black on a
-light menu bar and white on a dark menu bar. During execution only the center
-breathes smoothly over a 2.4-second cycle at 25fps; the brackets stay fixed.
-Reduced motion keeps the point static. Keep template rendering enabled both when
-creating and updating the icon.
+main-window tab and dismisses the task panel. Use a 2x antialiased menu-bar Logo with its rounded tile and original selection-frame
+and center-point proportions from `src/extension/brand.ts`. For a light menu bar,
+use a black tile with white brackets and a white idle point; for a dark menu bar,
+use a white tile with black brackets and a black idle point. Draw with AppKit’s current drawing appearance in a native image callback using the
+system’s default image cache,
+independently of the renderer theme. Desktop/appearance changes must redraw without
+waiting for the task-status timer. Do not force uncached drawing or periodically replace an unchanged idle image. Only a running
+task turns the center point Blue 9 (#0090FF), breathing over 2.4 seconds at 25fps;
+the tile and brackets stay fixed. Reduced motion keeps the blue point static.
+Disable template rendering on creation and updates to preserve the blue point.
+Do not add a corner status dot; failures remain visible in task and connection states.
 The app icon shares the selection frame and blue point, with
 a restrained dark surface gradient and subtle edge highlight. The task panel uses a transparent native window
 and transparent document roots behind its clipped 16px rounded surface; CSS rounding
@@ -165,6 +184,14 @@ Never invent percentages or estimated duration. Duration uses valid startedAt an
 finishedAt only, excluding queue time.
 
 ## Extension
+
+The primary setup path is Install app/extension → Connect automatically and approve
+in the app → Start the local project → Bind and configure Codex → Choose a matching conversation in the app → Confirm Authorize connection.
+When no recipient can receive work, link to the app’s conversation chooser. List bounded titles and IDs from host metadata, filter exact canonical cwd or host-owned local project membership, and revalidate on native confirmation. Configuration saves and authorization never start a model turn.
+The recipient menu shows listening, wakeable or running recipients only, with names
+and status on separate lines inside the available panel width. Ordinary idle MCP
+transport connections are not task destinations. Preserve distinct authorized
+conversations and explicit selection; never deduplicate or redirect by client name. A persisted selection revision synchronizes a confirmed App choice to the extension once; it does not override later extension choices or pending submission retries.
 
 The header has the geometric brand mark, connection text, theme, language and settings.
 Do not repeat the product name/tagline. Keep settings back/close discoverable and
@@ -266,10 +293,7 @@ purchase action or billing backend is shown. Keep this distinct from task execut
 Keep page headings and descriptions terse and action-oriented. Empty states say
 “No tasks” rather than a slogan; the footer says “Service connected” or “Service
 offline” (服务已连接 / 服务未连接). Keep setup steps and actionable recovery details.
-The composer footer shows one concise client state and one copy-instruction action.
-Avoid repeated unavailable/help paragraphs and selection tutorials. Copied wakeup
-instructions stay brief while retaining exact project/recipient scope, the current
-host thread identity, mismatch handling and the task-only execution lifecycle.
+The composer footer shows one concise client state. The primary Codex path uses the native conversation chooser and no copied instruction. Generic MCP setup remains available for other hosts. Avoid repeated unavailable/help paragraphs. Notification recovery retains exact project/recipient scope, host thread identity, private notification proof and the task-only lifecycle.
 Keep settings terse: a short section heading, row label and control. Theme and
 language use compact icons with accessible names and visible keyboard focus.
 Theme is a compact, mutually exclusive sun/moon/display group for Light, Dark and
