@@ -175,7 +175,8 @@ same-name sessions by short ID. Connected does not imply listening.
 An explicitly authorized project/conversation remains an idle, wakeable recipient
 when its MCP process exits or the app restarts; do not describe it as connected or
 listening. EOF detaches the private session without revoking the authorization.
-Explicit disconnect revokes it. A new MCP session must bind the exact workspace,
+Legacy disconnect messages and transport detach preserve it; explicit
+`/api/mcp/connections/revoke` removes it. Never revoke merely because a task ended. A new MCP session must bind the exact workspace,
 restore the same host-verified conversation with pointdom_enable_wakeup, proving receipt
 of its queued notification with a private random notificationToken, and check
 the notified recipient before claiming. Merely registering a fresh session never

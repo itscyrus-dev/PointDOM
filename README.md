@@ -27,6 +27,10 @@ Installers are unsigned; macOS builds are not notarized. Intel Macs are not supp
 For upgrades from 0.5, quit the old service before starting 0.6. Projects, pairing and
 history are preserved with a private backup; interrupted tasks are never replayed.
 
+For this upgrade, refresh the Codex configuration in **Clients** once and restart
+its PointDOM MCP server if live reload is unavailable. This loads the updated tool
+contract; it is not required after each task.
+
 ## Use
 
 1. Open PointDOM. In Settings, show the bundled extension folder, enable Developer mode at `chrome://extensions`, and choose **Load unpacked**. Alternatively, extract the release extension ZIP and load its extracted folder. Approve the Chrome connection in the app.

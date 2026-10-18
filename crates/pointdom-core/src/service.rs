@@ -966,6 +966,44 @@ mod wakeup_lifecycle_tests {
         );
     }
     #[tokio::test]
+    async fn legacy_mcp_exit_detaches_but_explicit_revoke_removes_saved_authorization() {
+        use axum::{
+            body::Body,
+            http::{Request, StatusCode},
+        };
+        use tower::ServiceExt;
+        let (_home, _source, service, project, claim, id) = fixture().await;
+        service
+            .inner
+            .lock()
+            .await
+            .authorize_wakeup(&project, &claim, &Uuid::new_v4().to_string(), None)
+            .unwrap();
+        let token = service.inner.lock().await.store.config.token.clone();
+        for (action, retained) in [("disconnect", true), ("revoke", false)] {
+            let body = json!({"projectId":project.id,"claim":claim});
+            let request = Request::builder()
+                .method("POST")
+                .uri(format!("/api/mcp/connections/{action}"))
+                .header("host", "127.0.0.1:14318")
+                .header("authorization", format!("Bearer {token}"))
+                .header("x-pagepatch-mcp", "1")
+                .header("x-pointdom-session", &claim)
+                .header("content-type", "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap();
+            let response = crate::http::router(service.clone())
+                .oneshot(request)
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            assert_eq!(
+                service.inner.lock().await.store.bindings.contains_key(&id),
+                retained
+            );
+        }
+    }
+    #[tokio::test]
     async fn another_thread_cannot_restore_an_existing_recipient_or_take_running_work() {
         let (_home, _source, service, project, claim, id) = fixture().await;
         let thread = Uuid::new_v4().to_string();

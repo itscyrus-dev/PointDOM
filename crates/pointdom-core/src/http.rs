@@ -385,9 +385,14 @@ async fn mcp(
                 )
                 .await
         }
-        ("POST", "/api/mcp/connections/disconnect" | "/api/mcp/connections/detach") => {
+        (
+            "POST",
+            "/api/mcp/connections/disconnect"
+            | "/api/mcp/connections/detach"
+            | "/api/mcp/connections/revoke",
+        ) => {
             let mut s = service.inner.lock().await;
-            s.detach(project, claim, path.ends_with("/disconnect"))?;
+            s.detach(project, claim, path.ends_with("/revoke"))?;
             service.changed.notify_waiters();
             Ok(json!({"ok":true}))
         }
