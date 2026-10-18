@@ -52,7 +52,7 @@ test('unbound local page shows a prominent binding action in the panel without p
       );
     });
     await fixture.local('/bootstrap', { extensionId: id, challenge });
-    await expect(panel.locator('#connection')).toHaveText('已连接', { timeout: 15000 });
+    await expect(panel.locator('#connection')).toHaveText('服务已连接', { timeout: 15000 });
     const binding = panel.getByRole('button', { name: '绑定项目', exact: true });
     await expect(binding).toBeVisible();
     await expect(binding).toBeEnabled();
@@ -143,9 +143,9 @@ for (const platform of ['mac', 'win'] as const) {
         ).join('');
       });
       await fixture.local('/bootstrap', { extensionId: id, challenge });
-      await expect(panel.locator('#connection')).toHaveText('已连接', { timeout: 15000 });
+      await expect(panel.locator('#connection')).toHaveText('服务已连接', { timeout: 15000 });
       await panel.reload();
-      await expect(panel.locator('#connection')).toHaveText('已连接');
+      await expect(panel.locator('#connection')).toHaveText('服务已连接');
       await expect(panel.locator('#copy-local-install')).toHaveCount(0);
       await panel.setViewportSize({ width: 280, height: 740 });
       expect(await panel.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(

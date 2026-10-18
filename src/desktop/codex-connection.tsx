@@ -99,8 +99,8 @@ export function CodexConnection({
           </li>
         ))}
       </ul>
-      <Button variant="tertiary" isDisabled={loading || connecting} onPress={() => void load()}>
-        {t('刷新对话', 'Refresh')}
+      <Button variant="secondary" isDisabled={loading || connecting} onPress={() => void load()}>
+        {loading ? t('正在刷新…', 'Refreshing…') : t('刷新对话', 'Refresh')}
       </Button>
       {cursor ? (
         <Button

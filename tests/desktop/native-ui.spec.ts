@@ -59,10 +59,11 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
   if (!address || typeof address === 'string') throw Error('No port');
   const browser = await chromium.launch();
   try {
-    const page = await browser.newPage();
+    const context = await browser.newContext();
+    const page = await context.newPage();
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
-    await page.addInitScript(
+    await page.context().addInitScript(
       ({ project, running }) => {
         const callbacks = new Map<number, (value: unknown) => void>();
         const listeners = new Map<number, string>();
@@ -146,10 +147,12 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
                           },
                           (_, index) => ({
                             ...running,
-                            status: (window as unknown as { fixtureCompleted?: boolean })
-                              .fixtureCompleted
-                              ? 'completed'
-                              : running.status,
+                            status: (window as unknown as { fixtureFailed?: boolean }).fixtureFailed
+                              ? 'failed'
+                              : (window as unknown as { fixtureCompleted?: boolean })
+                                    .fixtureCompleted
+                                ? 'completed'
+                                : running.status,
                             id: `task-${index}`,
                             instruction: `任务 ${index + 1}`,
                           }),
@@ -381,6 +384,21 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     const darkTheme = themeControls.getByRole('radio', { name: '深色', exact: true });
     const systemTheme = themeControls.getByRole('radio', { name: '跟随系统', exact: true });
     await expect(darkTheme).toHaveAttribute('aria-checked', 'true');
+    const trayPeer = await page.context().newPage();
+    await trayPeer.goto(`http://127.0.0.1:${address.port}/?view=tray`);
+    await expect(trayPeer.locator('.tray-shell')).toBeVisible();
+    await lightTheme.click();
+    await expect(trayPeer.locator('html')).toHaveAttribute('data-theme', 'light');
+    await darkTheme.click();
+    await expect(trayPeer.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await page.emulateMedia({ colorScheme: 'light' });
+    await trayPeer.emulateMedia({ colorScheme: 'light' });
+    await systemTheme.click();
+    await expect(trayPeer.locator('html')).toHaveAttribute('data-theme', 'light');
+    await trayPeer.emulateMedia({ colorScheme: 'dark' });
+    await expect(trayPeer.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await darkTheme.click();
+    await trayPeer.close();
     await expect(lightTheme).toHaveText('');
     await expect(lightTheme.locator('svg')).toHaveCount(1);
     await page.emulateMedia({ colorScheme: 'dark' });
@@ -917,11 +935,21 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     );
 
     await expect(page.locator('.task-card[data-status="completed"] .task-symbol')).toHaveCount(0);
-    await expect(page.locator('.task-number')).toHaveText(['5', '4', '3', '2', '1']);
+    await expect(page.locator('.task-number')).toHaveText(['#5', '#4', '#3', '#2', '#1']);
     await page.screenshot({
       path: test.info().outputPath('desktop-completed-light.png'),
       animations: 'disabled',
     });
+    await page.evaluate(() => {
+      (window as unknown as { fixtureFailed: boolean }).fixtureFailed = true;
+    });
+    await expect(page.locator('.status-failed')).toHaveCount(5);
+    await expect(page.locator('.task-card[data-status="failed"] .task-symbol')).toHaveCount(0);
+    await expect(page.locator('.task-number')).toHaveText(['#5', '#4', '#3', '#2', '#1']);
+    await page.evaluate(() => {
+      (window as unknown as { fixtureFailed: boolean }).fixtureFailed = false;
+    });
+    await expect(page.locator('.status-completed')).toHaveCount(5);
     await page.getByRole('tab', { name: '设置', exact: true }).click();
     await darkTheme.click();
     await page.getByRole('tab', { name: '任务', exact: true }).click();
@@ -1048,9 +1076,9 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     }
 
     const secondEntry = page.locator('.task-entry').nth(1);
-    await expect(page.locator('.task-number').first()).toHaveText('30');
-    await expect(secondEntry.locator('.task-number')).toHaveText('29');
-    await expect(page.locator('.task-number').last()).toHaveText('1');
+    await expect(page.locator('.task-number').first()).toHaveText('#30');
+    await expect(secondEntry.locator('.task-number')).toHaveText('#29');
+    await expect(page.locator('.task-number').last()).toHaveText('#1');
     const listHeight = await page.locator('.task-list').evaluate((element) => element.clientHeight);
     const fittedBefore = await page.evaluate(
       () => (window as unknown as { fittedHeight: number }).fittedHeight,
@@ -1237,7 +1265,7 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     await page.goto(`http://127.0.0.1:${address.port}/?view=tray`);
     await page.setViewportSize({ width: 380, height: 520 });
     await expect(page.locator('.tray-shell')).toBeVisible();
-    await expect(page.locator('.tray-list .task-number')).toHaveText('1');
+    await expect(page.locator('.tray-list .task-number')).toHaveText('#1');
     await expect(page.locator('html')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await expect(page.locator('.tray-shell')).toHaveCSS('border-radius', '16px');
@@ -1265,18 +1293,27 @@ test('HeroUI desktop and tray show real supplied state, preserve selection and r
     });
     await expect(page.locator('.tray-list .task-card')).toHaveCount(8);
     await expect(page.locator('.tray-list .task-number')).toHaveText([
-      '10',
-      '9',
-      '8',
-      '7',
-      '6',
-      '5',
-      '4',
-      '3',
+      '#10',
+      '#9',
+      '#8',
+      '#7',
+      '#6',
+      '#5',
+      '#4',
+      '#3',
     ]);
     await expect(page.locator('.tray-list .task-symbol')).toHaveCount(0);
     await expect(page.locator('.tray-list .status-completed')).toHaveCount(8);
     await page.screenshot({ path: test.info().outputPath('tray-completed.png') });
+    await page.evaluate(() => {
+      (window as unknown as { fixtureFailed: boolean }).fixtureFailed = true;
+    });
+    await expect(page.locator('.tray-list .status-failed')).toHaveCount(8);
+    await expect(page.locator('.tray-list .task-symbol')).toHaveCount(0);
+    await page.screenshot({ path: test.info().outputPath('tray-failed.png') });
+    await page.evaluate(() => {
+      delete (window as unknown as { fixtureFailed?: boolean }).fixtureFailed;
+    });
     await page.evaluate(() => {
       const fixture = window as unknown as { fixtureCount?: number; fixtureCompleted?: boolean };
       delete fixture.fixtureCount;

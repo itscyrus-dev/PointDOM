@@ -23,6 +23,10 @@ import { terminal, type Job } from '../shared/contracts.js';
 import { formatTaskDuration } from '../extension/task-duration.js';
 
 type ThemeMode = 'light' | 'dark' | 'system';
+function savedTheme(): ThemeMode {
+  const saved = localStorage.getItem('pointdom-theme');
+  return saved === 'light' || saved === 'system' ? saved : 'dark';
+}
 type Screen = 'tasks' | 'projects' | 'clients' | 'settings' | 'about';
 const tray = new URLSearchParams(location.search).get('view') === 'tray';
 document.documentElement.dataset.view = tray ? 'tray' : 'main';
@@ -42,10 +46,25 @@ function Desktop() {
   const reduceMotion = useReducedMotion();
   const [language, setLanguage] = useState(initialLanguage);
   const t = (zh: string, en: string) => (language === 'en' ? en : zh);
-  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
-    const saved = localStorage.getItem('pointdom-theme');
-    return saved === 'light' || saved === 'system' ? saved : 'dark';
-  });
+  const [themeMode, setThemeMode] = useState<ThemeMode>(savedTheme);
+  useEffect(() => {
+    const sync = () => setThemeMode(savedTheme());
+    const onStorage = (event: StorageEvent) => {
+      if (
+        event.storageArea === localStorage &&
+        (event.key === 'pointdom-theme' || event.key === null)
+      )
+        sync();
+    };
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('focus', sync);
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, []);
   const [state, setState] = useState<Snapshot>();
   const [screen, updateScreen] = useState<Screen>('tasks');
   const [notices] = useState(() => new ToastQueue<{ message: string }>({ maxVisibleToasts: 1 }));
@@ -144,7 +163,7 @@ function Desktop() {
       dispose?.();
     };
   }, [refresh, setScreen]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const media = matchMedia('(prefers-color-scheme: dark)');
     const update = () => {
       const theme = themeMode === 'system' ? (media.matches ? 'dark' : 'light') : themeMode;
@@ -518,13 +537,11 @@ function Desktop() {
           : setSelected(selected === job.id ? '' : job.id)
       }
     >
-      <span className="task-number">{taskNumbers.get(job.id)}</span>
-      {job.status !== 'completed' ? (
+      <span className="task-number">#{taskNumbers.get(job.id)}</span>
+      {job.status !== 'completed' && job.status !== 'failed' ? (
         <span className="task-symbol" aria-hidden="true">
           <UiIcon
-            name={
-              job.status === 'failed' ? 'error' : job.status === 'running' ? 'running' : 'waiting'
-            }
+            name={job.status === 'running' ? 'running' : 'waiting'}
             className={job.status === 'running' ? 'task-orbit' : ''}
           />
         </span>

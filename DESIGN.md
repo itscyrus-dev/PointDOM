@@ -55,6 +55,8 @@ Thin neutral edges and restrained overlay shadows; no stacked rings, heavy shado
 or geometry changes on hover. Controls have visible keyboard focus and labels.
 Desktop targets are at least 34px; coarse-pointer targets are at least 44px.
 Support light/dark/system themes, Chinese/English, long text, narrow windows and reduced motion.
+Synchronize the main window and menu-bar panel theme immediately; reread the saved mode
+when a window regains focus or visibility, and retain system appearance changes.
 Keep the persisted extension theme identifiers compatible. Never inject HTML for
 page text, descriptions, progress, reports or client errors.
 
@@ -72,8 +74,8 @@ Keep the main toolbar free of branding and appearance shortcuts; theme and langu
 
 Use vertically grouped round cards with 16–18px internal spacing, compact count rows
 and a small persistent connection footer. Keep newest tasks first and assign descending numbers from the complete task list.
-Main-window and menu-bar rows share the same number for each task, including when
-filtered or when the menu bar prioritizes active tasks. Completed rows show the
+Display task numbers as #14. Main-window and menu-bar rows share the same number for each task, including when
+filtered or when the menu bar prioritizes active tasks. Completed and failed rows show the
 number, title, metadata and right-hand status badge without a duplicate checkmark
 or icon block. Running rows retain their activity animation. App and extension task titles use the first sentence of the overall user request; when absent, use the first nonempty element note. Resolve historical generated instructions at display time without rewriting stored tasks or changing execution scope. Preserve full descriptions in task details. Expand selected details immediately below their row
 in the same scrolling list; clicking again collapses them. Task rows scroll naturally,
@@ -118,6 +120,7 @@ completion never navigates. Support keyboard tab navigation and reduced motion.
   states separately. Browser binding never grants conversation authorization.
   Project cards keep Open, Connect and View on one compact row, without hover
   tooltips. Connect opens an inline conversation picker using official controls;
+  Refresh uses a filled neutral button with a loading label and disabled state;
   authorization uses a native confirmation. Remove uses native
   confirmation and refuses projects with pending tasks. Persist a removed marker,
   revoke active access, and retain source files, metadata and task history. Discovery
@@ -157,7 +160,7 @@ Click the icon to open a 380px round task panel: connection, running/queued coun
 active tasks, recent results and open-main action. A task opens its detail in the
 main window. Right-click provides Open, Tasks, Projects, Clients, Settings, About
 and Quit, separated into navigation and lifecycle groups. The menu opens the requested
-main-window tab and dismisses the task panel. Use a 2x antialiased menu-bar Logo with its rounded tile and original selection-frame
+main-window tab and dismisses the task panel. Use an 18pt antialiased menu-bar Logo with its rounded tile and original selection-frame
 and center-point proportions from `src/extension/brand.ts`. For a light menu bar,
 use a black tile with white brackets and a white idle point; for a dark menu bar,
 use a white tile with black brackets and a black idle point. Draw with AppKit’s current drawing appearance in a native image callback using the
@@ -291,7 +294,7 @@ purchase action or billing backend is shown. Keep this distinct from task execut
 ## Product copy and appearance controls
 
 Keep page headings and descriptions terse and action-oriented. Empty states say
-“No tasks” rather than a slogan; the footer says “Service connected” or “Service
+“No tasks” rather than a slogan; the desktop footer and extension connection label say “Service connected” or “Service
 offline” (服务已连接 / 服务未连接). Keep setup steps and actionable recovery details.
 The composer footer shows one concise client state. The primary Codex path uses the native conversation chooser and no copied instruction. Generic MCP setup remains available for other hosts. Avoid repeated unavailable/help paragraphs. Notification recovery retains exact project/recipient scope, host thread identity, private notification proof and the task-only lifecycle.
 Keep settings terse: a short section heading, row label and control. Theme and
