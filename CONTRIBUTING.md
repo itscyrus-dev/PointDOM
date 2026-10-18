@@ -16,6 +16,15 @@ platform Tauri prerequisites, then `pnpm install --frozen-lockfile`.
 
 ## Checks
 
+For documentation-only edits:
+
+```sh
+pnpm format:check
+node scripts/check-doc-links.ts
+```
+
+For code, workflows or packaged assets, run the full checks:
+
 ```sh
 pnpm format:check
 pnpm check
