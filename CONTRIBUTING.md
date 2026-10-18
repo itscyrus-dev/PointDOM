@@ -34,8 +34,15 @@ include tokens, private prompts, page content or signed URLs in logs, issues or 
 
 ## Compatibility and review
 
-CI runs tests and compiles release binaries on Apple Silicon macOS. The required
-`verify` check must pass. Release additionally builds and verifies the macOS DMG before publishing.
+Documentation-only PRs and main pushes run formatting and local-link checks on Ubuntu.
+Changes to code, workflow files or packaged assets run the full test suite on Apple Silicon macOS.
+PRs link native debug binaries; main pushes and version tags compile optimized release binaries.
+The required `verify` check accepts only the successful selected path. Release also builds
+and verifies the macOS DMG and extension ZIP before publishing.
+
+Rust caching keeps dependency artifacts and removes workspace binaries and incremental output.
+Successful main builds maintain the shared cache; PRs and tags restore it without uploading
+branch-specific copies. The first build after a cache change may take longer.
 
 New platform behavior needs disposable fixtures. Preserve migration backups, unknown
 historical fields and exact recipient identity. Cancelled or terminal tasks must
