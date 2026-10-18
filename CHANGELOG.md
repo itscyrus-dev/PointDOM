@@ -5,6 +5,9 @@ Notable changes to PointDOM. Download installers and checksums from
 
 ## [0.6.4] - 2026-10-18
 
+- Synchronize light/dark/system theme changes between the main window and menu-bar panel, including when reopening the panel.
+- Display task numbers with a `#` prefix and remove redundant failed-task icons in both task lists.
+
 - Recognize Codex desktop conversations tagged as `vscode` as well as `appServer`, while retaining exact workspace checks and explicit native authorization.
 - Make Refresh conversations a filled neutral button with loading feedback and duplicate-click prevention.
 - Reduce the native macOS menu-bar logo to 18pt while preserving adaptive light/dark drawing and the running blue point.

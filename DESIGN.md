@@ -55,6 +55,8 @@ Thin neutral edges and restrained overlay shadows; no stacked rings, heavy shado
 or geometry changes on hover. Controls have visible keyboard focus and labels.
 Desktop targets are at least 34px; coarse-pointer targets are at least 44px.
 Support light/dark/system themes, Chinese/English, long text, narrow windows and reduced motion.
+Synchronize the main window and menu-bar panel theme immediately; reread the saved mode
+when a window regains focus or visibility, and retain system appearance changes.
 Keep the persisted extension theme identifiers compatible. Never inject HTML for
 page text, descriptions, progress, reports or client errors.
 
@@ -72,8 +74,8 @@ Keep the main toolbar free of branding and appearance shortcuts; theme and langu
 
 Use vertically grouped round cards with 16–18px internal spacing, compact count rows
 and a small persistent connection footer. Keep newest tasks first and assign descending numbers from the complete task list.
-Main-window and menu-bar rows share the same number for each task, including when
-filtered or when the menu bar prioritizes active tasks. Completed rows show the
+Display task numbers as #14. Main-window and menu-bar rows share the same number for each task, including when
+filtered or when the menu bar prioritizes active tasks. Completed and failed rows show the
 number, title, metadata and right-hand status badge without a duplicate checkmark
 or icon block. Running rows retain their activity animation. App and extension task titles use the first sentence of the overall user request; when absent, use the first nonempty element note. Resolve historical generated instructions at display time without rewriting stored tasks or changing execution scope. Preserve full descriptions in task details. Expand selected details immediately below their row
 in the same scrolling list; clicking again collapses them. Task rows scroll naturally,
